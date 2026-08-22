@@ -16,6 +16,7 @@ jobs:
     timeout-minutes: 45
 
     env:
+      APP_ENV: production
       SENTRY_DISABLE_AUTO_UPLOAD: "true"
 
     steps:
@@ -42,6 +43,35 @@ jobs:
       - name: Expo Doctor
         run: npx expo-doctor
 
+      - name: Verify production Expo config
+        run: |
+          node - <<'NODE'
+          const { execSync } = require('node:child_process');
+
+          const output = execSync('npx expo config --type public --json', {
+            encoding: 'utf8',
+            env: process.env,
+          });
+
+          const config = JSON.parse(output);
+
+          if (config.extra?.mode !== 'production') {
+            throw new Error(
+              `Expected extra.mode=production, got ${JSON.stringify(config.extra?.mode)}`,
+            );
+          }
+
+          if (config.extra?.apiBaseUrl !== 'https://api.twilite.ru/v1') {
+            throw new Error(
+              `Unexpected API base URL: ${JSON.stringify(config.extra?.apiBaseUrl)}`,
+            );
+          }
+
+          console.log('Expo production config verified');
+          console.log(`mode=${config.extra.mode}`);
+          console.log(`apiBaseUrl=${config.extra.apiBaseUrl}`);
+          NODE
+
       - name: Generate iOS native project
         run: npx expo prebuild --platform ios --non-interactive
 
@@ -52,9 +82,16 @@ jobs:
       - name: Xcode version
         run: xcodebuild -version
 
+      - name: List Xcode schemes
+        run: |
+          xcodebuild \
+            -workspace ios/Twilite.xcworkspace \
+            -list
+
       - name: Build unsigned iOS archive
         run: |
           set -o pipefail
+
           mkdir -p build
 
           xcodebuild \
@@ -74,12 +111,14 @@ jobs:
         if: failure()
         run: |
           echo "========== XCODE ERRORS =========="
+
           grep -n -E \
             "error:|fatal error:|BUILD FAILED|ARCHIVE FAILED|The following build commands failed" \
             build/xcodebuild.log || true
 
           echo ""
           echo "========== LAST 200 LINES =========="
+
           tail -n 200 build/xcodebuild.log
 
       - name: Upload Xcode build log
@@ -93,27 +132,71 @@ jobs:
 
       - name: Verify archive
         run: |
-          test -d build/Twilite.xcarchive/Products/Applications/Twilite.app
+          set -euo pipefail
+
+          APP_PATH="build/Twilite.xcarchive/Products/Applications/Twilite.app"
+
+          if [ ! -d "$APP_PATH" ]; then
+            echo "::error::Twilite.app not found inside archive."
+            echo ""
+            echo "Archive contents:"
+            find build/Twilite.xcarchive -maxdepth 6 -print
+            exit 1
+          fi
+
+          echo "Twilite.app found:"
+          ls -lah "$APP_PATH"
 
       - name: Verify bundle identifier
         run: |
-          /usr/libexec/PlistBuddy \
+          set -euo pipefail
+
+          APP_PATH="build/Twilite.xcarchive/Products/Applications/Twilite.app"
+
+          BUNDLE_ID="$(/usr/libexec/PlistBuddy \
             -c "Print :CFBundleIdentifier" \
-            build/Twilite.xcarchive/Products/Applications/Twilite.app/Info.plist
+            "$APP_PATH/Info.plist")"
+
+          echo "Bundle identifier: $BUNDLE_ID"
+
+          if [ "$BUNDLE_ID" != "com.twilite.app" ]; then
+            echo "::error::Unexpected bundle identifier: $BUNDLE_ID"
+            exit 1
+          fi
+
+      - name: Verify production Expo config in archive build
+        run: |
+          set -euo pipefail
+
+          APP_PATH="build/Twilite.xcarchive/Products/Applications/Twilite.app"
+
+          if [ ! -f "$APP_PATH/main.jsbundle" ]; then
+            echo "::warning::main.jsbundle not found at expected path; skipping static bundle check."
+            exit 0
+          fi
+
+          if grep -q "https://api.twilite.ru/v1" "$APP_PATH/main.jsbundle"; then
+            echo "Production API URL is present in the JS bundle."
+          else
+            echo "::warning::Production API URL was not found by a simple static search."
+          fi
 
       - name: Create unsigned IPA
         run: |
           set -euo pipefail
 
+          APP_PATH="build/Twilite.xcarchive/Products/Applications/Twilite.app"
+
           rm -rf build/Payload
           mkdir -p build/Payload
 
-          cp -R \
-            build/Twilite.xcarchive/Products/Applications/Twilite.app \
-            build/Payload/Twilite.app
+          cp -R "$APP_PATH" build/Payload/Twilite.app
 
           cd build
           zip -qry Twilite-unsigned.ipa Payload
+
+          echo "IPA created:"
+          ls -lh Twilite-unsigned.ipa
 
       - name: Upload unsigned IPA
         uses: actions/upload-artifact@v4

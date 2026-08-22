@@ -49,7 +49,6 @@
       "typedRoutes": true
     },
     "extra": {
-      "mode": "development",
       "router": {
         "root": "src/app/routes"
       }

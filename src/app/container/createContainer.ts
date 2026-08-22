@@ -62,7 +62,7 @@ export type ContainerHooks = {
  * nothing reaches for a module-level singleton.
  *
  * Adapter choice is a configuration decision: with no `apiBaseUrl` the app runs
- * on the in-app sandbox backend, which satisfies the same ports.
+ * on the in-app sandbox backend, which is only allowed in development.
  */
 export function createContainer(hooks: ContainerHooks): Container {
   const transports: LogTransport[] = [];
@@ -102,6 +102,12 @@ export function createContainer(hooks: ContainerHooks): Container {
 
   const isSandbox = env.apiBaseUrl === null;
 
+  if (env.isProduction && isSandbox) {
+    throw new UnknownError(
+      'Production app cannot start without an API base URL',
+    );
+  }
+
   let repositories: Repositories;
   let http: HttpClient | null = null;
 
@@ -116,8 +122,16 @@ export function createContainer(hooks: ContainerHooks): Container {
       timeline: createLocalTimelineRepository(backend),
     };
   } else {
+    const apiBaseUrl = env.apiBaseUrl;
+
+    if (apiBaseUrl === null) {
+      throw new UnknownError(
+        `API base URL is required in ${env.mode} mode`,
+      );
+    }
+
     http = createHttpClient({
-      baseUrl: env.apiBaseUrl ?? '',
+      baseUrl: apiBaseUrl,
       tokens: sessions,
       logger,
     });
@@ -153,7 +167,9 @@ export function createContainer(hooks: ContainerHooks): Container {
           onReconnected: hooks.onRealtimeReconnected,
         });
 
-  const currentUser = { id: hooks.currentUserId };
+  const currentUser = {
+    id: hooks.currentUserId,
+  };
 
   const services: Services = {
     logger,
@@ -173,8 +189,14 @@ export function createContainer(hooks: ContainerHooks): Container {
     clock: systemClock,
   };
 
-  const spaceDeps = { spaces: repositories.spaces, currentUser };
-  const objectDeps = { surfaceObjects: repositories.surfaceObjects };
+  const spaceDeps = {
+    spaces: repositories.spaces,
+    currentUser,
+  };
+
+  const objectDeps = {
+    surfaceObjects: repositories.surfaceObjects,
+  };
 
   return {
     services,
@@ -190,7 +212,9 @@ export function createContainer(hooks: ContainerHooks): Container {
       inviteMember: inviteMemberUseCase(spaceDeps),
       respondToInvitation: respondToInvitationUseCase(spaceDeps),
 
-      getSurfaceSnapshot: getSurfaceSnapshotUseCase({ surfaces: repositories.surfaces }),
+      getSurfaceSnapshot: getSurfaceSnapshotUseCase({
+        surfaces: repositories.surfaces,
+      }),
 
       createSurfaceObject: createSurfaceObjectUseCase({
         spaces: repositories.spaces,
@@ -203,7 +227,9 @@ export function createContainer(hooks: ContainerHooks): Container {
       toggleFavorite: toggleFavoriteUseCase(objectDeps),
       deleteSurfaceObject: deleteSurfaceObjectUseCase(objectDeps),
 
-      getTimeline: getTimelineUseCase({ timeline: repositories.timeline }),
+      getTimeline: getTimelineUseCase({
+        timeline: repositories.timeline,
+      }),
     },
   };
 }

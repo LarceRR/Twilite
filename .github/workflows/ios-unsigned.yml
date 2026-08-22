@@ -15,9 +15,11 @@ permissions:
 jobs:
   ios:
     name: iOS Unsigned IPA
-    runs-on: macos-15
+    runs-on: macos-26
+    timeout-minutes: 45
 
     env:
+      APP_ENV: production
       SENTRY_DISABLE_AUTO_UPLOAD: "true"
 
     steps:
@@ -42,7 +44,36 @@ jobs:
           npm ls expo @expo/ui react-native expo-modules-core
 
       - name: Expo Doctor
-        run: npx expo-doctor || true
+        run: npx expo-doctor
+
+      - name: Verify production Expo config
+        run: |
+          node - <<'NODE'
+          const { execSync } = require('node:child_process');
+
+          const output = execSync('npx expo config --type public --json', {
+            encoding: 'utf8',
+            env: process.env,
+          });
+
+          const config = JSON.parse(output);
+
+          if (config.extra?.mode !== 'production') {
+            throw new Error(
+              `Expected extra.mode=production, got ${JSON.stringify(config.extra?.mode)}`,
+            );
+          }
+
+          if (config.extra?.apiBaseUrl !== 'https://api.twilite.ru/v1') {
+            throw new Error(
+              `Unexpected API base URL: ${JSON.stringify(config.extra?.apiBaseUrl)}`,
+            );
+          }
+
+          console.log('Production Expo config verified');
+          console.log(`mode=${config.extra.mode}`);
+          console.log(`apiBaseUrl=${config.extra.apiBaseUrl}`);
+          NODE
 
       - name: Generate iOS native project
         run: npx expo prebuild --platform ios --non-interactive
@@ -63,6 +94,7 @@ jobs:
       - name: Build unsigned iOS archive
         run: |
           set -o pipefail
+
           mkdir -p build
 
           xcodebuild \
@@ -82,11 +114,14 @@ jobs:
         if: failure()
         run: |
           echo "========== XCODE ERRORS =========="
+
           grep -n -E \
             "error:|fatal error:|BUILD FAILED|ARCHIVE FAILED|The following build commands failed" \
             build/xcodebuild.log || true
+
           echo ""
           echo "========== LAST 200 LINES =========="
+
           tail -n 200 build/xcodebuild.log
 
       - name: Upload Xcode build log
@@ -101,23 +136,54 @@ jobs:
       - name: Verify archive
         run: |
           set -euo pipefail
+
           APP_PATH="build/Twilite.xcarchive/Products/Applications/Twilite.app"
+
           if [ ! -d "$APP_PATH" ]; then
             echo "::error::Twilite.app not found inside archive."
+            echo ""
+            echo "Archive contents:"
             find build/Twilite.xcarchive -maxdepth 6 -print || true
             exit 1
           fi
+
+          echo "Twilite.app found:"
           ls -lah "$APP_PATH"
+
+      - name: Verify bundle identifier
+        run: |
+          set -euo pipefail
+
+          APP_PATH="build/Twilite.xcarchive/Products/Applications/Twilite.app"
+
+          BUNDLE_ID="$(
+            /usr/libexec/PlistBuddy \
+              -c "Print :CFBundleIdentifier" \
+              "$APP_PATH/Info.plist"
+          )"
+
+          echo "Bundle identifier: $BUNDLE_ID"
+
+          if [ "$BUNDLE_ID" != "com.twilite.app" ]; then
+            echo "::error::Unexpected bundle identifier: $BUNDLE_ID"
+            exit 1
+          fi
 
       - name: Create unsigned IPA
         run: |
           set -euo pipefail
+
           APP_PATH="build/Twilite.xcarchive/Products/Applications/Twilite.app"
+
           rm -rf build/Payload
           mkdir -p build/Payload
+
           cp -R "$APP_PATH" build/Payload/Twilite.app
+
           cd build
           zip -qry Twilite-unsigned.ipa Payload
+
+          echo "IPA created:"
           ls -lh Twilite-unsigned.ipa
 
       - name: Upload unsigned IPA

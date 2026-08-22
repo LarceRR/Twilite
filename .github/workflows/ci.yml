@@ -9,6 +9,9 @@ concurrency:
   group: android-ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   app:
     name: Android app CI
@@ -16,6 +19,7 @@ jobs:
     timeout-minutes: 20
 
     env:
+      APP_ENV: production
       SENTRY_DISABLE_AUTO_UPLOAD: "true"
 
     steps:
@@ -27,9 +31,47 @@ jobs:
           cache: npm
 
       - run: npm ci
-      - run: npm run typecheck
-      - run: npm run lint
-      - run: npm test
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npm test
+
+      - name: Expo Doctor
+        run: npx expo-doctor
+
+      - name: Verify production Expo config
+        run: |
+          node - <<'NODE'
+          const { execSync } = require('node:child_process');
+
+          const output = execSync('npx expo config --type public --json', {
+            encoding: 'utf8',
+            env: process.env,
+          });
+
+          const config = JSON.parse(output);
+
+          if (config.extra?.mode !== 'production') {
+            throw new Error(
+              `Expected extra.mode=production, got ${JSON.stringify(config.extra?.mode)}`,
+            );
+          }
+
+          if (config.extra?.apiBaseUrl !== 'https://api.twilite.ru/v1') {
+            throw new Error(
+              `Unexpected API base URL: ${JSON.stringify(config.extra?.apiBaseUrl)}`,
+            );
+          }
+
+          console.log('Production Expo config verified');
+          console.log(`mode=${config.extra.mode}`);
+          console.log(`apiBaseUrl=${config.extra.apiBaseUrl}`);
+          NODE
 
       - name: Export Android bundle
         run: npx expo export --platform android --output-dir .expo/ci-android

@@ -32,7 +32,13 @@ function DebugInfoComponent(): ReactElement | null {
   return (
     <View
       pointerEvents="none"
-      style={[styles.root, { backgroundColor: theme.surfaceRaised, borderColor: theme.border }]}
+      style={[
+        styles.root,
+        {
+          backgroundColor: theme.surfaceRaised,
+          borderColor: theme.surfaceDivider,
+        },
+      ]}
     >
       <Text
         variant="caption"

@@ -1,43 +1,37 @@
-import { type ReactElement, useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { floatingChromeBottomInset } from "@/app/navigation/tabBarLayout";
-import { useServices } from "@/app/providers/ContainerProvider";
-import { useUiStore } from "@/app/stores/uiStore";
-import { useThemeColors } from "@/design-system/colors/colors";
-import { FloatingAddButton } from "@/design-system/components/FloatingAddButton/FloatingAddButton";
-import { Text } from "@/design-system/components/Text/Text";
-import { icons } from "@/design-system/icons/icons";
-import { surfaceObjectMotion } from "@/design-system/motion/surface-objects";
-import { layout, spacing } from "@/design-system/spacing/spacing";
-import { useAuthStore } from "@/domains/auth/presentation/stores/authStore";
-import { useSettingsStore } from "@/domains/settings/presentation/stores/settingsStore";
-import type { SurfaceObjectKind } from "@/domains/surface-objects/domain/value-objects/SurfaceObjectKind";
-import { useSurfaceObjectActions } from "@/domains/surface-objects/presentation/hooks/useSurfaceObjectActions";
-import { useSurfaceObjectsStore } from "@/domains/surface-objects/presentation/stores/surfaceObjectsStore";
-import { useSurface } from "@/domains/surfaces/presentation/hooks/useSurface";
-import {
-  selectIsSyncing,
-  useRealtimeStore,
-} from "@/infrastructure/realtime/realtimeStore";
-import { useRealtimeSync } from "@/infrastructure/realtime/useRealtimeSync";
-import { TOP_CHROME_HEIGHT } from "@/scene/camera/freeZone";
-import { SceneView } from "@/scene/SceneView";
-import { useCameraStore } from "@/scene/stores/cameraStore";
-import { useInspectStore } from "@/scene/stores/inspectStore";
-import { selectFps, useSceneStore } from "@/scene/stores/sceneStore";
-import { DebugInfo } from "@/scene/systems/DebugInfo";
-import { presentableKinds } from "@/scene/surface-objects/kindPresentation";
-import { hasPermission } from "../../domain/services/permissionService";
-import {
-  AddObjectMenu,
-  type AddObjectOption,
-} from "../components/AddObjectMenu";
-import { CreateObjectSheet } from "../components/CreateObjectSheet";
-import { HitboxOverlay } from "../components/HitboxOverlay";
-import { MemberAvatars } from "../components/MemberAvatars";
-import { ObjectDetailsSheet } from "../components/ObjectDetailsSheet";
-import { useSpaces } from "../hooks/useSpaces";
+import { type ReactElement, useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { floatingChromeBottomInset } from '@/app/navigation/tabBarLayout';
+import { useServices } from '@/app/providers/ContainerProvider';
+import { useUiStore } from '@/app/stores/uiStore';
+import { useThemeColors } from '@/design-system/colors/colors';
+import { FloatingAddButton } from '@/design-system/components/FloatingAddButton/FloatingAddButton';
+import { Text } from '@/design-system/components/Text/Text';
+import { icons } from '@/design-system/icons/icons';
+import { surfaceObjectMotion } from '@/design-system/motion/surface-objects';
+import { layout, spacing } from '@/design-system/spacing/spacing';
+import { useAuthStore } from '@/domains/auth/presentation/stores/authStore';
+import { useSettingsStore } from '@/domains/settings/presentation/stores/settingsStore';
+import type { SurfaceObjectKind } from '@/domains/surface-objects/domain/value-objects/SurfaceObjectKind';
+import { useSurfaceObjectActions } from '@/domains/surface-objects/presentation/hooks/useSurfaceObjectActions';
+import { useSurfaceObjectsStore } from '@/domains/surface-objects/presentation/stores/surfaceObjectsStore';
+import { useSurface } from '@/domains/surfaces/presentation/hooks/useSurface';
+import { selectIsSyncing, useRealtimeStore } from '@/infrastructure/realtime/realtimeStore';
+import { useRealtimeSync } from '@/infrastructure/realtime/useRealtimeSync';
+import { TOP_CHROME_HEIGHT } from '@/scene/camera/freeZone';
+import { SceneView } from '@/scene/SceneView';
+import { useCameraStore } from '@/scene/stores/cameraStore';
+import { useInspectStore } from '@/scene/stores/inspectStore';
+import { selectFps, useSceneStore } from '@/scene/stores/sceneStore';
+import { DebugInfo } from '@/scene/systems/DebugInfo';
+import { presentableKinds } from '@/scene/surface-objects/kindPresentation';
+import { hasPermission } from '../../domain/services/permissionService';
+import { AddObjectMenu, type AddObjectOption } from '../components/AddObjectMenu';
+import { CreateObjectSheet } from '../components/CreateObjectSheet';
+import { HitboxOverlay } from '../components/HitboxOverlay';
+import { MemberAvatars } from '../components/MemberAvatars';
+import { ObjectDetailsSheet } from '../components/ObjectDetailsSheet';
+import { useSpaces } from '../hooks/useSpaces';
 const ADD_BUTTON_SIZE = 64;
 export function SpaceScreen(): ReactElement {
   const insets = useSafeAreaInsets();
@@ -62,12 +56,12 @@ export function SpaceScreen(): ReactElement {
   const isSyncing = useRealtimeStore(selectIsSyncing);
   const showOverlay = useSettingsStore((s) => s.showPerformanceOverlay);
   const fps = useSceneStore(selectFps);
-  const [note, setNote] = useState("");
+  const [note, setNote] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const canCreate =
     activeSpace !== null &&
     currentUserId !== null &&
-    hasPermission(activeSpace, currentUserId, "surfaceObject.create");
+    hasPermission(activeSpace, currentUserId, 'surfaceObject.create');
   const addOptions = useMemo<readonly AddObjectOption[]>(
     () =>
       presentableKinds().map((p) => ({
@@ -81,13 +75,13 @@ export function SpaceScreen(): ReactElement {
   const startCreate = useCallback(
     (kind: SurfaceObjectKind) => {
       setMenuOpen(false);
-      setNote("");
-      openSheet({ type: "createObject", kind });
+      setNote('');
+      openSheet({ type: 'createObject', kind });
     },
     [openSheet],
   );
   const confirmCreate = useCallback(() => {
-    if (sheet.type !== "createObject") return;
+    if (sheet.type !== 'createObject') return;
     actions.create(sheet.kind, note.trim());
     closeSheet();
   }, [actions, closeSheet, note, sheet]);
@@ -101,11 +95,7 @@ export function SpaceScreen(): ReactElement {
   return (
     <View style={[styles.root, { backgroundColor: theme.surface }]}>
       <View style={styles.scene}>
-        <SceneView
-          bounds={surface?.bounds ?? null}
-          logger={logger}
-          spaceKey={spaceId}
-        />
+        <SceneView bounds={surface?.bounds ?? null} logger={logger} spaceKey={spaceId} />
       </View>
       <HitboxOverlay />
       <DebugInfo />
@@ -139,9 +129,7 @@ export function SpaceScreen(): ReactElement {
         ]}
       >
         <FloatingAddButton
-          accessibilityLabel={
-            menuOpen ? "Закрыть меню добавления" : "Добавить объект"
-          }
+          accessibilityLabel={menuOpen ? 'Закрыть меню добавления' : 'Добавить объект'}
           expanded={menuOpen}
           disabled={!canCreate || actions.isCreating}
           size={ADD_BUTTON_SIZE}
@@ -163,10 +151,7 @@ export function SpaceScreen(): ReactElement {
       {!canCreate && activeSpace !== null ? (
         <View
           pointerEvents="none"
-          style={[
-            styles.notice,
-            { bottom: dockBottom + ADD_BUTTON_SIZE + spacing.md },
-          ]}
+          style={[styles.notice, { bottom: dockBottom + ADD_BUTTON_SIZE + spacing.md }]}
         >
           <Text variant="caption" align="center">
             У вас нет прав добавлять объекты в это пространство
@@ -174,8 +159,8 @@ export function SpaceScreen(): ReactElement {
         </View>
       ) : null}
       <CreateObjectSheet
-        visible={sheet.type === "createObject"}
-        kind={sheet.type === "createObject" ? sheet.kind : null}
+        visible={sheet.type === 'createObject'}
+        kind={sheet.type === 'createObject' ? sheet.kind : null}
         note={note}
         onChangeNote={setNote}
         onConfirm={confirmCreate}
@@ -200,33 +185,33 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   scene: { ...StyleSheet.absoluteFillObject },
   topBar: {
-    position: "absolute",
+    position: 'absolute',
     left: layout.screenGutter,
     right: layout.screenGutter,
     top: 0,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.md,
   },
   topSlot: {
     flex: 1,
     minHeight: TOP_CHROME_HEIGHT,
-    justifyContent: "center",
+    justifyContent: 'center',
     gap: spacing.xxs,
   },
   topRight: {
     minHeight: TOP_CHROME_HEIGHT,
-    alignItems: "flex-end",
-    justifyContent: "center",
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
-  addDock: { position: "absolute", alignItems: "center" },
+  addDock: { position: 'absolute', alignItems: 'center' },
   loader: {
     ...StyleSheet.absoluteFillObject,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   notice: {
-    position: "absolute",
+    position: 'absolute',
     left: layout.screenGutter,
     right: layout.screenGutter,
   },
