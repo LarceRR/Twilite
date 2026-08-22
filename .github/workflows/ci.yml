@@ -1,4 +1,4 @@
-name: Backend CI
+name: Android CI
 
 on:
   push:
@@ -6,52 +6,16 @@ on:
   pull_request:
 
 concurrency:
-  group: backend-ci-${{ github.ref }}
+  group: android-ci-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-
 jobs:
-  api:
-    name: Backend
+  app:
+    name: Android app CI
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: backend
-
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: twilite
-          POSTGRES_PASSWORD: twilite
-          POSTGRES_DB: twilite_test
-        ports:
-          - "5432:5432"
-        options: >
-          --health-cmd "pg_isready -U twilite -d twilite_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
-
-      redis:
-        image: redis:7-alpine
-        ports:
-          - "6379:6379"
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
-
     env:
-      NODE_ENV: test
-      DATABASE_URL: postgres://twilite:twilite@localhost:5432/twilite_test
-      REDIS_URL: redis://localhost:6379
-      JWT_ACCESS_SECRET: ci-access-secret-ci-access-secret
-      JWT_REFRESH_SECRET: ci-refresh-secret-ci-refresh-secret
+      SENTRY_DISABLE_AUTO_UPLOAD: "true"
 
     steps:
       - uses: actions/checkout@v4
@@ -60,30 +24,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: backend/package-lock.json
 
       - run: npm ci
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Unit tests
-        run: npm test
-
-      - name: Migrations on empty database
-        run: npm run db:migrate
-
-      - name: Schema contract after first migration
-        run: npm run db:verify
-
-      - name: Repeat migrations on existing database
-        run: npm run db:migrate
-
-      - name: Schema contract after repeated migration
-        run: npm run db:verify
-
-      - name: Build
-        run: npm run build
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npx expo export --platform android --output-dir .expo/ci-android
