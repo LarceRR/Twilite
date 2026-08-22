@@ -13,35 +13,68 @@ jobs:
   ios:
     name: iOS Unsigned IPA
     runs-on: macos-15
+    timeout-minutes: 45
+
     env:
       SENTRY_DISABLE_AUTO_UPLOAD: "true"
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
           bundler-cache: false
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/CocoaPods
+            ~/.cocoapods
+          key: cocoapods-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: |
+            cocoapods-${{ runner.os }}-
+
       - run: npm ci
+
       - name: Expo check
         run: |
           npx expo --version
           npm ls expo @expo/ui react-native expo-modules-core
+
       - name: Expo Doctor
-        run: npx expo-doctor || true
+        run: npx expo-doctor
+
       - name: Generate iOS native project
         run: npx expo prebuild --platform ios --non-interactive
+
       - name: Install CocoaPods
         working-directory: ios
         run: pod install --repo-update
+
       - name: Build unsigned archive
         run: |
           set -o pipefail
           mkdir -p build
-          xcodebuild -workspace ios/Twilite.xcworkspace -scheme Twilite -configuration Release -sdk iphoneos -destination "generic/platform=iOS" -archivePath "$GITHUB_WORKSPACE/build/Twilite.xcarchive" archive CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" 2>&1 | tee build/xcodebuild.log
+          xcodebuild \
+            -workspace ios/Twilite.xcworkspace \
+            -scheme Twilite \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            -archivePath "$GITHUB_WORKSPACE/build/Twilite.xcarchive" \
+            archive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            2>&1 | tee build/xcodebuild.log
+
       - name: Upload Xcode build log
         if: always()
         uses: actions/upload-artifact@v4
@@ -50,9 +83,14 @@ jobs:
           path: build/xcodebuild.log
           if-no-files-found: warn
           retention-days: 7
+
       - name: Verify archive
         run: |
-          test -d build/Twilite.xcarchive/Products/Applications/Twilite.app
+          set -euo pipefail
+          APP_PATH="build/Twilite.xcarchive/Products/Applications/Twilite.app"
+          test -d "$APP_PATH"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_PATH/Info.plist"
+
       - name: Create unsigned IPA
         run: |
           set -euo pipefail
@@ -61,6 +99,7 @@ jobs:
           cp -R build/Twilite.xcarchive/Products/Applications/Twilite.app build/Payload/Twilite.app
           cd build
           zip -qry Twilite-unsigned.ipa Payload
+
       - name: Upload unsigned IPA
         uses: actions/upload-artifact@v4
         with:
@@ -68,6 +107,7 @@ jobs:
           path: build/Twilite-unsigned.ipa
           if-no-files-found: error
           retention-days: 7
+
       - name: Upload Xcode archive
         uses: actions/upload-artifact@v4
         with:
