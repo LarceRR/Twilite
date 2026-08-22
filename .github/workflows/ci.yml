@@ -13,6 +13,7 @@ jobs:
   app:
     name: Android app CI
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     env:
       SENTRY_DISABLE_AUTO_UPLOAD: "true"
@@ -29,4 +30,13 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
-      - run: npx expo export --platform android --output-dir .expo/ci-android
+      - name: Export Android bundle
+        run: npx expo export --platform android --output-dir .expo/ci-android
+
+      - name: Upload Android bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: Twilite-android-bundle
+          path: .expo/ci-android
+          if-no-files-found: error
+          retention-days: 7
