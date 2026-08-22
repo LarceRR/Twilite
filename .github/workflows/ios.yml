@@ -12,7 +12,7 @@ concurrency:
 jobs:
   ios:
     name: iOS Unsigned IPA
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 45
 
     env:
@@ -31,19 +31,10 @@ jobs:
           ruby-version: "3.3"
           bundler-cache: false
 
-      - name: Cache CocoaPods
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/Library/Caches/CocoaPods
-            ~/.cocoapods
-          key: cocoapods-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
-          restore-keys: |
-            cocoapods-${{ runner.os }}-
+      - name: Install dependencies
+        run: npm ci
 
-      - run: npm ci
-
-      - name: Expo check
+      - name: Check Expo
         run: |
           npx expo --version
           npm ls expo @expo/ui react-native expo-modules-core
@@ -58,10 +49,14 @@ jobs:
         working-directory: ios
         run: pod install --repo-update
 
-      - name: Build unsigned archive
+      - name: Xcode version
+        run: xcodebuild -version
+
+      - name: Build unsigned iOS archive
         run: |
           set -o pipefail
           mkdir -p build
+
           xcodebuild \
             -workspace ios/Twilite.xcworkspace \
             -scheme Twilite \
@@ -75,6 +70,18 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             2>&1 | tee build/xcodebuild.log
 
+      - name: Show Xcode errors
+        if: failure()
+        run: |
+          echo "========== XCODE ERRORS =========="
+          grep -n -E \
+            "error:|fatal error:|BUILD FAILED|ARCHIVE FAILED|The following build commands failed" \
+            build/xcodebuild.log || true
+
+          echo ""
+          echo "========== LAST 200 LINES =========="
+          tail -n 200 build/xcodebuild.log
+
       - name: Upload Xcode build log
         if: always()
         uses: actions/upload-artifact@v4
@@ -86,17 +93,25 @@ jobs:
 
       - name: Verify archive
         run: |
-          set -euo pipefail
-          APP_PATH="build/Twilite.xcarchive/Products/Applications/Twilite.app"
-          test -d "$APP_PATH"
-          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_PATH/Info.plist"
+          test -d build/Twilite.xcarchive/Products/Applications/Twilite.app
+
+      - name: Verify bundle identifier
+        run: |
+          /usr/libexec/PlistBuddy \
+            -c "Print :CFBundleIdentifier" \
+            build/Twilite.xcarchive/Products/Applications/Twilite.app/Info.plist
 
       - name: Create unsigned IPA
         run: |
           set -euo pipefail
+
           rm -rf build/Payload
           mkdir -p build/Payload
-          cp -R build/Twilite.xcarchive/Products/Applications/Twilite.app build/Payload/Twilite.app
+
+          cp -R \
+            build/Twilite.xcarchive/Products/Applications/Twilite.app \
+            build/Payload/Twilite.app
+
           cd build
           zip -qry Twilite-unsigned.ipa Payload
 
