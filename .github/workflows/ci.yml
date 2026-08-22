@@ -1,4 +1,4 @@
-name: CI
+name: Backend CI
 
 on:
   push:
@@ -6,183 +6,15 @@ on:
   pull_request:
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: backend-ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
-  app:
-    name: Мобильное приложение
-    runs-on: ubuntu-latest
-
-    env:
-      SENTRY_DISABLE_AUTO_UPLOAD: "true"
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-
-      - name: Типы
-        run: npm run typecheck
-
-      - name: Линтер и формат
-        run: npm run lint
-
-      - name: Юнит-тесты
-        run: npm test
-
-      - name: Сборка бандла (Android)
-        run: npx expo export --platform android --output-dir .expo/ci-android
-
-      - name: Сборка бандла (iOS)
-        run: npx expo export --platform ios --output-dir .expo/ci-ios
-
-  ios:
-    name: iOS Unsigned IPA
-    runs-on: macos-15
-
-    env:
-      SENTRY_DISABLE_AUTO_UPLOAD: "true"
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.3"
-          bundler-cache: false
-
-      - name: Установка зависимостей
-        run: npm ci
-
-      - name: Проверка Expo
-        run: |
-          npx expo --version
-          npm ls expo @expo/ui react-native expo-modules-core
-
-      - name: Expo Doctor
-        run: npx expo-doctor || true
-
-      - name: Генерация iOS native project
-        run: npx expo prebuild --platform ios --non-interactive
-
-      - name: Установка CocoaPods
-        working-directory: ios
-        run: pod install --repo-update
-
-      - name: Информация о Xcode
-        run: xcodebuild -version
-
-      - name: Список Xcode schemes
-        run: |
-          xcodebuild \
-            -workspace ios/Twilite.xcworkspace \
-            -list
-
-      - name: Сборка unsigned iOS archive
-        run: |
-          set -o pipefail
-
-          mkdir -p build
-
-          xcodebuild \
-            -workspace ios/Twilite.xcworkspace \
-            -scheme Twilite \
-            -configuration Release \
-            -sdk iphoneos \
-            -destination "generic/platform=iOS" \
-            -archivePath "$GITHUB_WORKSPACE/build/Twilite.xcarchive" \
-            archive \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            2>&1 | tee build/xcodebuild.log
-
-      - name: Показать ошибки Xcode
-        if: failure()
-        run: |
-          echo "========== XCODE ERRORS =========="
-
-          grep -n -E \
-            "error:|fatal error:|BUILD FAILED|ARCHIVE FAILED|The following build commands failed" \
-            build/xcodebuild.log || true
-
-          echo ""
-          echo "========== LAST 200 LINES =========="
-
-          tail -n 200 build/xcodebuild.log
-
-      - name: Загрузить Xcode build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Twilite-xcode-build-log
-          path: build/xcodebuild.log
-          if-no-files-found: warn
-          retention-days: 7
-
-      - name: Проверка archive
-        run: |
-          set -euo pipefail
-
-          APP_PATH="build/Twilite.xcarchive/Products/Applications/Twilite.app"
-
-          if [ ! -d "$APP_PATH" ]; then
-            echo "::error::Twilite.app не найден внутри archive."
-            echo ""
-            echo "Содержимое archive:"
-            find build/LumiApp.xcarchive -maxdepth 6 -print
-            exit 1
-          fi
-
-          echo "Twilite.app найден:"
-          ls -lah "$APP_PATH"
-
-      - name: Создание unsigned IPA
-        run: |
-          set -euo pipefail
-
-          APP_PATH="build/Twilite.xcarchive/Products/Applications/Twilite.app"
-
-          rm -rf build/Payload
-          mkdir -p build/Payload
-
-          cp -R "$APP_PATH" build/Payload/Twilite.app
-
-          cd build
-          zip -qry Twilite-unsigned.ipa Payload
-
-          echo "IPA создан:"
-          ls -lh Twilite-unsigned.ipa
-
-      - name: Загрузка unsigned IPA
-        uses: actions/upload-artifact@v4
-        with:
-          name: Twilite-iOS-unsigned
-          path: build/Twilite-unsigned.ipa
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Загрузка Xcode archive
-        uses: actions/upload-artifact@v4
-        with:
-          name: Twilite-iOS-xcarchive
-          path: build/Twilite.xcarchive
-          if-no-files-found: error
-          retention-days: 3
-
   api:
-    name: Бэкенд
+    name: Backend
     runs-on: ubuntu-latest
 
     defaults:
@@ -232,26 +64,26 @@ jobs:
 
       - run: npm ci
 
-      - name: Типы
+      - name: Typecheck
         run: npm run typecheck
 
-      - name: Линтер и формат
+      - name: Lint
         run: npm run lint
 
-      - name: Юнит-тесты
+      - name: Unit tests
         run: npm test
 
-      - name: Миграции на пустой БД
+      - name: Migrations on empty database
         run: npm run db:migrate
 
-      - name: Контракт схемы после первого применения
+      - name: Schema contract after first migration
         run: npm run db:verify
 
-      - name: Повторные миграции на существующей БД
+      - name: Repeat migrations on existing database
         run: npm run db:migrate
 
-      - name: Контракт схемы после повторного применения
+      - name: Schema contract after repeated migration
         run: npm run db:verify
 
-      - name: Сборка
+      - name: Build
         run: npm run build
