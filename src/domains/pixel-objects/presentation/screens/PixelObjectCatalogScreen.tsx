@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { type ReactElement, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { useUseCases } from '@/app/providers/ContainerProvider';
 import { useThemeColors } from '@/design-system/colors/colors';
@@ -20,7 +20,7 @@ import type { PixelObjectDto } from '@/shared/contracts/pixelObjects';
 import { toAppError } from '@/shared/errors';
 
 import { catalogItemToMobileDto } from '../../application/catalogItemToMobileDto';
-import { PixelSheetPreview } from '../components/PixelSheetPreview';
+import { PixelCatalogPreview } from '../components/PixelCatalogPreview';
 
 function resolveSurfaceKind(raw: string | string[] | undefined): string {
   const value = Array.isArray(raw) ? raw[0] : raw;
@@ -49,7 +49,7 @@ function ObjectCard({
       onPress={onSelect}
       style={[styles.card, { borderColor: theme.surfaceDivider, backgroundColor: theme.surfaceRaised }]}
     >
-      <PixelSheetPreview item={item} />
+      <PixelCatalogPreview item={item} />
       <Text variant="bodyStrong">{item.title}</Text>
       <Text variant="caption" color={theme.textSecondary} numberOfLines={2}>
         {item.authorDisplayName}
@@ -141,16 +141,18 @@ export function PixelObjectCatalogScreen(): ReactElement {
         />
       ) : null}
 
-      <View style={styles.list}>
-        {items.map((item) => (
+      <FlatList
+        data={items}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.list}
+        renderItem={({ item }) => (
           <ObjectCard
-            key={item.id}
             item={item}
             busy={isCreating}
             onSelect={() => pick(item)}
           />
-        ))}
-      </View>
+        )}
+      />
     </Screen>
   );
 }

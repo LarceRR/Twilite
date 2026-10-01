@@ -1,6 +1,8 @@
-export const PIXEL_OBJECT_FORMAT = 'twilite.pixelobject/v1' as const;
+import { PIXEL_OBJECT_FORMAT } from './limits';
 
-export type PixelObjectStatusDto = 'pending' | 'published' | 'rejected';
+export { PIXEL_OBJECT_FORMAT };
+
+export type PixelObjectStatusDto = 'pending' | 'published' | 'rejected' | 'archived';
 
 export type PixelObjectManifestDto = {
   readonly format: typeof PIXEL_OBJECT_FORMAT;
@@ -33,6 +35,7 @@ export type PixelObjectDto = {
   readonly revision: number;
   readonly manifest: PixelObjectManifestDto;
   readonly sheetUrl: string;
+  readonly previewUrl?: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly reviewedAt: string | null;
@@ -40,13 +43,20 @@ export type PixelObjectDto = {
 
 export type PixelObjectListDto = {
   readonly items: readonly PixelObjectDto[];
+  readonly nextCursor?: string | null;
 };
 
+/**
+ * Mobile runtime DTO. Never exposes mediaId.
+ * `revision` / `previewUrl` optional during compatibility window.
+ */
 export type PixelObjectMobileDto = {
   readonly id: string;
   readonly title: string;
+  readonly revision?: number;
   readonly format: typeof PIXEL_OBJECT_FORMAT;
   readonly sheetUrl: string;
+  readonly previewUrl?: string | null;
   readonly canvas: { readonly width: number; readonly height: number };
   readonly sheet: {
     readonly frameWidth: number;

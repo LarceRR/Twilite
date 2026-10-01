@@ -1,6 +1,7 @@
 import type { UserId } from '@/domains/auth/domain/value-objects/UserId';
 import type { SpaceId } from '@/domains/spaces/domain/value-objects/SpaceId';
 import type { SurfaceId } from '@/domains/surfaces/domain/value-objects/SurfaceId';
+import type { PixelObjectMobileDto } from '@/shared/contracts/pixelObjects';
 import { DomainError } from '@/shared/errors';
 
 import type { Cell } from '../value-objects/Cell';
@@ -31,6 +32,10 @@ export type SurfaceObject = {
   /** Whose action the object is about. */
   readonly subjectUserId: UserId;
   readonly metadata: SurfaceObjectMetadata;
+  /** First-class binding; optional during dual-read (P4-S2). */
+  readonly pixelObjectId?: string | null;
+  /** Embedded mobile DTO from snapshot/realtime when present. */
+  readonly pixelObject?: PixelObjectMobileDto | null;
   readonly favorite: boolean;
   readonly createdAt: number;
   readonly updatedAt: number;

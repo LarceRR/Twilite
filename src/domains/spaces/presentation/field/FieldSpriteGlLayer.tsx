@@ -16,17 +16,22 @@ import type { FieldSpritePlacement } from './FieldObjectLayer';
 import { compareFieldSpritesBackToFront } from './fieldSpriteDepth';
 import {
   createSpriteProgram,
+  createSpriteQuadBuffers,
   drawSpriteQuad,
   loadGlSheetTexture,
   type GlSheetTexture,
 } from './glSpriteDraw';
 import { shouldAnimateFieldSprite } from './shouldAnimateFieldSprite';
 
-function spriteNeedsFrameLoop(sprite: FieldSpritePlacement): boolean {
-  if (!shouldAnimateFieldSprite(sprite.cell.y)) {
-    return false;
-  }
-  return (sprite.dto.animations[0]?.frames.length ?? 0) >= 2;
+function spriteNeedsFrameLoop(
+  sprite: FieldSpritePlacement,
+  reduceMotion: boolean,
+): boolean {
+  return shouldAnimateFieldSprite({
+    cellRow: sprite.cell.y,
+    reduceMotion,
+    frameCount: sprite.dto.animations[0]?.frames.length ?? 0,
+  });
 }
 
 type FieldSpriteGlLayerProps = {
@@ -44,6 +49,8 @@ type GlRuntime = {
   readonly program: WebGLProgram;
   readonly posLoc: number;
   readonly uvLoc: number;
+  readonly posBuf: WebGLBuffer;
+  readonly uvBuf: WebGLBuffer;
   readonly sheets: Map<string, GlSheetTexture>;
 };
 
@@ -97,6 +104,9 @@ function FieldSpriteGlLayerComponent({
   sprites,
 }: FieldSpriteGlLayerProps): ReactElement {
   const showFrames = useSettingsStore(selectShowHitbox);
+  const reduceMotion = useSettingsStore((s) => s.reduceMotion);
+  const reduceMotionRef = useRef(reduceMotion);
+  reduceMotionRef.current = reduceMotion;
   const runtimeRef = useRef<GlRuntime | null>(null);
   const animRef = useRef(new Map<string, AnimState>());
   const loadGenRef = useRef(0);
@@ -117,6 +127,9 @@ function FieldSpriteGlLayerComponent({
   const sheetHints = useMemo(() => {
     const byUrl = new Map<string, SheetHint>();
     for (const sprite of sprites) {
+      if (sprite.placeholder || sprite.dto.sheetUrl.length === 0) {
+        continue;
+      }
       const url = sprite.dto.sheetUrl;
       if (byUrl.has(url)) {
         continue;
@@ -138,7 +151,7 @@ function FieldSpriteGlLayerComponent({
     if (runtime == null || vp.width < 1 || vp.height < 1) {
       return;
     }
-    const { gl, program, posLoc, uvLoc, sheets } = runtime;
+    const { gl, program, posLoc, uvLoc, posBuf, uvBuf, sheets } = runtime;
     // Context can be lost after backgrounding — skip until remount recreates it.
     if (gl.isContextLost?.() === true) {
       return;
@@ -151,6 +164,7 @@ function FieldSpriteGlLayerComponent({
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     const now = performance.now();
+    const reduceMotionNow = reduceMotionRef.current;
 
     for (const sprite of orderedRef.current) {
       const sheet = sheets.get(sprite.dto.sheetUrl);
@@ -158,7 +172,7 @@ function FieldSpriteGlLayerComponent({
         continue;
       }
       const clip = sprite.dto.animations[0]?.frames ?? [];
-      const animate = spriteNeedsFrameLoop(sprite);
+      const animate = spriteNeedsFrameLoop(sprite, reduceMotionNow);
       let frameNumber = sprite.dto.staticPreviewFrame;
       if (animate) {
         let anim = animRef.current.get(sprite.surfaceObjectId);
@@ -208,6 +222,8 @@ function FieldSpriteGlLayerComponent({
       drawSpriteQuad(gl, program, sheet, {
         posLoc,
         uvLoc,
+        posBuf,
+        uvBuf,
         left,
         right,
         bottom,
@@ -286,6 +302,7 @@ function FieldSpriteGlLayerComponent({
           program,
           posLoc,
           uvLoc,
+          ...createSpriteQuadBuffers(gl),
           sheets: new Map(),
         };
         void ensureSheets(gl, sheetHintsRef.current);
@@ -306,8 +323,8 @@ function FieldSpriteGlLayerComponent({
   }, [ensureSheets, sheetHints]);
 
   const needsAnimationLoop = useMemo(
-    () => ordered.some(spriteNeedsFrameLoop),
-    [ordered],
+    () => !reduceMotion && ordered.some((sprite) => spriteNeedsFrameLoop(sprite, false)),
+    [ordered, reduceMotion],
   );
 
   // Static scenes paint on sprite/viewport/sheet changes; RAF only while near rows animate.
