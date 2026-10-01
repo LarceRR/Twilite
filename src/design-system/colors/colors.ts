@@ -6,17 +6,23 @@ export type { ColorScheme, SceneColors, ThemeColors } from './themes';
 export { darkScene, darkTheme, lightScene, lightTheme, sceneThemes, themes } from './themes';
 export type { ThemeMode } from './themeStore';
 export {
+  applyBuiltinThemeId,
   currentSceneColors,
+  currentSceneSkyColors,
   currentScheme,
   currentThemeColors,
+  currentThemePack,
+  resolveActivePack,
   resolveScheme,
   THEME_MODES,
   useColorSchemeToken,
   useIsDarkTheme,
   useSceneColors,
+  useSceneSkyColors,
   useSystemColorSchemeSync,
   useThemeColors,
   useThemeMode,
+  useThemePack,
   useThemeStore,
 } from './themeStore';
 
@@ -28,19 +34,11 @@ export {
 export const palette = colorRamps;
 
 /**
- * Static light-theme tokens.
- *
- * Kept because dozens of `StyleSheet.create` calls capture colours at module
- * scope, and those cannot react to a theme switch anyway. Anything that must
- * follow the theme uses `useThemeColors()` and an inline style.
- *
- * @deprecated Use `useThemeColors()`.
+ * @deprecated Always light tokens — use `useThemeColors()` or `currentThemeColors()`.
  */
 export const colors = lightTheme;
 
 /**
- * Static light scene tint.
- *
  * @deprecated Use `useSceneColors()` / `currentSceneColors()`.
  */
 export const sceneColors = lightScene;

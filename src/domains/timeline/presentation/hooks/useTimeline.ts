@@ -7,6 +7,7 @@ import { queryKeys } from '@/infrastructure/query/queryKeys';
 import { ValidationError } from '@/shared/errors';
 
 import type { TimelineEvent } from '../../domain/entities/TimelineEvent';
+import { timelineNextPageParam } from './timelineNextPageParam';
 
 export type TimelineView = {
   readonly events: readonly TimelineEvent[];
@@ -30,7 +31,7 @@ export function useTimeline(spaceId: SpaceId | null): TimelineView {
 
       return getTimeline({ spaceId, cursor: pageParam });
     },
-    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    getNextPageParam: (lastPage) => timelineNextPageParam(lastPage.nextCursor),
     enabled: spaceId !== null,
     staleTime: cacheConfig.timelineStaleMs,
   });

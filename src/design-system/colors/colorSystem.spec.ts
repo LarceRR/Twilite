@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { alpha, colorRamps, palette, withAlpha } from './palette';
 import { darkScene, darkTheme, lightScene, lightTheme, type ThemeColors } from './themes';
-import { resolveScheme } from './themeStore';
+import { resolveActivePack, resolveScheme } from './themeStore';
+import { DARK_THEME_PACK, LIGHT_THEME_PACK } from '../themes';
 
 const HEX = /^#[0-9A-Fa-f]{6}$/;
 
@@ -81,5 +82,17 @@ describe('resolveScheme', () => {
     expect(resolveScheme('system', 'dark')).toBe('dark');
     expect(resolveScheme('light', 'dark')).toBe('light');
     expect(resolveScheme('dark', 'light')).toBe('dark');
+  });
+});
+
+describe('resolveActivePack', () => {
+  it('uses builtins from mode when no override', () => {
+    expect(resolveActivePack('light', 'dark', null).id).toBe('light');
+    expect(resolveActivePack('system', 'dark', null).id).toBe('dark');
+  });
+
+  it('prefers catalog override over mode', () => {
+    expect(resolveActivePack('light', 'light', DARK_THEME_PACK).id).toBe('dark');
+    expect(resolveActivePack('dark', 'dark', LIGHT_THEME_PACK).id).toBe('light');
   });
 });

@@ -1,7 +1,10 @@
 import { Fragment, type ReactElement, useEffect, useState } from 'react';
+import { router } from 'expo-router';
+import type { Href } from 'expo-router';
 import { env } from '@/app/config/env';
-import { type ThemeMode, useColorSchemeToken } from '@/design-system/colors/colors';
+import { useColorSchemeToken, useSceneSkyColors, useThemePack } from '@/design-system/colors/colors';
 import { BlurCard } from '@/design-system/components/BlurCard/BlurCard';
+import { Button } from '@/design-system/components/Button/Button';
 import { ColorSwatches } from '@/design-system/components/ColorSwatches/ColorSwatches';
 import { Divider } from '@/design-system/components/Divider/Divider';
 import { ListRow } from '@/design-system/components/ListRow/ListRow';
@@ -20,11 +23,6 @@ import { kindPresentation } from '@/scene/surface-objects/kindPresentation';
 import { resolveSurfaceBackground, surfaceOptionsForScheme } from '@/scene/surface/surfaceTheme';
 import { ObjectSettingsSheet } from '../components/ObjectSettingsSheet';
 import { useSettingsStore } from '../stores/settingsStore';
-const THEME_OPTIONS: readonly SegmentedControlOption<ThemeMode>[] = [
-  { value: 'system', label: 'Системная' },
-  { value: 'light', label: 'Светлая' },
-  { value: 'dark', label: 'Тёмная' },
-];
 const GRID_OPTIONS: readonly SegmentedControlOption<'on' | 'off'>[] = [
   { value: 'on', label: 'Вкл' },
   { value: 'off', label: 'Выкл' },
@@ -35,8 +33,10 @@ const SHAPE_OPTIONS: readonly SegmentedControlOption<'square' | 'round'>[] = [
 ];
 export function SettingsScreen(): ReactElement {
   const scheme = useColorSchemeToken();
-  const themeMode = useSettingsStore((s) => s.themeMode),
-    reduceMotion = useSettingsStore((s) => s.reduceMotion),
+  const activePack = useThemePack();
+  const skyStops = useSceneSkyColors();
+  const themeHorizon = skyStops[skyStops.length - 1] ?? null;
+  const reduceMotion = useSettingsStore((s) => s.reduceMotion),
     showPerformanceOverlay = useSettingsStore((s) => s.showPerformanceOverlay),
     showHitbox = useSettingsStore((s) => s.showHitbox),
     manualHitbox = useSettingsStore((s) => s.manualHitbox),
@@ -47,8 +47,7 @@ export function SettingsScreen(): ReactElement {
     gridObjectsOnly = useSettingsStore((s) => s.gridObjectsOnly),
     surfaceBackground = useSettingsStore((s) => s.surfaceBackground),
     highlightEndpoints = useSettingsStore((s) => s.highlightEndpoints);
-  const setThemeMode = useSettingsStore((s) => s.setThemeMode),
-    setReduceMotion = useSettingsStore((s) => s.setReduceMotion),
+  const setReduceMotion = useSettingsStore((s) => s.setReduceMotion),
     setShowPerformanceOverlay = useSettingsStore((s) => s.setShowPerformanceOverlay),
     setShowHitbox = useSettingsStore((s) => s.setShowHitbox),
     setManualHitbox = useSettingsStore((s) => s.setManualHitbox),
@@ -62,7 +61,7 @@ export function SettingsScreen(): ReactElement {
   const quality = useSceneStore((s) => s.quality);
   const [tunedKind, setTunedKind] = useState<SurfaceObjectKind | null>(null);
   const objects = surfaceObjectDefinitions();
-  const resolvedBackground = resolveSurfaceBackground(surfaceBackground, scheme);
+  const resolvedBackground = resolveSurfaceBackground(surfaceBackground, scheme, themeHorizon);
   const backgroundOptions = surfaceOptionsForScheme(scheme);
   const follows = surfaceBackground === null;
   useEffect(() => {
@@ -72,12 +71,11 @@ export function SettingsScreen(): ReactElement {
   return (
     <Screen title="Настройки" reserveTabBar={false}>
       <BlurCard title="Внешний вид">
-        <Text variant="body">Тема</Text>
-        <SegmentedControl
-          accessibilityLabel="Тема"
-          value={themeMode}
-          options={THEME_OPTIONS}
-          onChange={setThemeMode}
+        <Text variant="body">Текущая тема: {activePack.name}</Text>
+        <Text variant="caption">{activePack.authorDisplayName}</Text>
+        <Button
+          label="Открыть каталог тем"
+          onPress={() => router.push('/theme-catalog/' as Href)}
         />
       </BlurCard>
       <BlurCard title="Сцена">
@@ -184,12 +182,12 @@ export function SettingsScreen(): ReactElement {
         />
         <Divider />
         <ListRow
-          title="Отображение 2D хитбокса"
+          title="Рамка размера спрайта"
           trailing={
             <Switch
               value={showHitbox}
               onValueChange={setShowHitbox}
-              accessibilityLabel="Отображение 2D хитбокса"
+              accessibilityLabel="Рамка размера спрайта"
             />
           }
         />

@@ -2,7 +2,7 @@
 import { useFrame, useThree } from '@react-three/fiber/native';
 import { memo, type ReactElement, useLayoutEffect, useMemo, useRef } from 'react';
 import { type Group, type Mesh, NoToneMapping, PlaneGeometry } from 'three';
-import { useColorSchemeToken } from '@/design-system/colors/colors';
+import { useColorSchemeToken, useSceneSkyColors } from '@/design-system/colors/colors';
 import { cameraMotion } from '@/design-system/motion/camera';
 import {
   selectSurfaceBackground,
@@ -27,7 +27,13 @@ function SurfaceGridComponent(): ReactElement {
   const gl = useThree((s) => s.gl);
   const viewport = useThree((s) => s.viewport);
   const scheme = useColorSchemeToken();
-  const background = resolveSurfaceBackground(useSettingsStore(selectSurfaceBackground), scheme);
+  const skyStops = useSceneSkyColors();
+  const themeHorizon = skyStops[skyStops.length - 1] ?? null;
+  const background = resolveSurfaceBackground(
+    useSettingsStore(selectSurfaceBackground),
+    scheme,
+    themeHorizon,
+  );
   const material = useMemo(() => createSurfaceGridMaterial(), []);
   useLayoutEffect(() => {
     gl.setClearColor(background, 1);

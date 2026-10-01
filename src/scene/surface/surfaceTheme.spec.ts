@@ -53,7 +53,11 @@ describe('resolveSurfaceBackground', () => {
     expect(resolveSurfaceBackground(null, 'dark')).toBe(DARK_SURFACE_BACKGROUND);
   });
 
+  it('предпочитает горизонт активной темы scheme-default', () => {
+    expect(resolveSurfaceBackground(null, 'light', '#8EB7E8')).toBe('#8EB7E8');
+  });
+
   it('уважает ручной выбор в любой теме', () => {
-    expect(resolveSurfaceBackground('#C6CDD6', 'dark')).toBe('#C6CDD6');
+    expect(resolveSurfaceBackground('#C6CDD6', 'dark', '#111111')).toBe('#C6CDD6');
   });
 });

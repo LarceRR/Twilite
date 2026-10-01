@@ -104,7 +104,7 @@ function ModalComponent({
 
 export const Modal = memo(ModalComponent);
 const styles = StyleSheet.create({
-  scrim: { ...StyleSheet.absoluteFillObject },
+  scrim: { ...StyleSheet.absoluteFill },
   scrimTouch: { flex: 1 },
   sheetWrap: { flex: 1, justifyContent: 'flex-end' },
   sheet: {

@@ -6,8 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "twilite",
-    "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "userInterfaceStyle": "automatic",
     "assetBundlePatterns": [
       "src/assets/**/*"
     ],
@@ -32,6 +31,21 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Twilite нужен доступ к камере, чтобы сканировать QR-код входа и снимать аватар",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Twilite нужен доступ к фото, чтобы обновить аватар профиля",
+          "cameraPermission": "Twilite нужен доступ к камере, чтобы сделать фото для аватара"
+        }
+      ],
       "expo-secure-store",
       "expo-audio",
       "expo-asset",
@@ -51,7 +65,14 @@
     "extra": {
       "router": {
         "root": "src/app/routes"
+      },
+      "mode": "development",
+      "apiBaseUrl": {},
+      "websocketUrl": {},
+      "eas": {
+        "projectId": "e767297b-88e6-4ccf-895d-0fd0b6613273"
       }
-    }
+    },
+    "owner": "denzare"
   }
 }

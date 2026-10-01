@@ -1,5 +1,13 @@
+import { createHttpAdminRepository } from '@/domains/admin/infrastructure/repositories/httpAdminRepository';
+import { createLocalAdminRepository } from '@/domains/admin/infrastructure/repositories/localAdminRepository';
 import {
+  approveQrLoginUseCase,
+  denyQrLoginUseCase,
+  inspectQrLoginUseCase,
+  listDeviceSessionsUseCase,
   restoreSessionUseCase,
+  revokeAllDeviceSessionsUseCase,
+  revokeDeviceSessionUseCase,
   signInUseCase,
   signOutUseCase,
   signUpUseCase,
@@ -34,6 +42,26 @@ import { createLocalSurfaceRepository } from '@/domains/surfaces/infrastructure/
 import { getTimelineUseCase } from '@/domains/timeline/application/getTimeline';
 import { createHttpTimelineRepository } from '@/domains/timeline/infrastructure/repositories/httpTimelineRepository';
 import { createLocalTimelineRepository } from '@/domains/timeline/infrastructure/repositories/localTimelineRepository';
+import {
+  getPixelObjectMobileUseCase,
+  listPublishedPixelObjectsUseCase,
+} from '@/domains/pixel-objects/application/pixelObjectUseCases';
+import {
+  createHttpPixelObjectCatalogRepository,
+} from '@/domains/pixel-objects/infrastructure/repositories/httpPixelObjectCatalogRepository';
+import {
+  createLocalPixelObjectCatalogRepository,
+} from '@/domains/pixel-objects/infrastructure/repositories/localPixelObjectCatalogRepository';
+import {
+  applyThemeUseCase,
+  getThemeDetailUseCase,
+  hydrateAppliedThemeUseCase,
+  listPublishedThemesUseCase,
+} from '@/domains/themes/application/themeUseCases';
+import {
+  createHttpThemeCatalogRepository,
+  createLocalThemeCatalogRepository,
+} from '@/domains/themes/infrastructure/repositories/httpThemeCatalogRepository';
 import { createHttpClient, type HttpClient } from '@/infrastructure/http/httpClient';
 import { createLocalBackend } from '@/infrastructure/local/localBackend';
 import { createOfflineQueue } from '@/infrastructure/offline-queue/offlineQueue';
@@ -116,10 +144,13 @@ export function createContainer(hooks: ContainerHooks): Container {
 
     repositories = {
       auth: createLocalAuthRepository(backend),
+      admin: createLocalAdminRepository(),
       spaces: createLocalSpaceRepository(backend),
       surfaces: createLocalSurfaceRepository(backend),
       surfaceObjects: createLocalSurfaceObjectRepository(backend),
       timeline: createLocalTimelineRepository(backend),
+      themes: createLocalThemeCatalogRepository(storage),
+      pixelObjects: createLocalPixelObjectCatalogRepository(),
     };
   } else {
     const apiBaseUrl = env.apiBaseUrl;
@@ -138,10 +169,13 @@ export function createContainer(hooks: ContainerHooks): Container {
 
     repositories = {
       auth: createHttpAuthRepository(http),
+      admin: createHttpAdminRepository(http),
       spaces: createHttpSpaceRepository(http),
       surfaces: createHttpSurfaceRepository(http),
       surfaceObjects: createHttpSurfaceObjectRepository(http),
       timeline: createHttpTimelineRepository(http),
+      themes: createHttpThemeCatalogRepository(http, storage),
+      pixelObjects: createHttpPixelObjectCatalogRepository(http),
     };
   }
 
@@ -206,6 +240,12 @@ export function createContainer(hooks: ContainerHooks): Container {
       signUp: signUpUseCase(authDeps),
       signOut: signOutUseCase(authDeps),
       restoreSession: restoreSessionUseCase(authDeps),
+      inspectQrLogin: inspectQrLoginUseCase(authDeps),
+      approveQrLogin: approveQrLoginUseCase(authDeps),
+      denyQrLogin: denyQrLoginUseCase(authDeps),
+      listDeviceSessions: listDeviceSessionsUseCase(authDeps),
+      revokeDeviceSession: revokeDeviceSessionUseCase(authDeps),
+      revokeAllDeviceSessions: revokeAllDeviceSessionsUseCase(authDeps),
 
       listSpaces: listSpacesUseCase(spaceDeps),
       createSpace: createSpaceUseCase(spaceDeps),
@@ -230,6 +270,14 @@ export function createContainer(hooks: ContainerHooks): Container {
       getTimeline: getTimelineUseCase({
         timeline: repositories.timeline,
       }),
+
+      listPublishedThemes: listPublishedThemesUseCase(repositories.themes),
+      getThemeDetail: getThemeDetailUseCase(repositories.themes),
+      applyTheme: applyThemeUseCase(repositories.themes),
+      hydrateAppliedTheme: hydrateAppliedThemeUseCase(repositories.themes),
+
+      listPublishedPixelObjects: listPublishedPixelObjectsUseCase(repositories.pixelObjects),
+      getPixelObjectMobile: getPixelObjectMobileUseCase(repositories.pixelObjects),
     },
   };
 }

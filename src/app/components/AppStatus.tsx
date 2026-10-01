@@ -67,5 +67,5 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   textWrap: { position: 'relative' },
-  wave: { ...StyleSheet.absoluteFillObject, width: '65%' },
+  wave: { ...StyleSheet.absoluteFill, width: '65%' },
 });

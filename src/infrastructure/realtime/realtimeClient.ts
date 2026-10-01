@@ -86,16 +86,40 @@ export function createRealtimeClient(options: {
     }, delay);
   };
 
+  function detachSocket(target: WebSocket | null): void {
+    if (target === null) {
+      return;
+    }
+    // Drop handlers before close so a superseded socket cannot schedule reconnect.
+    target.onopen = null;
+    target.onmessage = null;
+    target.onerror = null;
+    target.onclose = null;
+    if (target.readyState === WebSocket.OPEN || target.readyState === WebSocket.CONNECTING) {
+      target.close();
+    }
+  }
+
   async function open(spaceId: string, channels: readonly RealtimeChannel[]): Promise<void> {
     stopTimers();
-    socket?.close();
+    const previous = socket;
+    socket = null;
+    detachSocket(previous);
+
     const token = await options.token();
+    if (intentionallyClosed || subscription?.spaceId !== spaceId) {
+      return;
+    }
+
     const url = token === null ? options.url : `${options.url}?token=${encodeURIComponent(token)}`;
     setStatus(hadOpenConnection ? 'reconnecting' : 'connecting');
     const next = new WebSocket(url);
     socket = next;
 
     next.onopen = () => {
+      if (socket !== next) {
+        return;
+      }
       attempts = 0;
       lastConnectAttemptAt = Date.now();
       setStatus('open');
@@ -113,7 +137,7 @@ export function createRealtimeClient(options: {
     };
 
     next.onmessage = (event) => {
-      if (typeof event.data !== 'string') {
+      if (socket !== next || typeof event.data !== 'string') {
         return;
       }
       try {
@@ -130,11 +154,18 @@ export function createRealtimeClient(options: {
     };
 
     next.onerror = () => {
+      if (socket !== next) {
+        return;
+      }
       log.warn('Ошибка realtime-соединения');
     };
 
     next.onclose = () => {
+      if (socket !== next) {
+        return;
+      }
       stopTimers();
+      socket = null;
       if (!intentionallyClosed) {
         scheduleReconnect();
         return;
@@ -153,7 +184,7 @@ export function createRealtimeClient(options: {
       intentionallyClosed = true;
       subscription = null;
       stopTimers();
-      socket?.close();
+      detachSocket(socket);
       socket = null;
       setStatus('closed');
     },

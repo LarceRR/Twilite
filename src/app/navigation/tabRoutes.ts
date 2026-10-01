@@ -3,6 +3,9 @@ import { icons } from '@/design-system/icons/icons';
 
 export type TabRouteName = 'index' | 'timeline' | 'ai' | 'profile';
 
+/** Trailing Liquid Glass control (iOS `role="search"` / Android separate FAB). */
+export const CREATE_TAB_NAME = 'create' as const;
+
 export type TabGlyphs = { readonly active: IconName; readonly inactive: IconName };
 
 export type NativeTabSymbols = { readonly active: string; readonly inactive: string };
@@ -50,4 +53,8 @@ const FALLBACK_GLYPHS: TabGlyphs = { active: 'ellipse', inactive: 'ellipse-outli
 
 export function getTabGlyphs(routeName: string): TabGlyphs {
   return TAB_ICONS[routeName] ?? FALLBACK_GLYPHS;
+}
+
+export function isMainTabRoute(routeName: string): boolean {
+  return TAB_ROUTES.some((route) => route.name === routeName);
 }

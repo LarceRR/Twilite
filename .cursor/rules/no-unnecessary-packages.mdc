@@ -1,0 +1,30 @@
+---
+description: Do not install npm/yarn packages unless they are clearly required and justified.
+alwaysApply: true
+---
+
+# No Unnecessary Package Installs
+
+## Default
+
+**Do not** run `npm install` / `npx expo install` / add dependencies unless the task **cannot** be done correctly with what is already in `package.json` / `node_modules`.
+
+## When an install is allowed
+
+Only if **all** of these hold:
+
+1. Existing deps cannot solve the problem without a hacky or fragile workaround.
+2. The package is the current production-standard choice for Expo / React Native (or the stack in use).
+3. You briefly justify the install in the reply (why existing tools were insufficient).
+
+## Prefer first
+
+- Code already in the repo
+- Packages already listed in `package.json` (even if you need `npm install` to sync a missing `node_modules` entry that is already declared)
+- Small pure helpers, platform APIs, Expo modules already in the project
+
+## Do not
+
+- Add a dependency “for convenience” or because a tutorial uses it
+- Install something just to avoid a short local helper
+- Expand the dependency tree for one-off or speculative use

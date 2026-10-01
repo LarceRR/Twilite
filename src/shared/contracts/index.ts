@@ -1,4 +1,7 @@
+export type * from './admin';
+export type * from './appThemes';
 export type * from './auth';
+export type * from './media';
 export type * from './realtime';
 export type * from './space';
 export type * from './surface';

@@ -5,6 +5,7 @@ import { Button } from '@/design-system/components/Button/Button';
 import { Screen } from '@/design-system/components/Screen/Screen';
 import { Text } from '@/design-system/components/Text/Text';
 import { useAuthStore } from '@/domains/auth/presentation/stores/authStore';
+import { postAuthHref } from '@/domains/auth/presentation/stores/pendingQrLoginStore';
 import { isEmail } from '../../domain/value-objects/Email';
 import { AuthForm } from '../components/AuthForm';
 import { useAuthActions } from '../hooks/useAuthActions';
@@ -19,7 +20,7 @@ export function SignInScreen(): ReactElement {
   const [password, setPassword] = useState('');
 
   useEffect(() => {
-    if (status === 'authenticated') router.replace('/');
+    if (status === 'authenticated') router.replace(postAuthHref());
   }, [router, status]);
 
   const canSubmit = isEmail(email) && password.length >= MIN_PASSWORD_LENGTH;

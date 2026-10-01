@@ -1,0 +1,26 @@
+---
+description: Always add or update automated tests with every behavior change; do not ship untested logic.
+alwaysApply: true
+---
+
+# Always Write Tests
+
+## Required on every change that affects behavior
+
+- **ALWAYS** add or update tests in the same task as the implementation. Untested logic is incomplete work.
+- Prefer colocated `*.spec.ts` / `*.spec.tsx` next to the unit under test (match existing Vitest patterns in this repo).
+- Cover: happy path, important edge cases, failure/error paths, and any platform-branch logic that can be unit-tested.
+
+## What to test first
+
+1. Pure domain/services/mappers/parsers (highest priority).
+2. Hooks and use-cases with mocked dependencies.
+3. UI only when interaction or branching is non-trivial.
+
+## Do not
+
+- Skip tests because the change “looks simple.”
+- Leave “tests later” TODOs for new behavior.
+- Delete or weaken existing tests to make green without fixing the real issue.
+
+If a task cannot be tested meaningfully, state why in the reply and still extract testable pure helpers where possible.

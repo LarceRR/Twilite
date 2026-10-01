@@ -3,11 +3,17 @@ import { Appearance } from 'react-native';
 import { create } from 'zustand';
 
 import {
+  builtinPackById,
+  DARK_THEME_PACK,
+  isDarkPack,
+  LIGHT_THEME_PACK,
+  type AppThemePack,
+} from '../themes';
+import {
   type ColorScheme,
   type SceneColors,
   sceneThemes,
   type ThemeColors,
-  themes,
 } from './themes';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
@@ -18,53 +24,99 @@ function systemScheme(): ColorScheme {
   return Appearance.getColorScheme() === 'dark' ? 'dark' : 'light';
 }
 
-type ThemeState = {
-  /** What the user asked for. */
-  readonly mode: ThemeMode;
-  /** What the OS is currently doing. */
-  readonly systemScheme: ColorScheme;
-  setMode: (mode: ThemeMode) => void;
-  setSystemScheme: (scheme: ColorScheme) => void;
-};
-
-/**
- * Lives in the design system on purpose: every visual primitive needs it, and
- * nothing here may depend on a domain. The persisted copy of `mode` is owned by
- * the settings store, which is the single write path.
- */
-export const useThemeStore = create<ThemeState>()((set) => ({
-  mode: 'system',
-  systemScheme: systemScheme(),
-  setMode: (mode) => set({ mode }),
-  setSystemScheme: (scheme) => set({ systemScheme: scheme }),
-}));
+function builtinForScheme(scheme: ColorScheme): AppThemePack {
+  return scheme === 'dark' ? DARK_THEME_PACK : LIGHT_THEME_PACK;
+}
 
 export function resolveScheme(mode: ThemeMode, scheme: ColorScheme): ColorScheme {
   return mode === 'system' ? scheme : mode;
 }
 
-const selectScheme = (state: ThemeState): ColorScheme =>
-  resolveScheme(state.mode, state.systemScheme);
+export function resolveActivePack(
+  mode: ThemeMode,
+  systemScheme: ColorScheme,
+  overridePack: AppThemePack | null,
+): AppThemePack {
+  if (overridePack !== null) {
+    return overridePack;
+  }
 
-/** Scheme outside React — for `StyleSheet`-free call sites and frame loops. */
+  return builtinForScheme(resolveScheme(mode, systemScheme));
+}
+
+type ThemeState = {
+  /** Built-in preference when no catalog override is applied. */
+  readonly mode: ThemeMode;
+  readonly systemScheme: ColorScheme;
+  /** Catalog / custom pack; null means follow mode + system. */
+  readonly overridePack: AppThemePack | null;
+  setMode: (mode: ThemeMode) => void;
+  setSystemScheme: (scheme: ColorScheme) => void;
+  applyPack: (pack: AppThemePack) => void;
+  clearOverridePack: () => void;
+};
+
+/**
+ * Lives in the design system on purpose: every visual primitive needs it, and
+ * nothing here may depend on a domain. Persisted mode / applied pack id are
+ * owned by settings + themes domain; this store only holds the live paint state.
+ */
+export const useThemeStore = create<ThemeState>()((set) => ({
+  mode: 'system',
+  systemScheme: systemScheme(),
+  overridePack: null,
+  setMode: (mode) => set({ mode, overridePack: null }),
+  setSystemScheme: (scheme) => set({ systemScheme: scheme }),
+  applyPack: (pack) => set({ overridePack: pack }),
+  clearOverridePack: () => set({ overridePack: null }),
+}));
+
+function selectPack(state: ThemeState): AppThemePack {
+  return resolveActivePack(state.mode, state.systemScheme, state.overridePack);
+}
+
+const selectScheme = (state: ThemeState): ColorScheme => {
+  const pack = selectPack(state);
+  if (state.overridePack !== null) {
+    return isDarkPack(pack) ? 'dark' : 'light';
+  }
+  return resolveScheme(state.mode, state.systemScheme);
+};
+
 export function currentScheme(): ColorScheme {
   return selectScheme(useThemeStore.getState());
 }
 
+export function currentThemePack(): AppThemePack {
+  return selectPack(useThemeStore.getState());
+}
+
 export function currentThemeColors(): ThemeColors {
-  return themes[currentScheme()];
+  return currentThemePack().colors;
 }
 
 export function currentSceneColors(): SceneColors {
   return sceneThemes[currentScheme()];
 }
 
+export function currentSceneSkyColors(): readonly string[] {
+  return currentThemePack().sceneBackgroundColors;
+}
+
 export function useColorSchemeToken(): ColorScheme {
   return useThemeStore(selectScheme);
 }
 
+export function useThemePack(): AppThemePack {
+  return useThemeStore(selectPack);
+}
+
 export function useThemeColors(): ThemeColors {
-  return themes[useColorSchemeToken()];
+  return useThemePack().colors;
+}
+
+export function useSceneSkyColors(): readonly string[] {
+  return useThemePack().sceneBackgroundColors;
 }
 
 export function useSceneColors(): SceneColors {
@@ -72,14 +124,13 @@ export function useSceneColors(): SceneColors {
 }
 
 export function useIsDarkTheme(): boolean {
-  return useColorSchemeToken() === 'dark';
+  return isDarkPack(useThemePack());
 }
 
 export function useThemeMode(): ThemeMode {
   return useThemeStore((state) => state.mode);
 }
 
-/** Mount once, at the root: keeps `system` mode honest when the OS flips. */
 export function useSystemColorSchemeSync(): void {
   useEffect(() => {
     const subscription = Appearance.addChangeListener(({ colorScheme }) => {
@@ -90,4 +141,13 @@ export function useSystemColorSchemeSync(): void {
 
     return () => subscription.remove();
   }, []);
+}
+
+export function applyBuiltinThemeId(id: string): boolean {
+  const pack = builtinPackById(id);
+  if (pack === null) {
+    return false;
+  }
+  useThemeStore.getState().applyPack(pack);
+  return true;
 }

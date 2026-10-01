@@ -1,6 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { colors } from '@/design-system/colors/colors';
+import { currentThemeColors } from '@/design-system/colors/colors';
 import { Button } from '@/design-system/components/Button/Button';
 import { Text } from '@/design-system/components/Text/Text';
 import { layout, spacing } from '@/design-system/spacing/spacing';
@@ -42,8 +42,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       return this.props.children;
     }
 
+    const theme = currentThemeColors();
+
     return (
-      <View style={styles.root}>
+      <View style={[styles.root, { backgroundColor: theme.surface }]}>
         <Text variant="sectionTitle" align="center">
           Что-то пошло не так
         </Text>
@@ -63,6 +65,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.lg,
     padding: layout.screenGutter,
-    backgroundColor: colors.surface,
   },
 });

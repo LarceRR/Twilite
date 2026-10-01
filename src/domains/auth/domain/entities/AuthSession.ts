@@ -14,6 +14,15 @@ export type AuthSession = {
 /** Refresh slightly early so an in-flight request never races the expiry. */
 const REFRESH_SKEW_MS = 30_000;
 
+export function hasSessionTokens(session: AuthSession): boolean {
+  return (
+    typeof session.accessToken === 'string' &&
+    session.accessToken.length > 0 &&
+    typeof session.refreshToken === 'string' &&
+    session.refreshToken.length > 0
+  );
+}
+
 export function isSessionExpired(session: AuthSession, now: number): boolean {
   return session.expiresAt - REFRESH_SKEW_MS <= now;
 }

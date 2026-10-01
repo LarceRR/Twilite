@@ -21,6 +21,7 @@ export const cacheConfig = {
   surfaceStaleMs: 15_000,
   timelineStaleMs: 60_000,
   profileStaleMs: 10 * 60_000,
+  sessionsStaleMs: 15_000,
   timelinePageSize: 30,
 } as const;
 export const offlineQueueConfig = {

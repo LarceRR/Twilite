@@ -1,24 +1,35 @@
 import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, AppState } from 'react-native';
+
+import { httpConfig, storageKeys } from '@/app/config/constants';
+import { hasSessionTokens } from '@/domains/auth/domain/entities/AuthSession';
 import { useAuthStore } from '@/domains/auth/presentation/stores/authStore';
 import {
   type PersistedSettings,
   persistedSettings,
   useSettingsStore,
 } from '@/domains/settings/presentation/stores/settingsStore';
-import { useFireSettingsStore } from '@/scene/objects/fire/fireSettingsStore';
 import type { FireSettings } from '@/scene/objects/fire/fireSettings';
+import { useFireSettingsStore } from '@/scene/objects/fire/fireSettingsStore';
 import { toAppError } from '@/shared/errors';
-import { storageKeys } from '../config/constants';
+
 import { loadNativeTabIconSources } from '../navigation/nativeTabIconSources';
 import { usesNativeTabBar } from '../navigation/usesNativeTabBar';
 import { useServices, useUseCases } from '../providers/ContainerProvider';
 
+/** Fast local reads — keep the splash short. */
 const BOOT_TIMEOUT_MS = 3_000;
-async function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+/** Session restore may hit the network (profile / refresh); match HTTP budget. */
+const SESSION_BOOT_TIMEOUT_MS = httpConfig.timeoutMs;
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  label: string,
+  timeoutMs: number = BOOT_TIMEOUT_MS,
+): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`${label} timed out`)), BOOT_TIMEOUT_MS);
+    timer = setTimeout(() => reject(new Error(`${label} timed out`)), timeoutMs);
   });
   try {
     return await Promise.race([promise, timeout]);
@@ -28,13 +39,26 @@ async function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
 }
 
 export function useBootstrap(): { readonly isReady: boolean } {
-  const { restoreSession } = useUseCases();
-  const { sessions, storage, offlineQueue, logger } = useServices();
+  const { restoreSession, hydrateAppliedTheme } = useUseCases();
+  const { sessions, sessionStorage, storage, offlineQueue, logger } = useServices();
   const [isReady, setIsReady] = useState(false);
   const started = useRef(false);
+
   useEffect(() => {
     if (started.current) return;
     started.current = true;
+
+    const adoptCachedSession = async (): Promise<void> => {
+      const cached = await sessionStorage.read();
+      if (cached !== null && hasSessionTokens(cached)) {
+        sessions.adopt(cached);
+        useAuthStore.getState().setSession(cached);
+        return;
+      }
+
+      useAuthStore.getState().setStatus('anonymous');
+    };
+
     const run = async (): Promise<void> => {
       try {
         const settings = await withTimeout(
@@ -45,6 +69,7 @@ export function useBootstrap(): { readonly isReady: boolean } {
       } catch (error) {
         logger.debug('Settings restore skipped', { error: String(error) });
       }
+
       try {
         const fire = await withTimeout(
           storage.read<FireSettings>(storageKeys.fireSettings),
@@ -54,6 +79,7 @@ export function useBootstrap(): { readonly isReady: boolean } {
       } catch (error) {
         logger.debug('Fire settings restore skipped', { error: String(error) });
       }
+
       try {
         const reduceMotion = await withTimeout(
           AccessibilityInfo.isReduceMotionEnabled(),
@@ -63,16 +89,24 @@ export function useBootstrap(): { readonly isReady: boolean } {
       } catch (error) {
         logger.debug('Accessibility settings skipped', { error: String(error) });
       }
+
       try {
-        const session = await withTimeout(restoreSession(), 'session restore');
+        const session = await withTimeout(
+          restoreSession(),
+          'session restore',
+          SESSION_BOOT_TIMEOUT_MS,
+        );
         sessions.adopt(session);
         useAuthStore.getState().setSession(session);
       } catch (error) {
-        logger.warn('Session restore skipped; opening anonymous app', {
+        logger.warn('Session restore skipped; using cached tokens if present', {
           error: String(toAppError(error).message),
         });
-        useAuthStore.getState().setStatus('anonymous');
+        // Never force anonymous while SecureStore still has tokens — a slow
+        // users/me must not bounce the user to sign-in on every cold start.
+        await adoptCachedSession();
       }
+
       if (usesNativeTabBar()) {
         try {
           await withTimeout(loadNativeTabIconSources(), 'native tab icons');
@@ -80,11 +114,28 @@ export function useBootstrap(): { readonly isReady: boolean } {
           logger.debug('Native tab icons skipped', { error: String(error) });
         }
       }
+
+      try {
+        await withTimeout(hydrateAppliedTheme(), 'theme hydrate');
+      } catch (error) {
+        logger.debug('Theme hydrate skipped', { error: String(error) });
+      }
+
       void offlineQueue.flush();
       setIsReady(true);
     };
+
     void run();
-  }, [restoreSession, sessions, storage, offlineQueue, logger]);
+  }, [
+    restoreSession,
+    hydrateAppliedTheme,
+    sessions,
+    sessionStorage,
+    storage,
+    offlineQueue,
+    logger,
+  ]);
+
   useEffect(
     () =>
       useSettingsStore.subscribe((state) => {
@@ -92,6 +143,7 @@ export function useBootstrap(): { readonly isReady: boolean } {
       }),
     [storage],
   );
+
   useEffect(
     () =>
       useFireSettingsStore.subscribe((state) => {
@@ -99,11 +151,13 @@ export function useBootstrap(): { readonly isReady: boolean } {
       }),
     [storage],
   );
+
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (status) => {
       if (status === 'active') void offlineQueue.flush();
     });
     return () => subscription.remove();
   }, [offlineQueue]);
+
   return { isReady };
 }

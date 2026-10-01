@@ -7,6 +7,8 @@ import { AppStatus } from '@/app/components/AppStatus';
 import { ToastHost } from '@/app/components/ToastHost';
 import { useAuthRedirect } from '@/app/navigation/useAuthRedirect';
 import { AppProviders } from '@/app/providers/AppProviders';
+import { useHydrateAuthProfile } from '@/domains/auth/presentation/hooks/useHydrateAuthProfile';
+import { useSessionIntegrity } from '@/domains/auth/presentation/hooks/useSessionIntegrity';
 import {
   useColorSchemeToken,
   useSystemColorSchemeSync,
@@ -37,6 +39,8 @@ function RootNavigator(): ReactElement {
   const { isReady } = useBootstrap();
   const theme = useThemeColors();
   useAuthRedirect(isReady);
+  useSessionIntegrity(isReady);
+  useHydrateAuthProfile(isReady);
   if (!isReady)
     return (
       <View style={[styles.splash, { backgroundColor: theme.surface }]}>
@@ -54,7 +58,13 @@ function RootNavigator(): ReactElement {
       >
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="settings" options={{ presentation: 'card' }} />
+        <Stack.Screen name="theme-catalog" options={{ presentation: 'card' }} />
+        <Stack.Screen name="pixel-object-catalog" options={{ presentation: 'card' }} />
+        <Stack.Screen name="devices" options={{ presentation: 'card' }} />
         <Stack.Screen name="billing" options={{ presentation: 'card' }} />
+        <Stack.Screen name="admin" options={{ presentation: 'card' }} />
+        <Stack.Screen name="qr-scan" options={{ presentation: 'card' }} />
+        <Stack.Screen name="qr-confirm" options={{ animation: 'fade' }} />
         <Stack.Screen name="sign-in" options={{ animation: 'fade' }} />
         <Stack.Screen name="sign-up" options={{ animation: 'fade' }} />
       </Stack>

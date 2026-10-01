@@ -6,6 +6,12 @@ import { useAuthStore } from '@/domains/auth/presentation/stores/authStore';
 /** Routes reachable without a session. Everything else is behind the gate. */
 export const PUBLIC_ROUTES: readonly string[] = ['sign-in', 'sign-up'];
 
+/**
+ * In-app QR confirm after the camera scanner. Not a public deep-link landing:
+ * custom-scheme login URLs are dropped in +native-intent.
+ */
+export const QR_CONFIRM_ROUTE = 'qr-confirm';
+
 export function isPublicRoute(segment: string | undefined): boolean {
   return segment !== undefined && PUBLIC_ROUTES.includes(segment);
 }
@@ -22,6 +28,10 @@ export function authRedirectTarget(
   firstSegment: string | undefined,
 ): RedirectTarget {
   if (status === 'restoring') {
+    return null;
+  }
+
+  if (firstSegment === QR_CONFIRM_ROUTE) {
     return null;
   }
 

@@ -11,7 +11,9 @@ export type ListRowProps = {
   readonly title: string;
   readonly subtitle?: string;
   readonly icon?: IconName;
+  readonly leading?: ReactNode;
   readonly iconTint?: string;
+  readonly titleNumberOfLines?: number;
   readonly onPress?: () => void;
   readonly trailing?: ReactNode;
 };
@@ -20,21 +22,24 @@ function ListRowComponent({
   title,
   subtitle,
   icon,
+  leading,
   iconTint,
+  titleNumberOfLines = 1,
   onPress,
   trailing,
 }: ListRowProps): ReactElement {
   const theme = useThemeColors();
+  const media =
+    leading ??
+    (icon === undefined ? null : (
+      <Ionicons name={icon} size={20} color={iconTint ?? theme.textSecondary} />
+    ));
 
   const body = (
     <View style={styles.row}>
-      {icon === undefined ? null : (
-        <View style={styles.iconWrap}>
-          <Ionicons name={icon} size={20} color={iconTint ?? theme.textSecondary} />
-        </View>
-      )}
+      {media === null ? null : <View style={styles.iconWrap}>{media}</View>}
       <View style={styles.textWrap}>
-        <Text variant="bodyStrong" numberOfLines={1}>
+        <Text variant="bodyStrong" numberOfLines={titleNumberOfLines}>
           {title}
         </Text>
         {subtitle === undefined ? null : (

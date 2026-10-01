@@ -1,7 +1,7 @@
 import { Canvas } from '@react-three/fiber/native';
 import { memo, type ReactElement, useEffect, useMemo, useRef } from 'react';
 import { useWindowDimensions } from 'react-native';
-import { useColorSchemeToken } from '@/design-system/colors/colors';
+import { useColorSchemeToken, useSceneSkyColors } from '@/design-system/colors/colors';
 import {
   selectSurfaceBackground,
   useSettingsStore,
@@ -29,7 +29,13 @@ function SceneViewComponent({ bounds, logger, spaceKey = null }: SceneViewProps)
   const setMapCenter = useCameraStore((state) => state.setMapCenter);
   const setTarget = useCameraStore((state) => state.setTarget);
   const scheme = useColorSchemeToken();
-  const background = resolveSurfaceBackground(useSettingsStore(selectSurfaceBackground), scheme);
+  const skyStops = useSceneSkyColors();
+  const themeHorizon = skyStops[skyStops.length - 1] ?? null;
+  const background = resolveSurfaceBackground(
+    useSettingsStore(selectSurfaceBackground),
+    scheme,
+    themeHorizon,
+  );
   const framedSpaceRef = useRef<string | null>(null);
   const layout = useMemo(() => resolveSurfaceLayout(bounds), [bounds]);
   const focusWorld = useMemo(() => cellToWorld(layout.focusCell), [layout.focusCell]);

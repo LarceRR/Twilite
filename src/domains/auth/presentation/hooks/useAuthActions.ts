@@ -26,6 +26,7 @@ export function useAuthActions(): AuthActions {
   const queryClient = useQueryClient();
   const showToast = useUiStore((state) => state.showToast);
   const setSession = useAuthStore((state) => state.setSession);
+  const setProfile = useAuthStore((state) => state.setProfile);
 
   const onFailure = useCallback(
     (error: unknown) => {
@@ -40,7 +41,6 @@ export function useAuthActions(): AuthActions {
     mutationFn: (input: { readonly email: string; readonly password: string }) => {
       console.log('[auth] sign-in pressed', {
         email: input.email,
-        passwordLength: input.password.length,
       });
 
       return useCases.signIn({
@@ -81,6 +81,7 @@ export function useAuthActions(): AuthActions {
     onSuccess: () => {
       sessions.adopt(null);
       setSession(null);
+      setProfile(null);
       queryClient.clear();
     },
     onError: onFailure,

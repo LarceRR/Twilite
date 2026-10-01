@@ -3,7 +3,7 @@ import { memo, type ReactElement } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
-import { colors } from '../../colors/colors';
+import { useThemeColors } from '../../colors/colors';
 import type { IconName } from '../../icons/icons';
 import { radius } from '../../radius/radius';
 import { layout, spacing } from '../../spacing/spacing';
@@ -25,6 +25,7 @@ export type ActionBarProps = {
 };
 
 function Action({ action }: { readonly action: ActionBarAction }): ReactElement {
+  const theme = useThemeColors();
   const feedback = usePressFeedback({ scaleTo: 0.94 });
   const disabled = action.disabled ?? false;
 
@@ -42,7 +43,7 @@ function Action({ action }: { readonly action: ActionBarAction }): ReactElement 
         style={[styles.action, disabled && styles.disabled]}
       >
         <View style={[styles.iconBadge, { backgroundColor: action.tint }]}>
-          <Ionicons name={action.icon} size={18} color={colors.textInverted} />
+          <Ionicons name={action.icon} size={18} color={theme.textInverted} />
         </View>
         <Text variant="captionStrong" numberOfLines={1}>
           {action.label}

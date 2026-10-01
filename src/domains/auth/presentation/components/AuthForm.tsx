@@ -1,7 +1,7 @@
 import { memo, type ReactElement } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
-import { colors } from '@/design-system/colors/colors';
+import { useThemeColors } from '@/design-system/colors/colors';
 import { Text } from '@/design-system/components/Text/Text';
 import { radius } from '@/design-system/radius/radius';
 import { layout, spacing } from '@/design-system/spacing/spacing';
@@ -23,6 +23,8 @@ export type AuthFormProps = {
 };
 
 function AuthFormComponent({ fields }: AuthFormProps): ReactElement {
+  const theme = useThemeColors();
+
   return (
     <View style={styles.root}>
       {fields.map((field) => (
@@ -32,13 +34,16 @@ function AuthFormComponent({ fields }: AuthFormProps): ReactElement {
             value={field.value}
             onChangeText={field.onChange}
             placeholder={field.placeholder}
-            placeholderTextColor={colors.textTertiary}
+            placeholderTextColor={theme.textTertiary}
             secureTextEntry={field.secure ?? false}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType={field.keyboardType ?? 'default'}
             {...(field.autoComplete === undefined ? {} : { autoComplete: field.autoComplete })}
-            style={styles.input}
+            style={[
+              styles.input,
+              { backgroundColor: theme.surfaceSunken, color: theme.textPrimary },
+            ]}
           />
         </View>
       ))}
@@ -59,7 +64,6 @@ const styles = StyleSheet.create({
     ...typography.body,
     minHeight: layout.controlHeight,
     borderRadius: radius.md,
-    backgroundColor: colors.surfaceSunken,
     paddingHorizontal: spacing.md,
   },
 });

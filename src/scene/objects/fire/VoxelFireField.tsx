@@ -6,6 +6,7 @@ import { sceneColors } from '@/design-system/colors/colors';
 import { surfaceObjectMotion } from '@/design-system/motion/surface-objects';
 import { useSettingsStore } from '@/domains/settings/presentation/stores/settingsStore';
 import { knownKinds } from '@/domains/surface-objects/domain/value-objects/SurfaceObjectKind';
+import { readPixelObjectId } from '@/shared/pixelObject/metadata';
 import { useSurfaceObjectsStore } from '@/domains/surface-objects/presentation/stores/surfaceObjectsStore';
 import { useCameraStore } from '@/scene/stores/cameraStore';
 import { useSceneStore } from '@/scene/stores/sceneStore';
@@ -122,6 +123,10 @@ function VoxelFireFieldComponent(): ReactElement {
       const object = byId[id];
 
       if (object === undefined) {
+        return [];
+      }
+
+      if (readPixelObjectId(object.metadata) !== null) {
         return [];
       }
 

@@ -2,18 +2,23 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useServices, useUseCases } from '@/app/providers/ContainerProvider';
 import { useUiStore } from '@/app/stores/uiStore';
-import { useSettingsStore } from '@/domains/settings/presentation/stores/settingsStore';
 import type { SpaceId } from '@/domains/spaces/domain/value-objects/SpaceId';
 import { useSpaceStore } from '@/domains/spaces/presentation/stores/spaceStore';
 import { queryKeys } from '@/infrastructure/query/queryKeys';
 import { kindPresentation } from '@/scene/surface-objects/kindPresentation';
-import { playSpawnSequence } from '@/scene/systems/spawnSequence';
 import { ConflictError, toAppError } from '@/shared/errors';
-import type { SurfaceObject } from '../../domain/entities/SurfaceObject';
+import type { SurfaceObject, SurfaceObjectMetadata } from '../../domain/entities/SurfaceObject';
 import type { SurfaceObjectKind } from '../../domain/value-objects/SurfaceObjectKind';
 import { useSurfaceObjectsStore } from '../stores/surfaceObjectsStore';
+export type CreateSurfaceObjectInput = {
+  readonly kind: SurfaceObjectKind;
+  readonly note?: string;
+  readonly metadata?: SurfaceObjectMetadata;
+};
+
 export type SurfaceObjectActions = {
-  readonly create: (kind: SurfaceObjectKind, note: string) => void;
+  readonly create: (input: CreateSurfaceObjectInput) => void;
+  readonly createAsync: (input: CreateSurfaceObjectInput) => Promise<SurfaceObject>;
   readonly toggleFavorite: (object: SurfaceObject) => void;
   readonly remove: (object: SurfaceObject) => void;
   readonly isCreating: boolean;
@@ -24,8 +29,6 @@ export function useSurfaceObjectActions(spaceId: SpaceId | null): SurfaceObjectA
   const queryClient = useQueryClient();
   const upsert = useSurfaceObjectsStore((s) => s.upsert);
   const remove = useSurfaceObjectsStore((s) => s.remove);
-  const beginSpawn = useSurfaceObjectsStore((s) => s.beginSpawn);
-  const endSpawn = useSurfaceObjectsStore((s) => s.endSpawn);
   const showToast = useUiStore((s) => s.showToast);
   const invalidate = useCallback(() => {
     const active = spaceId ?? useSpaceStore.getState().activeSpaceId;
@@ -46,23 +49,23 @@ export function useSurfaceObjectActions(spaceId: SpaceId | null): SurfaceObjectA
     [logger, showToast, invalidate],
   );
   const createMutation = useMutation({
-    mutationFn: (input: { readonly kind: SurfaceObjectKind; readonly note: string }) =>
-      spaceId === null
-        ? Promise.reject(new ConflictError('Пространство не выбрано'))
-        : useCases.createSurfaceObject({
-            spaceId,
-            kind: input.kind,
-            ...(input.note.length === 0 ? {} : { metadata: { note: input.note } }),
-          }),
-    onSuccess: async (created) => {
-      beginSpawn(created.id);
-      await playSpawnSequence({
-        cell: created.cell,
-        objectId: created.id,
-        reduceMotion: useSettingsStore.getState().reduceMotion,
-        onMaterialize: () => upsert(created),
-        onSettled: () => endSpawn(created.id),
+    mutationFn: (input: CreateSurfaceObjectInput) => {
+      if (spaceId === null) {
+        return Promise.reject(new ConflictError('Пространство не выбрано'));
+      }
+      const note = input.note?.trim() ?? '';
+      const metadata: SurfaceObjectMetadata = {
+        ...(input.metadata ?? {}),
+        ...(note.length > 0 ? { note } : {}),
+      };
+      return useCases.createSurfaceObject({
+        spaceId,
+        kind: input.kind,
+        ...(Object.keys(metadata).length === 0 ? {} : { metadata }),
       });
+    },
+    onSuccess: async (created) => {
+      upsert(created);
       try {
         upsert(
           await useCases.activateSurfaceObject({
@@ -75,7 +78,9 @@ export function useSurfaceObjectActions(spaceId: SpaceId | null): SurfaceObjectA
         logger.warn('Не удалось активировать объект', { error: String(error) });
       }
       showToast(`${kindPresentation(created.kind).title} появился на поверхности`, 'positive');
-      invalidate();
+      if (spaceId !== null) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.surface(spaceId) });
+      }
     },
     onError: (e) => reportFailure(e, 'Не удалось создать объект'),
   });
@@ -99,7 +104,8 @@ export function useSurfaceObjectActions(spaceId: SpaceId | null): SurfaceObjectA
     onError: (e) => reportFailure(e, 'Не удалось удалить объект'),
   });
   return {
-    create: useCallback((kind, note) => createMutation.mutate({ kind, note }), [createMutation]),
+    create: useCallback((input) => createMutation.mutate(input), [createMutation]),
+    createAsync: useCallback((input) => createMutation.mutateAsync(input), [createMutation]),
     toggleFavorite: useCallback((object) => favoriteMutation.mutate(object), [favoriteMutation]),
     remove: useCallback((object) => deleteMutation.mutate(object), [deleteMutation]),
     isCreating: createMutation.isPending,

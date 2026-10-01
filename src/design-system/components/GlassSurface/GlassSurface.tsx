@@ -52,10 +52,14 @@ function GlassSurfaceComponent({
   const isDark = useIsDarkTheme();
 
   if (LIQUID_GLASS_AVAILABLE) {
+    const scheme = isDark ? 'dark' : 'light';
     return (
       <GlassView
+        key={`glass-${scheme}`}
         style={[{ borderRadius: cornerRadius }, style]}
         glassEffectStyle="regular"
+        colorScheme={scheme}
+        tintColor={theme.glassTint}
         isInteractive={interactive}
       >
         {children}
@@ -88,7 +92,7 @@ function GlassSurfaceComponent({
       <BlurView
         intensity={BLUR_INTENSITY}
         tint={isDark ? 'systemChromeMaterialDark' : 'systemChromeMaterialLight'}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       />
       <View
         pointerEvents="none"
@@ -106,7 +110,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   rim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderWidth: StyleSheet.hairlineWidth,
   },
   content: {

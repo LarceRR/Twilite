@@ -1,0 +1,20 @@
+---
+description: Always ship Android + iOS compatible React Native / Expo code; research current platform nuances before implementing.
+alwaysApply: true
+---
+
+# Cross-Platform Mobile (Android + iOS)
+
+This is a **cross-platform** React Native / Expo app. Every change MUST work on **both Android and iOS**.
+
+## Before writing platform-sensitive code
+
+1. Identify OS differences (permissions, navigation, safe areas, keyboard, camera/QR, deep links, SecureStore, file paths, back button, status bar, blur/glass, native modules).
+2. **Search the web** for current Expo / React Native guidance for the APIs you touch (docs + recent issues). Prefer solutions that are production-proven **today**, not outdated Stack Overflow answers.
+3. Prefer shared abstractions; use `Platform.select` / platform files only when behavior truly differs. Never leave an Android-only or iOS-only path undocumented.
+
+## Non-negotiables
+
+- Do not assume web or one OS behavior is enough.
+- Do not ship APIs that exist on only one platform without a fallback or explicit platform branch.
+- When unsure, look up the current recommended approach and apply it before coding.

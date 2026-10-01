@@ -1,4 +1,4 @@
-import { memo, type ReactElement } from 'react';
+import { memo, type ReactElement, useEffect, useState } from 'react';
 import { Image, StyleSheet, type StyleProp, View, type ViewStyle } from 'react-native';
 
 import { colorRamps } from '../../colors/palette';
@@ -65,8 +65,13 @@ function UserAvatarComponent({
 }: UserAvatarProps): ReactElement {
   const theme = useThemeColors();
   const uri = typeof imageUrl === 'string' ? imageUrl.trim() : '';
-  const hasPhoto = uri.length > 0;
+  const [failed, setFailed] = useState(false);
+  const hasPhoto = uri.length > 0 && !failed;
   const shape = { width: size, height: size, borderRadius: size / 2 };
+
+  useEffect(() => {
+    setFailed(false);
+  }, [uri]);
 
   return (
     <View
@@ -80,7 +85,12 @@ function UserAvatarComponent({
       ]}
     >
       {hasPhoto ? (
-        <Image source={{ uri }} resizeMode="cover" style={shape} />
+        <Image
+          source={{ uri }}
+          resizeMode="cover"
+          style={shape}
+          onError={() => setFailed(true)}
+        />
       ) : (
         <Text
           variant="captionStrong"

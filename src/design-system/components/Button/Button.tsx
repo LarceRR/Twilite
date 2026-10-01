@@ -28,7 +28,7 @@ function backgroundFor(variant: ButtonVariant, theme: ThemeColors): string {
     case 'primary':
       return theme.accent;
     case 'secondary':
-      return theme.surfaceRaised;
+      return theme.surfaceSunken;
     case 'danger':
       return theme.negative;
     default:
@@ -41,7 +41,7 @@ function labelColorFor(variant: ButtonVariant, theme: ThemeColors): string {
     case 'primary':
       return theme.accentOn;
     case 'danger':
-      return theme.textInverted;
+      return theme.accentOn;
     default:
       return theme.textPrimary;
   }

@@ -12,9 +12,14 @@ export const LIGHT_SURFACE_BACKGROUND = '#F7F4ED';
 export const DARK_SURFACE_BACKGROUND = '#121017';
 export const DEFAULT_SURFACE_BACKGROUND = LIGHT_SURFACE_BACKGROUND;
 
-/** null in settings means follow the active theme. */
-export function resolveSurfaceBackground(value: string | null, scheme: SurfaceScheme): string {
+/** null in settings means follow the active theme sky horizon (or scheme default). */
+export function resolveSurfaceBackground(
+  value: string | null,
+  scheme: SurfaceScheme,
+  themeHorizon: string | null = null,
+): string {
   if (value !== null) return value;
+  if (themeHorizon !== null) return themeHorizon;
   return scheme === 'dark' ? DARK_SURFACE_BACKGROUND : LIGHT_SURFACE_BACKGROUND;
 }
 

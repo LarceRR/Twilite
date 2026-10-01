@@ -1,0 +1,36 @@
+---
+description: Keep functions small (≤30 lines) with one responsibility; avoid monolithic modules.
+alwaysApply: true
+---
+
+# Small Functions, Single Responsibility
+
+## Hard limits
+
+- **Max ~30 lines of logic per function** (excluding blank lines and trivial type-only noise). If longer, split.
+- **One responsibility per function**: one reason to change. Extract helpers instead of nesting multi-step workflows.
+- Prefer many small named functions over one large procedure or “god” component/hook.
+
+## How to split
+
+- Separate: validation → transformation → I/O → UI wiring.
+- Extract domain logic out of React components and hooks into pure functions/services.
+- Avoid deep nesting; early return and small helpers instead.
+
+## Bad vs good
+
+```ts
+// ❌ BAD — monolithic handler
+async function onConfirm() {
+  // validate, map, call API, update store, navigate, toast — all inline, 80+ lines
+}
+
+// ✅ GOOD — composed steps
+async function onConfirm() {
+  const input = parseConfirmInput(raw);
+  const result = await confirmQrLogin(input);
+  applyConfirmSuccess(result);
+}
+```
+
+Do not merge unrelated concerns to “save files.” Clarity and testability win.

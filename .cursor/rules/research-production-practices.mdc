@@ -1,0 +1,30 @@
+---
+description: For complex, ambiguous, or non-obvious work, research current best practices and production-ready patterns before coding.
+alwaysApply: true
+---
+
+# Research Before Complex Implementation
+
+## When this applies
+
+Treat a task as **complex / ambiguous** if any of these are true:
+
+- Non-obvious API design, security, auth, sessions, deep links, camera/QR, permissions, or native modules
+- Multiple valid approaches with different trade-offs
+- Cross-cutting concerns (caching, retries, offline, concurrency)
+- Unfamiliar library behavior or version-sensitive APIs
+- Anything where a wrong guess creates hard-to-fix production bugs
+
+## Required workflow
+
+1. **Search the web** for current official docs and widely adopted production patterns (Expo, React Native, library docs, reputable guides). Prefer recent sources.
+2. Choose the **production-ready** approach: clear failure modes, secure defaults, maintainable structure — not the shortest demo snippet.
+3. Only then implement; mirror proven patterns to this repo’s architecture (domain / application / infrastructure / presentation).
+
+## Do not
+
+- Invent a novel solution when a standard pattern already exists.
+- Copy outdated or incomplete tutorial code without checking current docs.
+- Skip research because the first idea “might work.”
+
+If research conflicts with existing repo conventions, prefer repo conventions unless they are unsafe or broken — then call out the conflict briefly.

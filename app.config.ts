@@ -34,8 +34,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     orientation: config.orientation ?? 'portrait',
     icon: config.icon ?? './assets/icon.png',
     scheme: config.scheme ?? 'twilite',
-    userInterfaceStyle: config.userInterfaceStyle ?? 'light',
-    newArchEnabled: config.newArchEnabled ?? true,
+    userInterfaceStyle: config.userInterfaceStyle ?? 'automatic',
     extra: {
       ...(config.extra ?? {}),
       mode: environment,

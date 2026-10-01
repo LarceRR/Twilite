@@ -1,6 +1,9 @@
 import { httpConfig } from '@/app/config/constants';
 import { errorFromStatus, NetworkError, toAppError } from '@/shared/errors';
 import type { Logger } from '@/shared/logger';
+
+import { redactForLog } from './redact';
+
 export type AccessTokenProvider = {
   token(): Promise<string | null>;
   invalidate(): Promise<string | null>;
@@ -12,6 +15,18 @@ export type HttpClient = {
   patch<T>(path: string, body?: unknown): Promise<T>;
   delete(path: string, body?: unknown): Promise<void>;
 };
+
+/** Auth endpoints that authenticate via body, not Bearer — must not trigger token refresh. */
+const UNAUTHENTICATED_PATHS = new Set([
+  'auth/sign-in',
+  'auth/sign-up',
+  'auth/refresh',
+]);
+
+function isUnauthenticatedPath(path: string): boolean {
+  return UNAUTHENTICATED_PATHS.has(path);
+}
+
 function describe(status: number, data: unknown): { message: string; body: unknown } {
   if (typeof data === 'object' && data !== null && 'message' in data) {
     const message = (data as { message: unknown }).message;
@@ -47,18 +62,19 @@ export function createHttpClient(options: {
     const requestBody = init.json;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), httpConfig.timeoutMs);
+    const skipAuth = isUnauthenticatedPath(normalizedPath);
     log.info('HTTP запрос', {
       method,
       url,
       path: normalizedPath,
-      body: requestBody,
+      body: redactForLog(requestBody),
       searchParams: init.searchParams,
     });
     try {
-      const token = await options.tokens.token();
+      const token = skipAuth ? null : await options.tokens.token();
       const headers: Record<string, string> = { Accept: 'application/json' };
       if (requestBody !== undefined) headers['Content-Type'] = 'application/json';
-      if (token !== null) headers.Authorization = `Bearer ${token}`;
+      if (typeof token === 'string' && token.length > 0) headers.Authorization = `Bearer ${token}`;
       const response = await fetch(url, {
         method,
         headers,
@@ -69,7 +85,9 @@ export function createHttpClient(options: {
       const data = text.length > 0 ? parseResponseBody(text) : undefined;
       if (response.status === 204) return undefined as T;
       if (!response.ok) {
-        if (response.status === 401 && retryOnUnauthorized) {
+        const canRetryUnauthorized =
+          response.status === 401 && retryOnUnauthorized && !skipAuth;
+        if (canRetryUnauthorized) {
           const refreshed = await options.tokens.invalidate();
           if (refreshed !== null) return request<T>(method, path, init, false);
         }
@@ -78,7 +96,12 @@ export function createHttpClient(options: {
       }
       return data as T;
     } catch (error) {
-      log.error('HTTP запрос завершился ошибкой', { method, url, path, body: requestBody, error });
+      log.error('HTTP запрос завершился ошибкой', error, {
+        method,
+        url,
+        path,
+        body: redactForLog(requestBody),
+      });
       if (error instanceof Error && error.name === 'AbortError')
         throw new NetworkError('Превышено время ожидания сервера', null, { cause: error });
       if (error instanceof Error && error.message.includes('Network request failed'))

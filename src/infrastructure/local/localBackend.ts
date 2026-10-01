@@ -24,7 +24,7 @@ import {
   transitionTarget,
 } from '@/domains/surface-objects/domain/value-objects/SurfaceObjectState';
 import type { Surface } from '@/domains/surfaces/domain/entities/Surface';
-import { spawnNearExisting } from '@/domains/surfaces/domain/services/spawnNearExisting';
+import { spawnBridgeRow } from '@/domains/surfaces/domain/services/spawnBridgeRow';
 import { boundsFromCells } from '@/domains/surfaces/domain/value-objects/SurfaceBounds';
 import { surfaceId as toSurfaceId } from '@/domains/surfaces/domain/value-objects/SurfaceId';
 import type { TimelineEvent } from '@/domains/timeline/domain/entities/TimelineEvent';
@@ -38,6 +38,7 @@ type LocalUser = {
   readonly email: string | null;
   readonly password: string | null;
   readonly displayName: string;
+  readonly avatarUrl: string | null;
 };
 
 type LocalState = {
@@ -57,6 +58,17 @@ function emptyState(): LocalState {
   return { users: [], spaces: [], surfaces: [], objects: [], invitations: [], timeline: [] };
 }
 
+function toLocalProfile(user: LocalUser): UserProfile {
+  return {
+    id: user.id,
+    email: user.email === null ? null : toEmail(user.email),
+    displayName: user.displayName,
+    avatarUrl: user.avatarUrl ?? null,
+    groups: [],
+    permissions: [],
+  };
+}
+
 /**
  * In-app stand-in for the backend, used whenever no API base URL is configured.
  * It enforces the same invariants the server does — spawn policy, optimistic
@@ -73,6 +85,10 @@ export type LocalBackend = {
   }): Promise<AuthSession>;
   signInAnonymously(): Promise<AuthSession>;
   profile(id: UserId): Promise<UserProfile>;
+  updateProfile(patch: {
+    readonly displayName?: string;
+    readonly avatarUrl?: string | null;
+  }): Promise<UserProfile>;
   listSpaces(): Promise<readonly Space[]>;
   spaceById(id: SpaceId): Promise<Space | null>;
   createSpace(input: { readonly type: SpaceType; readonly title: string }): Promise<Space>;
@@ -121,6 +137,10 @@ export function createLocalBackend(options: { readonly storage: KeyValueStorage 
     const stored = await options.storage.read<LocalState>(storageKeys.spacesSnapshot);
 
     state = stored ?? emptyState();
+    state.users = state.users.map((user) => ({
+      ...user,
+      avatarUrl: user.avatarUrl ?? null,
+    }));
 
     if (state.users.length === 0) {
       seed();
@@ -158,12 +178,14 @@ export function createLocalBackend(options: { readonly storage: KeyValueStorage 
       email: null,
       password: null,
       displayName: DEMO_SELF_NAME,
+      avatarUrl: null,
     };
     const partner: LocalUser = {
       id: userId(createLocalId('usr')),
       email: null,
       password: null,
       displayName: DEMO_PARTNER_NAME,
+      avatarUrl: null,
     };
 
     const personal = buildSpace({
@@ -379,12 +401,44 @@ export function createLocalBackend(options: { readonly storage: KeyValueStorage 
         throw new NetworkError('Профиль не найден', 404, { context: { id } });
       }
 
-      return {
-        id: user.id,
-        email: user.email === null ? null : toEmail(user.email),
-        displayName: user.displayName,
-        avatarUrl: null,
+      return toLocalProfile(user);
+    },
+
+    async updateProfile(patch) {
+      await ready();
+
+      const id = currentUserId ?? state.users[0]?.id;
+
+      if (id === undefined) {
+        throw new NetworkError('Нет активного пользователя', null);
+      }
+
+      const user = state.users.find((candidate) => candidate.id === id);
+
+      if (user === undefined) {
+        throw new NetworkError('Профиль не найден', 404, { context: { id } });
+      }
+
+      const updated: LocalUser = {
+        ...user,
+        ...(patch.displayName === undefined ? {} : { displayName: patch.displayName }),
+        ...(patch.avatarUrl === undefined ? {} : { avatarUrl: patch.avatarUrl }),
       };
+
+      state.users = state.users.map((candidate) => (candidate.id === id ? updated : candidate));
+
+      if (patch.displayName !== undefined) {
+        state.spaces = state.spaces.map((space) => ({
+          ...space,
+          members: space.members.map((member) =>
+            member.userId === id ? { ...member, displayName: updated.displayName } : member,
+          ),
+        }));
+      }
+
+      await persist();
+
+      return toLocalProfile(updated);
     },
 
     async listSpaces() {
@@ -503,12 +557,10 @@ export function createLocalBackend(options: { readonly storage: KeyValueStorage 
         undefined,
       );
 
-      const policy = kindPolicy(input.kind);
-      const placement = spawnNearExisting({
+      const placement = spawnBridgeRow({
         occupied,
-        radius: policy.spawnRadius,
-        minSeparation: policy.minSeparation,
-        ...(lastCreated === undefined ? {} : { near: lastCreated.cell }),
+        random: Math.random,
+        ...(lastCreated === undefined ? {} : { lastCreated: lastCreated.cell }),
       });
 
       const now = Date.now();

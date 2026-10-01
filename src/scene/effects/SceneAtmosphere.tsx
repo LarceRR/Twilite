@@ -1,8 +1,8 @@
 import { useFrame, useThree } from '@react-three/fiber/native';
-import { useLayoutEffect } from 'react';
-import { Color, Fog } from 'three';
+import { useLayoutEffect, useRef } from 'react';
+import { Color, Fog, type Texture } from 'three';
 
-import { useColorSchemeToken } from '@/design-system/colors/colors';
+import { useSceneSkyColors } from '@/design-system/colors/colors';
 import { cameraMotion } from '@/design-system/motion/camera';
 import {
   selectSurfaceBackground,
@@ -10,28 +10,60 @@ import {
 } from '@/domains/settings/presentation/stores/settingsStore';
 import { useCameraStore } from '@/scene/stores/cameraStore';
 import { fogDistanceBounds } from '@/scene/surface/surfaceGridMaterial';
-import { resolveSurfaceBackground } from '@/scene/surface/surfaceTheme';
+
+import { createSkyBackgroundTexture } from './createSkyBackgroundTexture';
+
+function horizonFromSky(stops: readonly string[]): string {
+  return stops[stops.length - 1] ?? '#808080';
+}
 
 /**
- * Backdrop + scene fog matching the surface shader, so fires fade into the haze
- * instead of popping when they leave the clear zone. Цвет берётся из настроек
- * сцены (или из темы, если фон следует за ней), поэтому смена фона
- * перекрашивает и дымку.
+ * Sky gradient backdrop + fog tinted to the horizon stop so fires fade into haze.
  */
 export function SceneAtmosphere(): null {
   const scene = useThree((state) => state.scene);
-  const scheme = useColorSchemeToken();
-  const background = resolveSurfaceBackground(useSettingsStore(selectSurfaceBackground), scheme);
+  const skyStops = useSceneSkyColors();
+  const surfaceOverride = useSettingsStore(selectSurfaceBackground);
+  const textureRef = useRef<Texture | null>(null);
 
   useLayoutEffect(() => {
-    const fill = new Color(background);
-    scene.background = fill;
-    scene.fog = new Fog(fill.clone(), 1, 100);
+    const previous = textureRef.current;
+    textureRef.current = null;
+
+    if (previous !== null) {
+      previous.dispose();
+    }
+
+    const horizon = surfaceOverride ?? horizonFromSky(skyStops);
+    const fogColor = new Color(horizon);
+    scene.fog = new Fog(fogColor, 1, 100);
+
+    if (surfaceOverride !== null) {
+      scene.background = fogColor.clone();
+      return () => {
+        scene.fog = null;
+      };
+    }
+
+    const texture = createSkyBackgroundTexture(skyStops);
+    if (texture === null) {
+      scene.background = fogColor.clone();
+      return () => {
+        scene.fog = null;
+      };
+    }
+
+    textureRef.current = texture;
+    scene.background = texture;
 
     return () => {
       scene.fog = null;
+      if (textureRef.current === texture) {
+        texture.dispose();
+        textureRef.current = null;
+      }
     };
-  }, [scene, background]);
+  }, [scene, skyStops, surfaceOverride]);
 
   useFrame(() => {
     const fog = scene.fog;

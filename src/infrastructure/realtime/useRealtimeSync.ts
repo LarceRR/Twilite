@@ -9,8 +9,11 @@ import { useSurfaceObjectsStore } from '@/domains/surface-objects/presentation/s
 import { queryKeys } from '@/infrastructure/query/queryKeys';
 
 import { useRealtimeStore } from './realtimeStore';
+import { createQueryInvalidateScheduler } from './scheduleQueryInvalidate';
 
 const SUBSCRIBED_CHANNELS = ['scene', 'timeline', 'notifications', 'presence'] as const;
+/** Collapse create+activate (and duplicate sockets) into one timeline refetch. */
+const TIMELINE_INVALIDATE_DEBOUNCE_MS = 400;
 
 /** Subscribes the active space and applies gateway events; HTTP remains authoritative. */
 export function useRealtimeSync(spaceId: SpaceId | null): void {
@@ -24,6 +27,7 @@ export function useRealtimeSync(spaceId: SpaceId | null): void {
 
     const store = useSurfaceObjectsStore.getState();
     const realtimeStore = useRealtimeStore.getState();
+    const timelineInvalidate = createQueryInvalidateScheduler(TIMELINE_INVALIDATE_DEBOUNCE_MS);
 
     const unsubscribeStatus = realtime.onStatus((status) => {
       useRealtimeStore.getState().setStatus(status);
@@ -44,7 +48,9 @@ export function useRealtimeSync(spaceId: SpaceId | null): void {
             store.remove(surfaceObjectId(message.objectId));
             break;
           case 'timeline.appended':
-            void queryClient.invalidateQueries({ queryKey: queryKeys.timeline(spaceId) });
+            timelineInvalidate.schedule(() => {
+              void queryClient.invalidateQueries({ queryKey: queryKeys.timeline(spaceId) });
+            });
             break;
           case 'presence.changed':
             realtimeStore.setPresence(message.userIds);
@@ -64,6 +70,7 @@ export function useRealtimeSync(spaceId: SpaceId | null): void {
     realtime.connect(spaceId, SUBSCRIBED_CHANNELS);
 
     return () => {
+      timelineInvalidate.cancel();
       unsubscribeMessages();
       unsubscribeStatus();
       realtime.disconnect();
