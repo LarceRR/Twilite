@@ -42,8 +42,9 @@ Statuses: `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `VERIFY`. Every agent update
 ### Agent B — Phase 2 + 3 (complete Wave A–C)
 - **Branches:** `feat/sprite-pipeline-p2` @ API; `feat/sprite-pipeline-p3` @ PG (`d6a4bba`)
 - **Migrations:** `0008_pixel_object_revisions`, `0009_pixel_archive_and_surface_binding`
-- **API tests:** focused vitest 143 passed (storage/pixel/surface/schema-contract)
+- **API tests:** focused vitest 143 passed (storage/pixel/surface/schema-contract); follow-up: keyset cursor + media Idempotency-Key
 - **PG tests:** 281 passed
+- **Follow-up (2026-10-01):** closed PG agent gaps — server now applies `cursor` on catalog/mine/moderation; media upload/confirm accept `Idempotency-Key`
 - **Next unclaimed:** Phase 4 mobile runtime; remaining P1-S4..S10 security polish
 - **Rollback P2:** drop 0009 then 0008 FKs/tables/columns; head columns remain until cutover verified
 
