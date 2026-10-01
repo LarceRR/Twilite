@@ -52,10 +52,11 @@ Statuses: `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `VERIFY`. Every agent update
 - **Branches:** `feat/sprite-pipeline-p2` @ `D:/twilite-backend`; `feat/sprite-pipeline-p3` @ `D:/twilite-pg`
 - **Started:** 2026-10-01
 - **Wave A done:** P2-S1 (revisions schema + backfill), P3-S2 (active-frame export)
+- **Pushed:** `feat/sprite-pipeline-p2` → https://github.com/LarceRR/twilite-backend/pull/new/feat/sprite-pipeline-p2 ; `feat/sprite-pipeline-p3` → https://github.com/LarceRR/twilite-pg/pull/new/feat/sprite-pipeline-p3 (`gh` CLI not available on agent host)
 - **Parked:** P2-S2..S12 blocked on P1-S3 (then sequential); P3-S1/S3–S6 blocked on P0-S6 and/or P2 slices
 - **Unblocks next:** P1-S3 → P2-S2; P0-S6 + P2-S4/S10 → P3 authoring stories
 - **Rollback P2-S1:** drop head revision FKs, drop `pixel_object_revisions`, drop pointer columns; head columns remain authoritative until P2-S2
-- **Note:** do not rewrite submit/resubmit until P2-S2; dual-write head columns remain after P2-S1
+- **Note:** do not rewrite submit/resubmit until P2-S2; dual-write head columns remain after P2-S1; Agent A working tree restored to `feat/sprite-pipeline-p0-p1`
 
 ## Required handoff fields
 
