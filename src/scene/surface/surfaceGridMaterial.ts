@@ -41,37 +41,42 @@ varying float vFogDepth;
 bool occupied(ivec2 c) {
   for (int i = 0; i < 64; i++) {
     if (float(i) >= occupiedCount) break;
-    if (ivec2(occupiedCells[i]) == c) return true;
+    if (ivec2(floor(occupiedCells[i] + 0.5)) == c) return true;
   }
   return false;
 }
 
 void main() {
+  // Cell centres sit on integer coordinates (see cellToWorld), borders on .5.
   vec2 cc = vWorldPosition.xz / cellSize;
-  vec2 local = abs(fract(cc) - 0.5);
+  vec2 nearestCenter = floor(cc + 0.5);
+  ivec2 ci = ivec2(nearestCenter);
 
   float line = 0.0;
 
   if (roundCells > 0.5) {
-    float d = abs(length(local) - 0.46);
-    line = 1.0 - smoothstep(0.0, fwidth(d) * 1.5, d);
+    // Offset from the cell centre (was: from the border, which centred the
+    // circles on grid intersections).
+    vec2 fromCenter = cc - nearestCenter;
+    float d = abs(length(fromCenter) - 0.46);
+    float edge = max(fwidth(d) * 1.5, 1e-4);
+    line = 1.0 - smoothstep(0.0, edge, d);
   } else {
-    vec2 g = local / fwidth(cc);
+    vec2 local = abs(fract(cc) - 0.5);
+    vec2 g = local / max(fwidth(cc), vec2(1e-4));
     line = 1.0 - min(min(g.x, g.y), 1.0);
   }
 
-  ivec2 ci = ivec2(floor(cc + 0.5));
-
-  if (objectsOnly < 0.5 || occupied(ci)) {
-  } else {
+  // Only fragments that are actually on a line pay for the occupancy lookup.
+  if (objectsOnly > 0.5 && line > 0.0 && !occupied(ci)) {
     line = 0.0;
   }
 
   vec3 base = fillColor;
 
-  if (hasFirst > 0.5 && ci == ivec2(firstCell)) {
+  if (hasFirst > 0.5 && ci == ivec2(floor(firstCell + 0.5))) {
     base = firstColor;
-  } else if (hasLast > 0.5 && ci == ivec2(lastCell)) {
+  } else if (hasLast > 0.5 && ci == ivec2(floor(lastCell + 0.5))) {
     base = lastColor;
   }
 
@@ -81,6 +86,9 @@ void main() {
   gl_FragColor = vec4(mix(color, fogColor, fog), 1.0);
 }
 `;
+
+/** Uniform array size; objects-only mode outlines at most this many cells. */
+export const MAX_OCCUPIED_CELLS = 64;
 
 export function createSurfaceGridMaterial(): ShaderMaterial {
   return new ShaderMaterial({
@@ -101,7 +109,7 @@ export function createSurfaceGridMaterial(): ShaderMaterial {
       roundCells: { value: 0 },
       objectsOnly: { value: 0 },
       occupiedCells: {
-        value: Array.from({ length: 64 }, () => new Vector2()),
+        value: Array.from({ length: MAX_OCCUPIED_CELLS }, () => new Vector2()),
       },
       occupiedCount: { value: 0 },
     },
@@ -214,10 +222,13 @@ export function applyGridSettings(
   objectsOnlyUniform.value = objectsOnly ? 1 : 0;
 
   const target = occupiedCells.value as Vector2[];
+  // Newest objects matter most when there are more than the uniform can hold.
+  const start = Math.max(0, cells.length - target.length);
   const count = Math.min(target.length, cells.length);
 
   for (let i = 0; i < count; i++) {
-    target[i]?.set(cells[i]?.x ?? 0, cells[i]?.y ?? 0);
+    const cell = cells[start + i];
+    target[i]?.set(cell?.x ?? 0, cell?.y ?? 0);
   }
 
   occupiedCount.value = count;
