@@ -5,7 +5,12 @@ import { DoubleSide, type Mesh, type MeshBasicMaterial, type Texture } from 'thr
 import type { PixelObjectMobileDto } from '@/shared/contracts/pixelObjects';
 import { nextLoopIndex, sheetTextureOffset } from '@/shared/pixelObject/sheetFrame';
 
-import { bridgeCellToWorld, FIELD_CELL_SIZE } from './fieldLayout';
+import { bridgeCellToScaledWorld, FIELD_CELL_SIZE } from './fieldLayout';
+import {
+  selectSurfaceBaseCompression,
+  selectSurfaceEndCompression,
+  useFieldCameraStore,
+} from './fieldCameraStore';
 import { cloneSheetTexture, loadRemoteTexture } from './loadRemoteTexture';
 import { shouldAnimateFieldSprite } from './shouldAnimateFieldSprite';
 
@@ -16,6 +21,7 @@ type FieldSpriteBillboardProps = {
   readonly surfaceObjectId: string;
   readonly cell: { readonly x: number; readonly y: number };
   readonly dto: PixelObjectMobileDto;
+  readonly spanRows: number;
 };
 
 function spriteWorldSize(dto: PixelObjectMobileDto): { readonly w: number; readonly h: number } {
@@ -27,11 +33,13 @@ function spriteWorldSize(dto: PixelObjectMobileDto): { readonly w: number; reado
 
 /**
  * One animated spritesheet billboard inside the shared field WebGL context.
- * Texture image is shared; UV offset is per-instance via a cloned Texture.
+ * `fog={false}` — scene atmosphere fog must not tint distant pixel art black.
+ * Sits on the tapered cell center; mesh size is never scaled with the surface.
  */
 export function FieldSpriteBillboard({
   cell,
   dto,
+  spanRows,
 }: FieldSpriteBillboardProps): ReactElement | null {
   const meshRef = useRef<Mesh>(null);
   const materialRef = useRef<MeshBasicMaterial>(null);
@@ -39,8 +47,13 @@ export function FieldSpriteBillboard({
   const indexRef = useRef(0);
   const deadlineRef = useRef(0);
   const [texture, setTexture] = useState<Texture | null>(null);
+  const baseCompression = useFieldCameraStore(selectSurfaceBaseCompression);
+  const endCompression = useFieldCameraStore(selectSurfaceEndCompression);
 
-  const world = useMemo(() => bridgeCellToWorld(cell), [cell.x, cell.y]);
+  const world = useMemo(
+    () => bridgeCellToScaledWorld(cell, baseCompression, endCompression, spanRows),
+    [cell.x, cell.y, baseCompression, endCompression, spanRows],
+  );
   const size = useMemo(() => spriteWorldSize(dto), [dto]);
   const columns = Math.max(1, dto.sheet.columns);
   const rows = Math.max(1, dto.sheet.rows);
@@ -75,18 +88,17 @@ export function FieldSpriteBillboard({
 
     return () => {
       cancelled = true;
-      // Do not dispose shared image on the cached base — only drop this clone's GL handle.
       owned?.dispose();
       textureRef.current = null;
       setTexture(null);
     };
-    // clip identity changes every render if empty (`?? []`); key off sheet + dims instead.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional stable deps
   }, [sheetUrl, columns, rows, previewFrame]);
 
   useFrame(({ camera }) => {
     const mesh = meshRef.current;
     if (mesh != null) {
+      mesh.position.set(world.x, size.h * 0.5, world.z);
       mesh.lookAt(camera.position.x, mesh.position.y, camera.position.z);
     }
 
@@ -131,6 +143,7 @@ export function FieldSpriteBillboard({
         map={texture}
         transparent
         depthWrite={false}
+        fog={false}
         side={DoubleSide}
         toneMapped={false}
       />

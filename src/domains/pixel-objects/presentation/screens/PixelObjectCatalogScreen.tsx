@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { type ReactElement, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { useUseCases } from '@/app/providers/ContainerProvider';
 import { useThemeColors } from '@/design-system/colors/colors';
@@ -20,7 +20,7 @@ import type { PixelObjectDto } from '@/shared/contracts/pixelObjects';
 import { toAppError } from '@/shared/errors';
 
 import { catalogItemToMobileDto } from '../../application/catalogItemToMobileDto';
-import { PixelSheetPreview } from '../components/PixelSheetPreview';
+import { PixelCatalogPreview } from '../components/PixelCatalogPreview';
 
 function resolveSurfaceKind(raw: string | string[] | undefined): string {
   const value = Array.isArray(raw) ? raw[0] : raw;
@@ -49,7 +49,7 @@ function ObjectCard({
       onPress={onSelect}
       style={[styles.card, { borderColor: theme.surfaceDivider, backgroundColor: theme.surfaceRaised }]}
     >
-      <PixelSheetPreview item={item} />
+      <PixelCatalogPreview item={item} />
       <Text variant="bodyStrong">{item.title}</Text>
       <Text variant="caption" color={theme.textSecondary} numberOfLines={2}>
         {item.authorDisplayName}
@@ -107,55 +107,68 @@ export function PixelObjectCatalogScreen(): ReactElement {
     surfaceKind === knownKinds.cloud ? 'Объект для плохого момента' : 'Объект для хорошего момента';
 
   return (
-    <Screen title={title} reserveTabBar={false}>
-      <TextInput
-        value={query}
-        onChangeText={setQuery}
-        placeholder="Поиск"
-        placeholderTextColor={theme.textTertiary}
-        style={[
-          styles.search,
-          {
-            backgroundColor: theme.surfaceSunken,
-            color: theme.textPrimary,
-          },
-        ]}
-      />
+    <Screen title={title} reserveTabBar={false} scroll={false}>
+      <FlatList
+        style={styles.flex}
+        data={items}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.list}
+        keyboardShouldPersistTaps="handled"
+        ListHeaderComponent={
+          <View>
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Поиск"
+              placeholderTextColor={theme.textTertiary}
+              style={[
+                styles.search,
+                {
+                  backgroundColor: theme.surfaceSunken,
+                  color: theme.textPrimary,
+                },
+              ]}
+            />
 
-      {catalog.isLoading ? (
-        <ActivityIndicator color={theme.textSecondary} style={{ marginTop: spacing.xl }} />
-      ) : null}
+            {catalog.isLoading ? (
+              <ActivityIndicator
+                color={theme.textSecondary}
+                style={{ marginTop: spacing.xl }}
+              />
+            ) : null}
 
-      {catalog.isError ? (
-        <BlurCard title="Не удалось загрузить каталог">
-          <Text variant="caption">{toAppError(catalog.error).message}</Text>
-          <Button label="Повторить" onPress={() => void catalog.refetch()} />
-        </BlurCard>
-      ) : null}
+            {catalog.isError ? (
+              <BlurCard title="Не удалось загрузить каталог">
+                <Text variant="caption">{toAppError(catalog.error).message}</Text>
+                <Button label="Повторить" onPress={() => void catalog.refetch()} />
+              </BlurCard>
+            ) : null}
 
-      {!catalog.isLoading && !catalog.isError && items.length === 0 ? (
-        <EmptyState
-          icon="cube-outline"
-          title="Объектов пока нет"
-          description="Опубликованные объекты появятся здесь после модерации"
-        />
-      ) : null}
-
-      <View style={styles.list}>
-        {items.map((item) => (
+            {!catalog.isLoading && !catalog.isError && items.length === 0 ? (
+              <EmptyState
+                icon="cube-outline"
+                title="Объектов пока нет"
+                description="Опубликованные объекты появятся здесь после модерации"
+              />
+            ) : null}
+          </View>
+        }
+        renderItem={({ item }) => (
           <ObjectCard
-            key={item.id}
             item={item}
             busy={isCreating}
             onSelect={() => pick(item)}
           />
-        ))}
-      </View>
+        )}
+      />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   search: {
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
@@ -164,6 +177,7 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: spacing.md,
+    flexGrow: 1,
   },
   card: {
     borderWidth: StyleSheet.hairlineWidth,

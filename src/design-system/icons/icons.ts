@@ -36,6 +36,7 @@ export const icons = {
   soften: 'water-outline',
   trash: 'trash-outline',
   reset: 'scan-outline',
+  refresh: 'refresh-outline',
   qr: 'qr-code-outline',
   desktop: 'laptop-outline',
   offline: 'cloud-offline-outline',

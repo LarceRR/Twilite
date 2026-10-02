@@ -22,7 +22,7 @@ function style(
 
 export const typography = {
   display: style(34, 40, 'semiBold', -0.6),
-  screenTitle: style(28, 34, 'semiBold', -0.4),
+  screenTitle: style(22, 28, 'semiBold', -0.3),
   sectionTitle: style(20, 26, 'semiBold', -0.2),
   body: style(16, 22, 'regular', 0),
   bodyStrong: style(16, 22, 'medium', 0),

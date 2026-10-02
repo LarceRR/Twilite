@@ -4,46 +4,98 @@ import { useMemo } from 'react';
 import { useUseCases } from '@/app/providers/ContainerProvider';
 import { useSurfaceObjectsStore } from '@/domains/surface-objects/presentation/stores/surfaceObjectsStore';
 import type { PixelObjectMobileDto } from '@/shared/contracts/pixelObjects';
+import { parsePixelObjectMobileDto } from '@/shared/contracts/parsePixelObjectMobile';
 import { readPixelObjectId } from '@/shared/pixelObject/metadata';
 
+import { PIXEL_OBJECT_MOBILE_QUERY_KEY } from './fieldRefresh';
+
+type FetchTarget = {
+  readonly id: string;
+  readonly revision: number | null;
+};
+
+function resolveBindingId(object: {
+  readonly pixelObjectId?: string | null;
+  readonly metadata: Readonly<Record<string, unknown>>;
+}): string | null {
+  if (typeof object.pixelObjectId === 'string' && object.pixelObjectId.length > 0) {
+    return object.pixelObjectId;
+  }
+  return readPixelObjectId(object.metadata);
+}
+
+/**
+ * Prefer embedded mobile DTOs from snapshot/realtime; fetch `/mobile` only for legacy
+ * rows without embed (P4-S2). Query key includes revision.
+ */
 export function useFieldMobileAssets(): Readonly<Record<string, PixelObjectMobileDto | undefined>> {
   const { getPixelObjectMobile } = useUseCases();
   const order = useSurfaceObjectsStore((state) => state.order);
   const byId = useSurfaceObjectsStore((state) => state.byId);
 
-  const pixelObjectIds = useMemo(() => {
-    const ids = new Set<string>();
+  const embedded = useMemo(() => {
+    const map: Record<string, PixelObjectMobileDto> = {};
     for (const id of order) {
       const object = byId[id];
-      if (object === undefined) {
-        continue;
-      }
-      const pixelObjectId = readPixelObjectId(object.metadata);
-      if (pixelObjectId !== null) {
-        ids.add(pixelObjectId);
+      if (object === undefined) continue;
+      const pixelObjectId = resolveBindingId(object);
+      if (pixelObjectId === null) continue;
+      const raw = object.pixelObject;
+      if (raw == null) continue;
+      const parsed = parsePixelObjectMobileDto(raw);
+      if (parsed !== null) {
+        map[pixelObjectId] = parsed;
       }
     }
-    return [...ids];
+    return map;
   }, [byId, order]);
 
+  const fetchTargets = useMemo(() => {
+    const targets: FetchTarget[] = [];
+    const seen = new Set<string>();
+    for (const id of order) {
+      const object = byId[id];
+      if (object === undefined) continue;
+      const pixelObjectId = resolveBindingId(object);
+      if (pixelObjectId === null || embedded[pixelObjectId] !== undefined) continue;
+      if (seen.has(pixelObjectId)) continue;
+      seen.add(pixelObjectId);
+      targets.push({
+        id: pixelObjectId,
+        revision:
+          typeof object.pixelObject?.revision === 'number'
+            ? object.pixelObject.revision
+            : null,
+      });
+    }
+    return targets;
+  }, [byId, embedded, order]);
+
   const queries = useQueries({
-    queries: pixelObjectIds.map((id) => ({
-      queryKey: ['pixel-objects', 'mobile', id],
-      queryFn: () => getPixelObjectMobile(id),
-      staleTime: Number.POSITIVE_INFINITY,
+    queries: fetchTargets.map((target) => ({
+      queryKey: [...PIXEL_OBJECT_MOBILE_QUERY_KEY, target.id, target.revision ?? 0],
+      queryFn: async () => {
+        const raw = await getPixelObjectMobile(target.id);
+        const parsed = parsePixelObjectMobileDto(raw);
+        if (parsed === null) {
+          throw new Error('invalid_mobile_dto');
+        }
+        return parsed;
+      },
+      staleTime: 60_000,
       retry: 2,
     })),
   });
 
   return useMemo(() => {
-    const map: Record<string, PixelObjectMobileDto> = {};
-    for (let index = 0; index < pixelObjectIds.length; index += 1) {
-      const id = pixelObjectIds[index];
+    const map: Record<string, PixelObjectMobileDto> = { ...embedded };
+    for (let index = 0; index < fetchTargets.length; index += 1) {
+      const target = fetchTargets[index];
       const data = queries[index]?.data;
-      if (id !== undefined && data !== undefined) {
-        map[id] = data;
+      if (target !== undefined && data !== undefined) {
+        map[target.id] = data;
       }
     }
     return map;
-  }, [pixelObjectIds, queries]);
+  }, [embedded, fetchTargets, queries]);
 }

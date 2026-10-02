@@ -6,6 +6,7 @@ export type SettingsState = {
   themeMode: ThemeMode;
   reduceMotion: boolean;
   showPerformanceOverlay: boolean;
+  cameraControlEnabled: boolean;
   showHitbox: boolean;
   manualHitbox: boolean;
   hitboxWidthPx: number;
@@ -18,6 +19,7 @@ export type SettingsState = {
   setThemeMode: (v: ThemeMode) => void;
   setReduceMotion: (v: boolean) => void;
   setShowPerformanceOverlay: (v: boolean) => void;
+  setCameraControlEnabled: (v: boolean) => void;
   setShowHitbox: (v: boolean) => void;
   setManualHitbox: (v: boolean) => void;
   setHitboxWidthPx: (v: number) => void;
@@ -33,6 +35,7 @@ export type PersistedSettings = {
   readonly themeMode: ThemeMode;
   readonly reduceMotion: boolean;
   readonly showPerformanceOverlay: boolean;
+  readonly cameraControlEnabled?: boolean;
   readonly showHitbox: boolean;
   readonly manualHitbox?: boolean;
   readonly hitboxWidthPx?: number;
@@ -50,6 +53,7 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
   themeMode: 'system',
   reduceMotion: false,
   showPerformanceOverlay: false,
+  cameraControlEnabled: false,
   showHitbox: false,
   manualHitbox: false,
   hitboxWidthPx: 84,
@@ -65,6 +69,7 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
   },
   setReduceMotion: (reduceMotion) => set({ reduceMotion }),
   setShowPerformanceOverlay: (showPerformanceOverlay) => set({ showPerformanceOverlay }),
+  setCameraControlEnabled: (cameraControlEnabled) => set({ cameraControlEnabled }),
   setShowHitbox: (showHitbox) => set({ showHitbox }),
   setManualHitbox: (manualHitbox) => set({ manualHitbox }),
   setHitboxWidthPx: (v) => set({ hitboxWidthPx: Math.max(8, v) }),
@@ -83,6 +88,8 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
     if (v.reduceMotion !== undefined) next.reduceMotion = v.reduceMotion;
     if (v.showPerformanceOverlay !== undefined)
       next.showPerformanceOverlay = v.showPerformanceOverlay;
+    if (v.cameraControlEnabled !== undefined)
+      next.cameraControlEnabled = v.cameraControlEnabled;
     if (v.showHitbox !== undefined) next.showHitbox = v.showHitbox;
     if (v.manualHitbox !== undefined) next.manualHitbox = v.manualHitbox;
     if (v.hitboxWidthPx !== undefined) next.hitboxWidthPx = Math.max(8, v.hitboxWidthPx);
@@ -100,6 +107,7 @@ export function persistedSettings(s: SettingsState): PersistedSettings {
     themeMode: s.themeMode,
     reduceMotion: s.reduceMotion,
     showPerformanceOverlay: s.showPerformanceOverlay,
+    cameraControlEnabled: s.cameraControlEnabled,
     showHitbox: s.showHitbox,
     manualHitbox: s.manualHitbox,
     hitboxWidthPx: s.hitboxWidthPx,

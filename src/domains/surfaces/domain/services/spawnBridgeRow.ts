@@ -3,7 +3,7 @@ import {
   cellKey,
 } from '@/domains/surface-objects/domain/value-objects/Cell';
 
-export const BRIDGE_COLUMN_COUNT = 5;
+export const BRIDGE_COLUMN_COUNT = 14;
 export const BRIDGE_CENTER_COLUMN = 2;
 
 type RandomSource = () => number;

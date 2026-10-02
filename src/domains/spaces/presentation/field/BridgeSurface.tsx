@@ -1,82 +1,133 @@
-import { memo, type ReactElement, useMemo } from 'react';
-import { Color, DoubleSide, Euler, InstancedMesh, Matrix4, MeshStandardMaterial, PlaneGeometry } from 'three';
+import { memo, type ReactElement, useEffect, useMemo } from 'react';
+import {
+  BufferAttribute,
+  BufferGeometry,
+  ClampToEdgeWrapping,
+  DataTexture,
+  DoubleSide,
+  Mesh,
+  MeshBasicMaterial,
+  NearestFilter,
+  RGBAFormat,
+  SRGBColorSpace,
+  UnsignedByteType,
+} from 'three';
 
 import { useThemeColors } from '@/design-system/colors/colors';
 
 import { BRIDGE_COLUMN_COUNT } from '@/domains/surfaces/domain/services/spawnBridgeRow';
 
-import { bridgeCellToWorld, FIELD_CELL_SIZE, FIELD_PLATFORM_Y } from './fieldLayout';
+import { buildTaperedBridgeDeck } from './bridgeDeckGeometry';
+import {
+  selectSurfaceBaseCompression,
+  selectSurfaceEndCompression,
+  useFieldCameraStore,
+} from './fieldCameraStore';
+import { FIELD_PLATFORM_Y, visibleBridgeRows } from './fieldLayout';
+import { ViewportCellHighlight } from './ViewportCellHighlight';
 
 type BridgeSurfaceProps = {
   readonly maxRow: number;
 };
 
-const Y_UP = new Euler(-Math.PI / 2, 0, 0);
+function hexToRgb(hex: string): readonly [number, number, number] {
+  const normalized = hex.replace('#', '');
+  const full =
+    normalized.length === 3
+      ? normalized
+          .split('')
+          .map((c) => `${c}${c}`)
+          .join('')
+      : normalized;
+  const value = Number.parseInt(full.slice(0, 6), 16);
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+}
+
+function createCheckerTexture(evenHex: string, oddHex: string, rows: number): DataTexture {
+  const width = BRIDGE_COLUMN_COUNT;
+  const height = Math.max(1, rows);
+  const data = new Uint8Array(width * height * 4);
+  const even = hexToRgb(evenHex);
+  const odd = hexToRgb(oddHex);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const tone = (x + y) % 2 === 0 ? even : odd;
+      const i = (y * width + x) * 4;
+      data[i] = tone[0];
+      data[i + 1] = tone[1];
+      data[i + 2] = tone[2];
+      data[i + 3] = 210;
+    }
+  }
+  const texture = new DataTexture(data, width, height, RGBAFormat, UnsignedByteType);
+  texture.magFilter = NearestFilter;
+  texture.minFilter = NearestFilter;
+  texture.wrapS = ClampToEdgeWrapping;
+  texture.wrapT = ClampToEdgeWrapping;
+  texture.generateMipmaps = false;
+  texture.needsUpdate = true;
+  texture.colorSpace = SRGBColorSpace;
+  return texture;
+}
 
 /**
- * Checkerboard bridge as two InstancedMeshes (even/odd cells) — one draw call each.
+ * Tapered deck: one quad per cell so checker edges stay on the taper
+ * instead of kinking into arrows along a row-wide triangle diagonal.
  */
 function BridgeSurfaceComponent({ maxRow }: BridgeSurfaceProps): ReactElement {
   const theme = useThemeColors();
-  const visibleRows = Math.max(28, maxRow + 14);
-  const size = FIELD_CELL_SIZE * 0.94;
+  const baseCompression = useFieldCameraStore(selectSurfaceBaseCompression);
+  const endCompression = useFieldCameraStore(selectSurfaceEndCompression);
+  const visibleRows = visibleBridgeRows(maxRow);
 
-  const { evenMesh, oddMesh } = useMemo(() => {
-    const geometry = new PlaneGeometry(size, size);
-    const evenMat = new MeshStandardMaterial({
-      color: new Color(theme.surfaceRaised),
+  const mesh = useMemo(() => {
+    const deck = buildTaperedBridgeDeck(baseCompression, endCompression, visibleRows);
+    const geometry = new BufferGeometry();
+    geometry.setAttribute('position', new BufferAttribute(deck.positions, 3));
+    geometry.setAttribute('uv', new BufferAttribute(deck.uvs, 2));
+    geometry.setIndex(new BufferAttribute(deck.indices, 1));
+    geometry.computeVertexNormals();
+
+    const map = createCheckerTexture(theme.surfaceRaised, theme.surfaceSunken, deck.rowCount);
+    const material = new MeshBasicMaterial({
+      map,
       transparent: true,
-      opacity: 0.82,
+      depthWrite: false,
       side: DoubleSide,
-    });
-    const oddMat = new MeshStandardMaterial({
-      color: new Color(theme.surfaceSunken),
-      transparent: true,
-      opacity: 0.82,
-      side: DoubleSide,
+      toneMapped: false,
+      fog: false,
     });
 
-    let evenCount = 0;
-    let oddCount = 0;
-    for (let row = 0; row <= visibleRows; row += 1) {
-      for (let col = 0; col < BRIDGE_COLUMN_COUNT; col += 1) {
-        if ((row + col) % 2 === 0) {
-          evenCount += 1;
-        } else {
-          oddCount += 1;
-        }
-      }
-    }
+    const surface = new Mesh(geometry, material);
+    surface.frustumCulled = false;
+    surface.renderOrder = 0;
+    return surface;
+  }, [baseCompression, endCompression, theme.surfaceRaised, theme.surfaceSunken, visibleRows]);
 
-    const even = new InstancedMesh(geometry, evenMat, evenCount);
-    const odd = new InstancedMesh(geometry, oddMat, oddCount);
-    const matrix = new Matrix4();
-    let evenIndex = 0;
-    let oddIndex = 0;
-
-    for (let row = 0; row <= visibleRows; row += 1) {
-      for (let col = 0; col < BRIDGE_COLUMN_COUNT; col += 1) {
-        const world = bridgeCellToWorld({ x: col, y: row });
-        matrix.makeRotationFromEuler(Y_UP);
-        matrix.setPosition(world.x, -0.012, world.z);
-        if ((row + col) % 2 === 0) {
-          even.setMatrixAt(evenIndex, matrix);
-          evenIndex += 1;
-        } else {
-          odd.setMatrixAt(oddIndex, matrix);
-          oddIndex += 1;
+  useEffect(() => {
+    return () => {
+      mesh.geometry.dispose();
+      const material = mesh.material;
+      if (Array.isArray(material)) {
+        for (const entry of material) {
+          entry.map?.dispose();
+          entry.dispose();
         }
+      } else {
+        material.map?.dispose();
+        material.dispose();
       }
-    }
-    even.instanceMatrix.needsUpdate = true;
-    odd.instanceMatrix.needsUpdate = true;
-    return { evenMesh: even, oddMesh: odd };
-  }, [size, theme.surfaceRaised, theme.surfaceSunken, visibleRows]);
+    };
+  }, [mesh]);
 
   return (
     <group position={[0, FIELD_PLATFORM_Y, 0]}>
-      <primitive object={evenMesh} />
-      <primitive object={oddMesh} />
+      <primitive object={mesh} />
+      <ViewportCellHighlight
+        rowCount={visibleRows}
+        baseCompression={baseCompression}
+        endCompression={endCompression}
+      />
     </group>
   );
 }

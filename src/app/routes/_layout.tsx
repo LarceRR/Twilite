@@ -1,16 +1,18 @@
-import { Stack } from 'expo-router';
+import { Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useBootstrap } from '@/app/bootstrap/useBootstrap';
 import { AppStatus } from '@/app/components/AppStatus';
 import { ToastHost } from '@/app/components/ToastHost';
+import { createNavigationTheme } from '@/app/navigation/createNavigationTheme';
 import { useAuthRedirect } from '@/app/navigation/useAuthRedirect';
 import { AppProviders } from '@/app/providers/AppProviders';
 import { useHydrateAuthProfile } from '@/domains/auth/presentation/hooks/useHydrateAuthProfile';
 import { useSessionIntegrity } from '@/domains/auth/presentation/hooks/useSessionIntegrity';
 import {
   useColorSchemeToken,
+  useIsDarkTheme,
   useSystemColorSchemeSync,
   useThemeColors,
 } from '@/design-system/colors/colors';
@@ -73,13 +75,21 @@ function RootNavigator(): ReactElement {
     </>
   );
 }
+function NavigationTheme({ children }: { readonly children: ReactNode }): ReactElement {
+  const theme = useThemeColors();
+  const dark = useIsDarkTheme();
+  return <ThemeProvider value={createNavigationTheme(theme, dark)}>{children}</ThemeProvider>;
+}
+
 function RootLayout(): ReactElement {
   useSystemColorSchemeSync();
   const scheme = useColorSchemeToken();
   return (
     <AppProviders>
-      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-      <RootNavigator />
+      <NavigationTheme>
+        <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+        <RootNavigator />
+      </NavigationTheme>
     </AppProviders>
   );
 }

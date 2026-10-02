@@ -6,8 +6,10 @@ export function catalogItemToMobileDto(item: PixelObjectDto): PixelObjectMobileD
   return {
     id: item.id,
     title: item.title,
+    revision: item.revision,
     format: manifest.format,
     sheetUrl: item.sheetUrl,
+    previewUrl: item.previewUrl ?? null,
     canvas: manifest.canvas,
     sheet: {
       frameWidth: manifest.sheet.frameWidth,
