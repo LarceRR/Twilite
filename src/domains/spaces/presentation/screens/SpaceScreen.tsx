@@ -1,9 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import type { ReactElement } from 'react';
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, LayoutChangeEvent, StyleSheet, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, type LayoutChangeEvent, StyleSheet, View } from 'react-native';
 
-import { useThemeColors, useSceneSkyColors } from '@/design-system/colors/colors';
+import { useSceneSkyColors, useThemeColors } from '@/design-system/colors/colors';
 import { Text } from '@/design-system/components/Text/Text';
 import { spacing } from '@/design-system/spacing/spacing';
 import { FieldCanvas } from '@/domains/spaces/presentation/field/FieldCanvas';
@@ -19,16 +19,23 @@ import { useSurface } from '@/domains/surfaces/presentation/hooks/useSurface';
 import { useRealtimeSync } from '@/infrastructure/realtime/useRealtimeSync';
 import { toAppError } from '@/shared/errors';
 
+type GradientColors = readonly [string, string, ...string[]];
+
 /** Space tab: 3D bridge + one GL overlay for all crisp pixel sprites. */
 export function SpaceScreen(): ReactElement {
   const theme = useThemeColors();
   const skyStops = useSceneSkyColors();
-  const colors =
-    skyStops.length >= 2 ? [...skyStops] : [skyStops[0] ?? '#87CEEB', skyStops[0] ?? '#E8F4FC'];
+  const colors = useMemo<GradientColors>(() => {
+    const [first, second, ...rest] = skyStops;
+    if (first !== undefined && second !== undefined) {
+      return [first, second, ...rest];
+    }
+    return [first ?? '#87CEEB', first ?? '#E8F4FC'];
+  }, [skyStops]);
 
   const { activeSpace, isLoading: spacesLoading } = useSpaces();
   const spaceId = activeSpace?.id ?? null;
-  const { isLoading: surfaceLoading, error } = useSurface(spaceId);
+  const { surface, isLoading: surfaceLoading, error } = useSurface(spaceId);
 
   useRealtimeSync(spaceId);
 
@@ -59,7 +66,9 @@ export function SpaceScreen(): ReactElement {
     );
   }
 
-  if (error != null) {
+  // A failed background refetch keeps the last good snapshot on screen; only a
+  // first load without data replaces the field with the error.
+  if (error != null && surface === null) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.surface }]}>
         <Text variant="body">{toAppError(error).message}</Text>
@@ -69,7 +78,7 @@ export function SpaceScreen(): ReactElement {
 
   return (
     <View style={styles.root} onLayout={onFieldLayout}>
-      <LinearGradient colors={colors as [string, string, ...string[]]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={colors} style={StyleSheet.absoluteFill} />
       <FieldCanvas maxRow={maxRow} />
       <FieldSpriteGlLayer viewport={fieldViewport} sprites={sprites} />
       <FieldFpsOverlay />

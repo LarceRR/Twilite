@@ -1,10 +1,19 @@
-import { memo, type ReactElement, useMemo } from 'react';
-import { Color, DoubleSide, Euler, InstancedMesh, Matrix4, MeshStandardMaterial, PlaneGeometry } from 'three';
+import { useThree } from '@react-three/fiber/native';
+import { memo, type ReactElement, useEffect, useLayoutEffect, useMemo } from 'react';
+import {
+  DoubleSide,
+  Euler,
+  InstancedMesh,
+  type Material,
+  Matrix4,
+  MeshStandardMaterial,
+  PlaneGeometry,
+} from 'three';
 
 import { useThemeColors } from '@/design-system/colors/colors';
-
 import { BRIDGE_COLUMN_COUNT } from '@/domains/surfaces/domain/services/spawnBridgeRow';
 
+import { bridgeInstanceCounts, bridgeRowCapacity, visibleBridgeRows } from './bridgeRows';
 import { bridgeCellToWorld, FIELD_CELL_SIZE, FIELD_PLATFORM_Y } from './fieldLayout';
 
 type BridgeSurfaceProps = {
@@ -12,71 +21,107 @@ type BridgeSurfaceProps = {
 };
 
 const Y_UP = new Euler(-Math.PI / 2, 0, 0);
+const TILE_SIZE = FIELD_CELL_SIZE * 0.94;
+
+function createTileMaterial(): MeshStandardMaterial {
+  return new MeshStandardMaterial({ transparent: true, opacity: 0.82, side: DoubleSide });
+}
+
+function buildBridgeMeshes(
+  lastRow: number,
+  geometry: PlaneGeometry,
+  evenMaterial: Material,
+  oddMaterial: Material,
+): { even: InstancedMesh; odd: InstancedMesh } {
+  const counts = bridgeInstanceCounts(lastRow);
+  const even = new InstancedMesh(geometry, evenMaterial, counts.even);
+  const odd = new InstancedMesh(geometry, oddMaterial, counts.odd);
+  const matrix = new Matrix4();
+  let evenIndex = 0;
+  let oddIndex = 0;
+
+  // Row-major fill: the first N instances are always rows 0..k, so `count`
+  // alone decides how much of the bridge is drawn.
+  for (let row = 0; row <= lastRow; row += 1) {
+    for (let col = 0; col < BRIDGE_COLUMN_COUNT; col += 1) {
+      const world = bridgeCellToWorld({ x: col, y: row });
+      matrix.makeRotationFromEuler(Y_UP);
+      matrix.setPosition(world.x, -0.012, world.z);
+      if ((row + col) % 2 === 0) {
+        even.setMatrixAt(evenIndex, matrix);
+        evenIndex += 1;
+      } else {
+        odd.setMatrixAt(oddIndex, matrix);
+        oddIndex += 1;
+      }
+    }
+  }
+
+  even.instanceMatrix.needsUpdate = true;
+  odd.instanceMatrix.needsUpdate = true;
+  // The bridge always spans the view; a cached bounding sphere would also go
+  // stale when `count` grows.
+  even.frustumCulled = false;
+  odd.frustumCulled = false;
+
+  return { even, odd };
+}
 
 /**
- * Checkerboard bridge as two InstancedMeshes (even/odd cells) — one draw call each.
+ * Checkerboard bridge as two InstancedMeshes (even/odd cells), one draw call each.
+ *
+ * Geometry and materials live for the whole mount; theme changes recolour in
+ * place. Instance buffers grow in 32-row chunks and are disposed when replaced,
+ * instead of a full rebuild (and a GPU leak) for every new row or theme switch.
  */
 function BridgeSurfaceComponent({ maxRow }: BridgeSurfaceProps): ReactElement {
   const theme = useThemeColors();
-  const visibleRows = Math.max(28, maxRow + 14);
-  const size = FIELD_CELL_SIZE * 0.94;
+  const invalidate = useThree((state) => state.invalidate);
+  const lastRow = visibleBridgeRows(maxRow);
+  const capacity = bridgeRowCapacity(lastRow);
 
-  const { evenMesh, oddMesh } = useMemo(() => {
-    const geometry = new PlaneGeometry(size, size);
-    const evenMat = new MeshStandardMaterial({
-      color: new Color(theme.surfaceRaised),
-      transparent: true,
-      opacity: 0.82,
-      side: DoubleSide,
-    });
-    const oddMat = new MeshStandardMaterial({
-      color: new Color(theme.surfaceSunken),
-      transparent: true,
-      opacity: 0.82,
-      side: DoubleSide,
-    });
+  const geometry = useMemo(() => new PlaneGeometry(TILE_SIZE, TILE_SIZE), []);
+  const materials = useMemo(() => ({ even: createTileMaterial(), odd: createTileMaterial() }), []);
 
-    let evenCount = 0;
-    let oddCount = 0;
-    for (let row = 0; row <= visibleRows; row += 1) {
-      for (let col = 0; col < BRIDGE_COLUMN_COUNT; col += 1) {
-        if ((row + col) % 2 === 0) {
-          evenCount += 1;
-        } else {
-          oddCount += 1;
-        }
-      }
-    }
+  useEffect(
+    () => () => {
+      geometry.dispose();
+      materials.even.dispose();
+      materials.odd.dispose();
+    },
+    [geometry, materials],
+  );
 
-    const even = new InstancedMesh(geometry, evenMat, evenCount);
-    const odd = new InstancedMesh(geometry, oddMat, oddCount);
-    const matrix = new Matrix4();
-    let evenIndex = 0;
-    let oddIndex = 0;
+  useLayoutEffect(() => {
+    materials.even.color.set(theme.surfaceRaised);
+    materials.odd.color.set(theme.surfaceSunken);
+    invalidate();
+  }, [invalidate, materials, theme.surfaceRaised, theme.surfaceSunken]);
 
-    for (let row = 0; row <= visibleRows; row += 1) {
-      for (let col = 0; col < BRIDGE_COLUMN_COUNT; col += 1) {
-        const world = bridgeCellToWorld({ x: col, y: row });
-        matrix.makeRotationFromEuler(Y_UP);
-        matrix.setPosition(world.x, -0.012, world.z);
-        if ((row + col) % 2 === 0) {
-          even.setMatrixAt(evenIndex, matrix);
-          evenIndex += 1;
-        } else {
-          odd.setMatrixAt(oddIndex, matrix);
-          oddIndex += 1;
-        }
-      }
-    }
-    even.instanceMatrix.needsUpdate = true;
-    odd.instanceMatrix.needsUpdate = true;
-    return { evenMesh: even, oddMesh: odd };
-  }, [size, theme.surfaceRaised, theme.surfaceSunken, visibleRows]);
+  const meshes = useMemo(
+    () => buildBridgeMeshes(capacity, geometry, materials.even, materials.odd),
+    [capacity, geometry, materials],
+  );
+
+  useEffect(
+    () => () => {
+      meshes.even.dispose();
+      meshes.odd.dispose();
+    },
+    [meshes],
+  );
+
+  useLayoutEffect(() => {
+    const counts = bridgeInstanceCounts(lastRow);
+    meshes.even.count = counts.even;
+    meshes.odd.count = counts.odd;
+    invalidate();
+  }, [invalidate, lastRow, meshes]);
 
   return (
     <group position={[0, FIELD_PLATFORM_Y, 0]}>
-      <primitive object={evenMesh} />
-      <primitive object={oddMesh} />
+      <primitive object={meshes.even} />
+      <primitive object={meshes.odd} />
     </group>
   );
 }
