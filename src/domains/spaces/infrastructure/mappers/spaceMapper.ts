@@ -31,11 +31,17 @@ export function toSpace(dto: SpaceDto): Space {
 }
 
 export function toSpaceDto(entity: Space): SpaceDto {
+  // The owner is whoever holds the Owner role; member order is not a contract.
+  const ownerId =
+    entity.members.find((member) => member.role === 'Owner')?.userId ??
+    entity.memberIds[0] ??
+    entity.id;
+
   return {
     id: entity.id,
     type: entity.type,
     title: entity.title,
-    ownerId: entity.memberIds[0] ?? entity.id,
+    ownerId,
     members: entity.members.map((member) => ({
       userId: member.userId,
       role: member.role,

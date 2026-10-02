@@ -56,6 +56,11 @@ export function useRealtimeSync(spaceId: SpaceId | null): void {
             realtimeStore.setPresence(message.userIds);
             break;
           case 'subscribed':
+            // Events emitted between the HTTP snapshot and this (re)subscription
+            // were never delivered; one resync closes that gap, including after
+            // a reconnect from background.
+            void queryClient.invalidateQueries({ queryKey: queryKeys.surface(spaceId) });
+            break;
           case 'pong':
           case 'error':
             break;
