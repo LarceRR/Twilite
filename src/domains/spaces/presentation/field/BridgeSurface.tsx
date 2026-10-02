@@ -1,127 +1,133 @@
-import { useThree } from '@react-three/fiber/native';
-import { memo, type ReactElement, useEffect, useLayoutEffect, useMemo } from 'react';
+import { memo, type ReactElement, useEffect, useMemo } from 'react';
 import {
+  BufferAttribute,
+  BufferGeometry,
+  ClampToEdgeWrapping,
+  DataTexture,
   DoubleSide,
-  Euler,
-  InstancedMesh,
-  type Material,
-  Matrix4,
-  MeshStandardMaterial,
-  PlaneGeometry,
+  Mesh,
+  MeshBasicMaterial,
+  NearestFilter,
+  RGBAFormat,
+  SRGBColorSpace,
+  UnsignedByteType,
 } from 'three';
 
 import { useThemeColors } from '@/design-system/colors/colors';
+
 import { BRIDGE_COLUMN_COUNT } from '@/domains/surfaces/domain/services/spawnBridgeRow';
 
-import { bridgeInstanceCounts, bridgeRowCapacity, visibleBridgeRows } from './bridgeRows';
-import { bridgeCellToWorld, FIELD_CELL_SIZE, FIELD_PLATFORM_Y } from './fieldLayout';
+import { buildTaperedBridgeDeck } from './bridgeDeckGeometry';
+import {
+  selectSurfaceBaseCompression,
+  selectSurfaceEndCompression,
+  useFieldCameraStore,
+} from './fieldCameraStore';
+import { FIELD_PLATFORM_Y, visibleBridgeRows } from './fieldLayout';
+import { ViewportCellHighlight } from './ViewportCellHighlight';
 
 type BridgeSurfaceProps = {
   readonly maxRow: number;
 };
 
-const Y_UP = new Euler(-Math.PI / 2, 0, 0);
-const TILE_SIZE = FIELD_CELL_SIZE * 0.94;
-
-function createTileMaterial(): MeshStandardMaterial {
-  return new MeshStandardMaterial({ transparent: true, opacity: 0.82, side: DoubleSide });
+function hexToRgb(hex: string): readonly [number, number, number] {
+  const normalized = hex.replace('#', '');
+  const full =
+    normalized.length === 3
+      ? normalized
+          .split('')
+          .map((c) => `${c}${c}`)
+          .join('')
+      : normalized;
+  const value = Number.parseInt(full.slice(0, 6), 16);
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
 }
 
-function buildBridgeMeshes(
-  lastRow: number,
-  geometry: PlaneGeometry,
-  evenMaterial: Material,
-  oddMaterial: Material,
-): { even: InstancedMesh; odd: InstancedMesh } {
-  const counts = bridgeInstanceCounts(lastRow);
-  const even = new InstancedMesh(geometry, evenMaterial, counts.even);
-  const odd = new InstancedMesh(geometry, oddMaterial, counts.odd);
-  const matrix = new Matrix4();
-  let evenIndex = 0;
-  let oddIndex = 0;
-
-  // Row-major fill: the first N instances are always rows 0..k, so `count`
-  // alone decides how much of the bridge is drawn.
-  for (let row = 0; row <= lastRow; row += 1) {
-    for (let col = 0; col < BRIDGE_COLUMN_COUNT; col += 1) {
-      const world = bridgeCellToWorld({ x: col, y: row });
-      matrix.makeRotationFromEuler(Y_UP);
-      matrix.setPosition(world.x, -0.012, world.z);
-      if ((row + col) % 2 === 0) {
-        even.setMatrixAt(evenIndex, matrix);
-        evenIndex += 1;
-      } else {
-        odd.setMatrixAt(oddIndex, matrix);
-        oddIndex += 1;
-      }
+function createCheckerTexture(evenHex: string, oddHex: string, rows: number): DataTexture {
+  const width = BRIDGE_COLUMN_COUNT;
+  const height = Math.max(1, rows);
+  const data = new Uint8Array(width * height * 4);
+  const even = hexToRgb(evenHex);
+  const odd = hexToRgb(oddHex);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const tone = (x + y) % 2 === 0 ? even : odd;
+      const i = (y * width + x) * 4;
+      data[i] = tone[0];
+      data[i + 1] = tone[1];
+      data[i + 2] = tone[2];
+      data[i + 3] = 210;
     }
   }
-
-  even.instanceMatrix.needsUpdate = true;
-  odd.instanceMatrix.needsUpdate = true;
-  // The bridge always spans the view; a cached bounding sphere would also go
-  // stale when `count` grows.
-  even.frustumCulled = false;
-  odd.frustumCulled = false;
-
-  return { even, odd };
+  const texture = new DataTexture(data, width, height, RGBAFormat, UnsignedByteType);
+  texture.magFilter = NearestFilter;
+  texture.minFilter = NearestFilter;
+  texture.wrapS = ClampToEdgeWrapping;
+  texture.wrapT = ClampToEdgeWrapping;
+  texture.generateMipmaps = false;
+  texture.needsUpdate = true;
+  texture.colorSpace = SRGBColorSpace;
+  return texture;
 }
 
 /**
- * Checkerboard bridge as two InstancedMeshes (even/odd cells), one draw call each.
- *
- * Geometry and materials live for the whole mount; theme changes recolour in
- * place. Instance buffers grow in 32-row chunks and are disposed when replaced,
- * instead of a full rebuild (and a GPU leak) for every new row or theme switch.
+ * Tapered deck: one quad per cell so checker edges stay on the taper
+ * instead of kinking into arrows along a row-wide triangle diagonal.
  */
 function BridgeSurfaceComponent({ maxRow }: BridgeSurfaceProps): ReactElement {
   const theme = useThemeColors();
-  const invalidate = useThree((state) => state.invalidate);
-  const lastRow = visibleBridgeRows(maxRow);
-  const capacity = bridgeRowCapacity(lastRow);
+  const baseCompression = useFieldCameraStore(selectSurfaceBaseCompression);
+  const endCompression = useFieldCameraStore(selectSurfaceEndCompression);
+  const visibleRows = visibleBridgeRows(maxRow);
 
-  const geometry = useMemo(() => new PlaneGeometry(TILE_SIZE, TILE_SIZE), []);
-  const materials = useMemo(() => ({ even: createTileMaterial(), odd: createTileMaterial() }), []);
+  const mesh = useMemo(() => {
+    const deck = buildTaperedBridgeDeck(baseCompression, endCompression, visibleRows);
+    const geometry = new BufferGeometry();
+    geometry.setAttribute('position', new BufferAttribute(deck.positions, 3));
+    geometry.setAttribute('uv', new BufferAttribute(deck.uvs, 2));
+    geometry.setIndex(new BufferAttribute(deck.indices, 1));
+    geometry.computeVertexNormals();
 
-  useEffect(
-    () => () => {
-      geometry.dispose();
-      materials.even.dispose();
-      materials.odd.dispose();
-    },
-    [geometry, materials],
-  );
+    const map = createCheckerTexture(theme.surfaceRaised, theme.surfaceSunken, deck.rowCount);
+    const material = new MeshBasicMaterial({
+      map,
+      transparent: true,
+      depthWrite: false,
+      side: DoubleSide,
+      toneMapped: false,
+      fog: false,
+    });
 
-  useLayoutEffect(() => {
-    materials.even.color.set(theme.surfaceRaised);
-    materials.odd.color.set(theme.surfaceSunken);
-    invalidate();
-  }, [invalidate, materials, theme.surfaceRaised, theme.surfaceSunken]);
+    const surface = new Mesh(geometry, material);
+    surface.frustumCulled = false;
+    surface.renderOrder = 0;
+    return surface;
+  }, [baseCompression, endCompression, theme.surfaceRaised, theme.surfaceSunken, visibleRows]);
 
-  const meshes = useMemo(
-    () => buildBridgeMeshes(capacity, geometry, materials.even, materials.odd),
-    [capacity, geometry, materials],
-  );
-
-  useEffect(
-    () => () => {
-      meshes.even.dispose();
-      meshes.odd.dispose();
-    },
-    [meshes],
-  );
-
-  useLayoutEffect(() => {
-    const counts = bridgeInstanceCounts(lastRow);
-    meshes.even.count = counts.even;
-    meshes.odd.count = counts.odd;
-    invalidate();
-  }, [invalidate, lastRow, meshes]);
+  useEffect(() => {
+    return () => {
+      mesh.geometry.dispose();
+      const material = mesh.material;
+      if (Array.isArray(material)) {
+        for (const entry of material) {
+          entry.map?.dispose();
+          entry.dispose();
+        }
+      } else {
+        material.map?.dispose();
+        material.dispose();
+      }
+    };
+  }, [mesh]);
 
   return (
     <group position={[0, FIELD_PLATFORM_Y, 0]}>
-      <primitive object={meshes.even} />
-      <primitive object={meshes.odd} />
+      <primitive object={mesh} />
+      <ViewportCellHighlight
+        rowCount={visibleRows}
+        baseCompression={baseCompression}
+        endCompression={endCompression}
+      />
     </group>
   );
 }

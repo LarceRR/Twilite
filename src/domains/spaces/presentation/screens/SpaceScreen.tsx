@@ -1,18 +1,19 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import type { ReactElement } from 'react';
-import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, type LayoutChangeEvent, StyleSheet, View } from 'react-native';
+import { useMemo } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { useSceneSkyColors, useThemeColors } from '@/design-system/colors/colors';
 import { Text } from '@/design-system/components/Text/Text';
 import { spacing } from '@/design-system/spacing/spacing';
+import { FieldCameraControls } from '@/domains/spaces/presentation/field/FieldCameraControls';
 import { FieldCanvas } from '@/domains/spaces/presentation/field/FieldCanvas';
 import { FieldFpsOverlay } from '@/domains/spaces/presentation/field/FieldFpsOverlay';
 import {
   useFieldMaxRow,
   useFieldSpritePlacements,
 } from '@/domains/spaces/presentation/field/FieldObjectLayer';
-import { FieldSpriteGlLayer } from '@/domains/spaces/presentation/field/FieldSpriteGlLayer';
+import { FieldRefreshButton } from '@/domains/spaces/presentation/field/FieldRefreshButton';
 import { useFieldMobileAssets } from '@/domains/spaces/presentation/field/useFieldMobileAssets';
 import { useSpaces } from '@/domains/spaces/presentation/hooks/useSpaces';
 import { useSurface } from '@/domains/surfaces/presentation/hooks/useSurface';
@@ -21,7 +22,7 @@ import { toAppError } from '@/shared/errors';
 
 type GradientColors = readonly [string, string, ...string[]];
 
-/** Space tab: 3D bridge + one GL overlay for all crisp pixel sprites. */
+/** Space tab: one R3F canvas — bridge + cell-bound sprite meshes. */
 export function SpaceScreen(): ReactElement {
   const theme = useThemeColors();
   const skyStops = useSceneSkyColors();
@@ -42,13 +43,6 @@ export function SpaceScreen(): ReactElement {
   const mobileById = useFieldMobileAssets();
   const sprites = useFieldSpritePlacements(mobileById);
   const maxRow = useFieldMaxRow();
-  const [fieldViewport, setFieldViewport] = useState({ width: 0, height: 0 });
-  const onFieldLayout = useCallback((event: LayoutChangeEvent) => {
-    const { width, height } = event.nativeEvent.layout;
-    setFieldViewport((prev) =>
-      prev.width === width && prev.height === height ? prev : { width, height },
-    );
-  }, []);
 
   if (spacesLoading || (spaceId !== null && surfaceLoading)) {
     return (
@@ -77,11 +71,12 @@ export function SpaceScreen(): ReactElement {
   }
 
   return (
-    <View style={styles.root} onLayout={onFieldLayout}>
+    <View style={styles.root}>
       <LinearGradient colors={colors} style={StyleSheet.absoluteFill} />
-      <FieldCanvas maxRow={maxRow} />
-      <FieldSpriteGlLayer viewport={fieldViewport} sprites={sprites} />
+      <FieldCanvas maxRow={maxRow} sprites={sprites} />
       <FieldFpsOverlay />
+      <FieldRefreshButton spaceId={spaceId} />
+      <FieldCameraControls />
     </View>
   );
 }

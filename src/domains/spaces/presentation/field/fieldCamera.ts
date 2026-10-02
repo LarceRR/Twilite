@@ -1,23 +1,13 @@
 import type { Cell } from '@/domains/surface-objects/domain/value-objects/Cell';
 import { PerspectiveCamera, Vector3 } from 'three';
 
+import { BLENDER_FILM_GAUGE_MM } from './fieldCameraOptics';
+import { FIELD_CAMERA } from './fieldCameraDefaults';
+import { fovFromPose, lookAtFromPose } from './fieldCameraPose';
+import { useFieldCameraStore } from './fieldCameraStore';
 import { bridgeCellToWorld, FIELD_CELL_SIZE } from './fieldLayout';
 
-/** Must stay in sync with `FieldCanvas` camera. */
-export const FIELD_CAMERA = {
-  fov: 46,
-  near: 0.05,
-  far: 140,
-  position: { x: 0, y: 2.35, z: 6.4 },
-  lookAt: { x: 0, y: 0.6, z: -4 },
-} as const;
-
-/**
- * Fixed fog for the field. The field camera never moves, so fog must not follow
- * the orbit camera of another screen (it used to: fog shifted after visiting
- * SceneView). Values equal the old effective default (distance 10 × 0.55 / 1.85).
- */
-export const FIELD_FOG = { near: 5.5, far: 18.5 } as const;
+export { FIELD_CAMERA } from './fieldCameraDefaults';
 
 export type ViewportSize = {
   readonly width: number;
@@ -32,25 +22,25 @@ export type ProjectedCell = {
 };
 
 const scratch = new Vector3();
-const camera = new PerspectiveCamera(
-  FIELD_CAMERA.fov,
-  1,
-  FIELD_CAMERA.near,
-  FIELD_CAMERA.far,
-);
-camera.position.set(FIELD_CAMERA.position.x, FIELD_CAMERA.position.y, FIELD_CAMERA.position.z);
-camera.lookAt(FIELD_CAMERA.lookAt.x, FIELD_CAMERA.lookAt.y, FIELD_CAMERA.lookAt.z);
-camera.updateMatrixWorld(true);
-let syncedAspect = Number.NaN;
+const camera = new PerspectiveCamera();
 
-/** The camera is static: only the aspect can change, so only then recompute. */
 function syncCamera(viewport: ViewportSize): PerspectiveCamera {
+  const pose = useFieldCameraStore.getState().pose;
   const aspect = viewport.width / Math.max(viewport.height, 1);
-  if (aspect !== syncedAspect) {
-    camera.aspect = aspect;
-    camera.updateProjectionMatrix();
-    syncedAspect = aspect;
+  const lookAt = lookAtFromPose(pose);
+  camera.filmGauge = BLENDER_FILM_GAUGE_MM;
+  camera.fov = fovFromPose(pose, aspect);
+  camera.aspect = aspect;
+  camera.near = FIELD_CAMERA.near;
+  camera.far = FIELD_CAMERA.far;
+  camera.position.set(pose.position.x, pose.position.y, pose.position.z);
+  camera.up.set(0, 1, 0);
+  camera.lookAt(lookAt.x, lookAt.y, lookAt.z);
+  if (Math.abs(pose.roll) > 1e-6) {
+    camera.rotateZ(pose.roll);
   }
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld(true);
   return camera;
 }
 
@@ -73,7 +63,10 @@ export function projectBridgeCell(cell: Cell, viewport: ViewportSize): Projected
   const foot = projectWorld({ x: center.x, y: 0.02, z: center.z }, viewport);
 
   const halfSpan = FIELD_CELL_SIZE * 0.5;
-  const half = projectWorld({ x: center.x + halfSpan, y: 0.02, z: center.z }, viewport);
+  const half = projectWorld(
+    { x: center.x + halfSpan, y: 0.02, z: center.z },
+    viewport,
+  );
   const cellPx = Math.max(1, Math.abs(half.x - foot.x) * 2);
 
   return {

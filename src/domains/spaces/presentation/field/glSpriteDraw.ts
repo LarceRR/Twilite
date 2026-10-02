@@ -2,11 +2,9 @@ import { Asset } from 'expo-asset';
 import type { ExpoWebGLRenderingContext } from 'expo-gl';
 import { Image as RNImage } from 'react-native';
 
-export type GlSheetTexture = {
-  readonly texture: WebGLTexture;
-  readonly width: number;
-  readonly height: number;
-};
+export type { GlSheetTexture } from './glSpriteQuad';
+export { createSpriteQuadBuffers, drawSpriteQuad } from './glSpriteQuad';
+import type { GlSheetTexture } from './glSpriteQuad';
 
 export function compileShader(
   gl: ExpoWebGLRenderingContext,
@@ -123,64 +121,4 @@ export async function loadGlSheetTexture(
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, asset as unknown as TexImageSource);
 
   return { texture, width: size.width, height: size.height };
-}
-
-export function drawSpriteQuad(
-  gl: ExpoWebGLRenderingContext,
-  program: WebGLProgram,
-  sheet: GlSheetTexture,
-  opts: {
-    readonly posLoc: number;
-    readonly uvLoc: number;
-    /** Clip-space rect: left/right/bottom/top in [-1,1]. */
-    readonly left: number;
-    readonly right: number;
-    readonly bottom: number;
-    readonly top: number;
-    readonly u0: number;
-    readonly v0: number;
-    readonly u1: number;
-    readonly v1: number;
-  },
-): void {
-  gl.useProgram(program);
-  gl.activeTexture(gl.TEXTURE0);
-  gl.bindTexture(gl.TEXTURE_2D, sheet.texture);
-
-  const positions = new Float32Array([
-    opts.left,
-    opts.bottom,
-    opts.right,
-    opts.bottom,
-    opts.left,
-    opts.top,
-    opts.right,
-    opts.top,
-  ]);
-  const texCoords = new Float32Array([
-    opts.u0,
-    opts.v1,
-    opts.u1,
-    opts.v1,
-    opts.u0,
-    opts.v0,
-    opts.u1,
-    opts.v0,
-  ]);
-
-  const posBuf = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
-  gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STREAM_DRAW);
-  gl.enableVertexAttribArray(opts.posLoc);
-  gl.vertexAttribPointer(opts.posLoc, 2, gl.FLOAT, false, 0, 0);
-
-  const uvBuf = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, uvBuf);
-  gl.bufferData(gl.ARRAY_BUFFER, texCoords, gl.STREAM_DRAW);
-  gl.enableVertexAttribArray(opts.uvLoc);
-  gl.vertexAttribPointer(opts.uvLoc, 2, gl.FLOAT, false, 0, 0);
-
-  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-  gl.deleteBuffer(posBuf);
-  gl.deleteBuffer(uvBuf);
 }

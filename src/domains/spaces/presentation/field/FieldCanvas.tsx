@@ -2,24 +2,22 @@ import { Canvas } from '@react-three/fiber/native';
 import { memo, type ReactElement } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { useSettingsStore } from '@/domains/settings/presentation/stores/settingsStore';
+import { patchExpoGlPixelStorei } from '@/scene/gl/patchExpoGlPixelStorei';
 
-import { FIELD_CAMERA } from './fieldCamera';
+import { FIELD_CAMERA } from './fieldCameraDefaults';
+import type { FieldSpritePlacement } from './FieldObjectLayer';
 import { FieldScene } from './FieldScene';
 
 type FieldCanvasProps = {
   readonly maxRow: number;
+  readonly sprites: readonly FieldSpritePlacement[];
 };
 
-function FieldCanvasComponent({ maxRow }: FieldCanvasProps): ReactElement {
+function FieldCanvasComponent({ maxRow, sprites }: FieldCanvasProps): ReactElement {
   const { position, lookAt, fov, near, far } = FIELD_CAMERA;
-  // Static camera + static bridge: render on demand. The perf overlay needs a
-  // running loop to measure anything, so it opts back into `always`.
-  const measureFps = useSettingsStore((state) => state.showPerformanceOverlay);
   return (
     <View style={styles.root} pointerEvents="none">
       <Canvas
-        frameloop={measureFps ? 'always' : 'demand'}
         gl={{ alpha: true, antialias: false, powerPreference: 'high-performance' }}
         camera={{
           position: [position.x, position.y, position.z],
@@ -27,14 +25,14 @@ function FieldCanvasComponent({ maxRow }: FieldCanvasProps): ReactElement {
           near,
           far,
         }}
-        onCreated={({ camera, gl, invalidate }) => {
+        onCreated={({ camera, gl }) => {
+          patchExpoGlPixelStorei(gl.getContext());
           camera.lookAt(lookAt.x, lookAt.y, lookAt.z);
           gl.setClearColor(0x000000, 0);
-          invalidate();
         }}
         style={styles.canvas}
       >
-        <FieldScene maxRow={maxRow} />
+        <FieldScene maxRow={maxRow} sprites={sprites} />
       </Canvas>
     </View>
   );

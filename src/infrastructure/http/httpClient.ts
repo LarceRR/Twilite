@@ -2,6 +2,7 @@ import { httpConfig } from '@/app/config/constants';
 import { errorFromStatus, NetworkError, toAppError } from '@/shared/errors';
 import type { Logger } from '@/shared/logger';
 
+import { isFetchAbortError } from './isFetchAbortError';
 import { redactForLog } from './redact';
 
 export type AccessTokenProvider = {
@@ -35,6 +36,39 @@ function describe(status: number, data: unknown): { message: string; body: unkno
   if (typeof data === 'string' && data.length > 0) return { message: data, body: data };
   return { message: `Ошибка запроса (${status})`, body: data };
 }
+
+function mapFetchFailure(error: unknown): never {
+  if (isFetchAbortError(error)) {
+    throw new NetworkError('Превышено время ожидания сервера', null, { cause: error });
+  }
+  if (error instanceof Error && error.message.includes('Network request failed')) {
+    throw new NetworkError('Нет соединения с сервером', null, { cause: error });
+  }
+  throw toAppError(error);
+}
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal } as RequestInit);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function parseResponseBody(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
 export function createHttpClient(options: {
   readonly baseUrl: string;
   readonly tokens: AccessTokenProvider;
@@ -43,6 +77,7 @@ export function createHttpClient(options: {
   const log = options.logger.child('http');
   const baseUrl = options.baseUrl.trim().replace(/\/+$/, '');
   if (baseUrl.length === 0) throw new Error('HTTP baseUrl must not be empty');
+
   const buildUrl = (path: string, searchParams?: SearchParams): string => {
     const normalizedPath = path.replace(/^\/+/, '');
     const url = `${baseUrl}/${normalizedPath}`;
@@ -51,6 +86,7 @@ export function createHttpClient(options: {
     for (const [key, value] of Object.entries(searchParams)) params.set(key, String(value));
     return `${url}?${params.toString()}`;
   };
+
   const request = async <T>(
     method: 'get' | 'post' | 'patch' | 'delete',
     path: string,
@@ -60,8 +96,6 @@ export function createHttpClient(options: {
     const normalizedPath = path.replace(/^\/+/, '');
     const url = buildUrl(normalizedPath, init.searchParams);
     const requestBody = init.json;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), httpConfig.timeoutMs);
     const skipAuth = isUnauthenticatedPath(normalizedPath);
     log.info('HTTP запрос', {
       method,
@@ -71,16 +105,23 @@ export function createHttpClient(options: {
       searchParams: init.searchParams,
     });
     try {
+      // Resolve auth before the fetch timeout so refresh does not burn the budget.
       const token = skipAuth ? null : await options.tokens.token();
       const headers: Record<string, string> = { Accept: 'application/json' };
       if (requestBody !== undefined) headers['Content-Type'] = 'application/json';
-      if (typeof token === 'string' && token.length > 0) headers.Authorization = `Bearer ${token}`;
-      const response = await fetch(url, {
-        method,
-        headers,
-        body: requestBody === undefined ? undefined : JSON.stringify(requestBody),
-        signal: controller.signal,
-      } as RequestInit);
+      if (typeof token === 'string' && token.length > 0) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      const response = await fetchWithTimeout(
+        url,
+        {
+          method,
+          headers,
+          body: requestBody === undefined ? undefined : JSON.stringify(requestBody),
+        },
+        httpConfig.timeoutMs,
+      );
       const text = await response.text();
       const data = text.length > 0 ? parseResponseBody(text) : undefined;
       if (response.status === 204) return undefined as T;
@@ -102,15 +143,10 @@ export function createHttpClient(options: {
         path,
         body: redactForLog(requestBody),
       });
-      if (error instanceof Error && error.name === 'AbortError')
-        throw new NetworkError('Превышено время ожидания сервера', null, { cause: error });
-      if (error instanceof Error && error.message.includes('Network request failed'))
-        throw new NetworkError('Нет соединения с сервером', null, { cause: error });
-      throw toAppError(error);
-    } finally {
-      clearTimeout(timeout);
+      mapFetchFailure(error);
     }
   };
+
   return {
     get<T>(path: string, searchParams?: SearchParams): Promise<T> {
       return request<T>('get', path, searchParams === undefined ? {} : { searchParams });
@@ -125,11 +161,4 @@ export function createHttpClient(options: {
       await request<void>('delete', path, { json: body });
     },
   };
-}
-function parseResponseBody(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
-  }
 }

@@ -4,7 +4,10 @@ import { StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { useSystemColorSchemeSync } from '@/design-system/colors/themeStore';
+import {
+  useSystemColorSchemeSync,
+  useThemeColors,
+} from '@/design-system/colors/themeStore';
 
 import { ContainerProvider } from './ContainerProvider';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -15,9 +18,18 @@ function ThemeSync({ children }: { readonly children: ReactNode }): ReactElement
   return <>{children}</>;
 }
 
+function ThemedGestureRoot({ children }: { readonly children: ReactNode }): ReactElement {
+  const theme = useThemeColors();
+  return (
+    <GestureHandlerRootView style={[styles.root, { backgroundColor: theme.surface }]}>
+      {children}
+    </GestureHandlerRootView>
+  );
+}
+
 export function AppProviders({ children }: { readonly children: ReactNode }): ReactElement {
   return (
-    <GestureHandlerRootView style={styles.root}>
+    <ThemedGestureRoot>
       <SafeAreaProvider>
         <ActionSheetProvider>
           <ThemeSync>
@@ -29,7 +41,7 @@ export function AppProviders({ children }: { readonly children: ReactNode }): Re
           </ThemeSync>
         </ActionSheetProvider>
       </SafeAreaProvider>
-    </GestureHandlerRootView>
+    </ThemedGestureRoot>
   );
 }
 

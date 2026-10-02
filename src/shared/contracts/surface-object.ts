@@ -1,3 +1,5 @@
+import type { PixelObjectMobileDto } from './pixelObjects';
+
 /** Open registry — the backend accepts any string, the client falls back for unknown kinds. */
 export type SurfaceObjectKindDto = 'Fire' | 'Cloud' | (string & {});
 
@@ -16,6 +18,10 @@ export type SurfaceObjectDto = {
   readonly createdByUserId: string;
   readonly subjectUserId: string;
   readonly metadata: SurfaceObjectMetadataDto;
+  /** First-class binding (ADR-004); optional during dual-read window. */
+  readonly pixelObjectId?: string | null;
+  /** Embedded mobile DTO from snapshot/realtime (P2-S7 / P4-S2). */
+  readonly pixelObject?: PixelObjectMobileDto | null;
   readonly favorite: boolean;
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -28,6 +34,7 @@ export type CreateSurfaceObjectRequestDto = {
   readonly kind: SurfaceObjectKindDto;
   readonly subjectUserId: string;
   readonly metadata?: SurfaceObjectMetadataDto;
+  readonly pixelObjectId?: string;
 };
 
 export type ChangeSurfaceObjectStateRequestDto = {

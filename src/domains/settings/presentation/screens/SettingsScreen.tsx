@@ -38,6 +38,7 @@ export function SettingsScreen(): ReactElement {
   const themeHorizon = skyStops[skyStops.length - 1] ?? null;
   const reduceMotion = useSettingsStore((s) => s.reduceMotion),
     showPerformanceOverlay = useSettingsStore((s) => s.showPerformanceOverlay),
+    cameraControlEnabled = useSettingsStore((s) => s.cameraControlEnabled),
     showHitbox = useSettingsStore((s) => s.showHitbox),
     manualHitbox = useSettingsStore((s) => s.manualHitbox),
     hitboxWidthPx = useSettingsStore((s) => s.hitboxWidthPx),
@@ -49,6 +50,7 @@ export function SettingsScreen(): ReactElement {
     highlightEndpoints = useSettingsStore((s) => s.highlightEndpoints);
   const setReduceMotion = useSettingsStore((s) => s.setReduceMotion),
     setShowPerformanceOverlay = useSettingsStore((s) => s.setShowPerformanceOverlay),
+    setCameraControlEnabled = useSettingsStore((s) => s.setCameraControlEnabled),
     setShowHitbox = useSettingsStore((s) => s.setShowHitbox),
     setManualHitbox = useSettingsStore((s) => s.setManualHitbox),
     setHitboxWidthPx = useSettingsStore((s) => s.setHitboxWidthPx),
@@ -177,6 +179,17 @@ export function SettingsScreen(): ReactElement {
               value={showPerformanceOverlay}
               onValueChange={setShowPerformanceOverlay}
               accessibilityLabel="Показывать FPS"
+            />
+          }
+        />
+        <Divider />
+        <ListRow
+          title="Контроль камеры"
+          trailing={
+            <Switch
+              value={cameraControlEnabled}
+              onValueChange={setCameraControlEnabled}
+              accessibilityLabel="Контроль камеры"
             />
           }
         />

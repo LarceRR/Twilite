@@ -15,7 +15,7 @@ describe('bridgeRows', () => {
   });
 
   it('splits the checkerboard per row', () => {
-    expect(bridgeInstanceCounts(0)).toEqual({ even: 3, odd: 2 });
-    expect(bridgeInstanceCounts(1)).toEqual({ even: 5, odd: 5 });
+    expect(bridgeInstanceCounts(0)).toEqual({ even: 7, odd: 7 });
+    expect(bridgeInstanceCounts(1)).toEqual({ even: 14, odd: 14 });
   });
 });
