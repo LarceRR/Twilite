@@ -12,6 +12,7 @@ import type { Logger } from '@/shared/logger';
 import { cameraConfig, defaultCameraDistance, defaultVisibleRows } from './camera/cameraConfig';
 import { useInitialFraming } from './camera/useInitialFraming';
 import { SurfaceOrbitControls } from './controls/SurfaceOrbitControls';
+import { patchExpoGlPixelStorei } from './gl/patchExpoGlPixelStorei';
 import { Scene } from './Scene';
 import { useCameraStore } from './stores/cameraStore';
 import { cellToWorld } from './surface/cellToWorld';
@@ -79,6 +80,9 @@ function SceneViewComponent({ bounds, logger, spaceKey = null }: SceneViewProps)
           near: cameraConfig.near,
           far: cameraConfig.far,
           position: [0, 4, 12],
+        }}
+        onCreated={({ gl }) => {
+          patchExpoGlPixelStorei(gl.getContext());
         }}
         style={{ flex: 1, backgroundColor: background }}
       >

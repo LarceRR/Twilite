@@ -107,44 +107,52 @@ export function PixelObjectCatalogScreen(): ReactElement {
     surfaceKind === knownKinds.cloud ? 'Объект для плохого момента' : 'Объект для хорошего момента';
 
   return (
-    <Screen title={title} reserveTabBar={false}>
-      <TextInput
-        value={query}
-        onChangeText={setQuery}
-        placeholder="Поиск"
-        placeholderTextColor={theme.textTertiary}
-        style={[
-          styles.search,
-          {
-            backgroundColor: theme.surfaceSunken,
-            color: theme.textPrimary,
-          },
-        ]}
-      />
-
-      {catalog.isLoading ? (
-        <ActivityIndicator color={theme.textSecondary} style={{ marginTop: spacing.xl }} />
-      ) : null}
-
-      {catalog.isError ? (
-        <BlurCard title="Не удалось загрузить каталог">
-          <Text variant="caption">{toAppError(catalog.error).message}</Text>
-          <Button label="Повторить" onPress={() => void catalog.refetch()} />
-        </BlurCard>
-      ) : null}
-
-      {!catalog.isLoading && !catalog.isError && items.length === 0 ? (
-        <EmptyState
-          icon="cube-outline"
-          title="Объектов пока нет"
-          description="Опубликованные объекты появятся здесь после модерации"
-        />
-      ) : null}
-
+    <Screen title={title} reserveTabBar={false} scroll={false}>
       <FlatList
+        style={styles.flex}
         data={items}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        keyboardShouldPersistTaps="handled"
+        ListHeaderComponent={
+          <View>
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Поиск"
+              placeholderTextColor={theme.textTertiary}
+              style={[
+                styles.search,
+                {
+                  backgroundColor: theme.surfaceSunken,
+                  color: theme.textPrimary,
+                },
+              ]}
+            />
+
+            {catalog.isLoading ? (
+              <ActivityIndicator
+                color={theme.textSecondary}
+                style={{ marginTop: spacing.xl }}
+              />
+            ) : null}
+
+            {catalog.isError ? (
+              <BlurCard title="Не удалось загрузить каталог">
+                <Text variant="caption">{toAppError(catalog.error).message}</Text>
+                <Button label="Повторить" onPress={() => void catalog.refetch()} />
+              </BlurCard>
+            ) : null}
+
+            {!catalog.isLoading && !catalog.isError && items.length === 0 ? (
+              <EmptyState
+                icon="cube-outline"
+                title="Объектов пока нет"
+                description="Опубликованные объекты появятся здесь после модерации"
+              />
+            ) : null}
+          </View>
+        }
         renderItem={({ item }) => (
           <ObjectCard
             item={item}
@@ -158,6 +166,9 @@ export function PixelObjectCatalogScreen(): ReactElement {
 }
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   search: {
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
@@ -166,6 +177,7 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: spacing.md,
+    flexGrow: 1,
   },
   card: {
     borderWidth: StyleSheet.hairlineWidth,

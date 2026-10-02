@@ -5,19 +5,31 @@ import { SceneLighting } from '@/scene/lighting/SceneLighting';
 import { FpsMeter } from '@/scene/systems/FpsMeter';
 
 import { BridgeSurface } from './BridgeSurface';
+import { FieldCameraRig } from './FieldCameraRig';
+import type { FieldSpritePlacement } from './FieldObjectLayer';
+import { FieldSprites } from './FieldSprites';
+import { visibleBridgeRows } from './fieldLayout';
 
 type FieldSceneProps = {
   readonly maxRow: number;
+  readonly sprites: readonly FieldSpritePlacement[];
 };
 
-/** Bridge field platform in R3F. Sprites are a 2D overlay (RN Image) for reliability on iOS. */
-export function FieldScene({ maxRow }: FieldSceneProps): ReactElement {
+/**
+ * Bridge field in one R3F canvas.
+ * Platform width tapers via base/end compression; sprites stay full size on cell centers.
+ * (BridgeSurface reads compression from the field camera store.)
+ */
+export function FieldScene({ maxRow, sprites }: FieldSceneProps): ReactElement {
+  const spanRows = visibleBridgeRows(maxRow);
   return (
     <>
+      <FieldCameraRig />
       <FpsMeter />
       <SceneAtmosphere />
       <SceneLighting />
       <BridgeSurface maxRow={maxRow} />
+      <FieldSprites sprites={sprites} spanRows={spanRows} />
     </>
   );
 }

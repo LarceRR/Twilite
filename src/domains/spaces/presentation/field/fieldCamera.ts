@@ -1,16 +1,13 @@
 import type { Cell } from '@/domains/surface-objects/domain/value-objects/Cell';
 import { PerspectiveCamera, Vector3 } from 'three';
 
+import { BLENDER_FILM_GAUGE_MM } from './fieldCameraOptics';
+import { FIELD_CAMERA } from './fieldCameraDefaults';
+import { fovFromPose, lookAtFromPose } from './fieldCameraPose';
+import { useFieldCameraStore } from './fieldCameraStore';
 import { bridgeCellToWorld, FIELD_CELL_SIZE } from './fieldLayout';
 
-/** Must stay in sync with `FieldCanvas` camera. */
-export const FIELD_CAMERA = {
-  fov: 46,
-  near: 0.05,
-  far: 140,
-  position: { x: 0, y: 2.35, z: 6.4 },
-  lookAt: { x: 0, y: 0.6, z: -4 },
-} as const;
+export { FIELD_CAMERA } from './fieldCameraDefaults';
 
 export type ViewportSize = {
   readonly width: number;
@@ -28,16 +25,20 @@ const scratch = new Vector3();
 const camera = new PerspectiveCamera();
 
 function syncCamera(viewport: ViewportSize): PerspectiveCamera {
-  camera.fov = FIELD_CAMERA.fov;
-  camera.aspect = viewport.width / Math.max(viewport.height, 1);
+  const pose = useFieldCameraStore.getState().pose;
+  const aspect = viewport.width / Math.max(viewport.height, 1);
+  const lookAt = lookAtFromPose(pose);
+  camera.filmGauge = BLENDER_FILM_GAUGE_MM;
+  camera.fov = fovFromPose(pose, aspect);
+  camera.aspect = aspect;
   camera.near = FIELD_CAMERA.near;
   camera.far = FIELD_CAMERA.far;
-  camera.position.set(
-    FIELD_CAMERA.position.x,
-    FIELD_CAMERA.position.y,
-    FIELD_CAMERA.position.z,
-  );
-  camera.lookAt(FIELD_CAMERA.lookAt.x, FIELD_CAMERA.lookAt.y, FIELD_CAMERA.lookAt.z);
+  camera.position.set(pose.position.x, pose.position.y, pose.position.z);
+  camera.up.set(0, 1, 0);
+  camera.lookAt(lookAt.x, lookAt.y, lookAt.z);
+  if (Math.abs(pose.roll) > 1e-6) {
+    camera.rotateZ(pose.roll);
+  }
   camera.updateProjectionMatrix();
   camera.updateMatrixWorld(true);
   return camera;

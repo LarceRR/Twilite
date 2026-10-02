@@ -1,4 +1,4 @@
-import { usePathname, useRouter } from 'expo-router';
+import { useIsFocused, usePathname, useRouter } from 'expo-router';
 import { memo, type ReactElement, type ReactNode } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +11,7 @@ import { icons } from '../../icons/icons';
 import { layout, spacing } from '../../spacing/spacing';
 import { IconButton } from '../IconButton/IconButton';
 import { Text } from '../Text/Text';
+import { shouldShowScreenBack } from './shouldShowScreenBack';
 
 export type ScreenProps = {
   readonly children: ReactNode;
@@ -35,8 +36,14 @@ function ScreenComponent({
   const theme = useThemeColors();
   const router = useRouter();
   const pathname = usePathname();
+  const isFocused = useIsFocused();
   const resolvedTitle = title ?? resolvePageTitle(pathname) ?? undefined;
-  const showBack = !hideBack && !isTabRootPath(pathname) && router.canGoBack();
+  const showBack = shouldShowScreenBack({
+    hideBack,
+    isFocused,
+    isTabRoot: isTabRootPath(pathname),
+    canGoBack: router.canGoBack(),
+  });
   const bottomPadding = tabScreenBottomPadding(insets.bottom, reserveTabBar);
   const background = { backgroundColor: theme.surface };
 

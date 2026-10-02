@@ -15,6 +15,7 @@ import { Text } from '@/design-system/components/Text/Text';
 import { icons } from '@/design-system/icons/icons';
 import { layout, spacing } from '@/design-system/spacing/spacing';
 import type { SurfaceObjectKind } from '@/domains/surface-objects/domain/value-objects/SurfaceObjectKind';
+import { patchExpoGlPixelStorei } from '@/scene/gl/patchExpoGlPixelStorei';
 import {
   type ObjectPreviewComponent,
   type SettingsField,
@@ -50,6 +51,9 @@ function PreviewStage({ Preview }: { readonly Preview: ObjectPreviewComponent })
         <Canvas
           camera={{ fov: 45, near: 0.1, far: 50, position: [0, 0.72, 1.9] }}
           gl={{ antialias: true }}
+          onCreated={({ gl }) => {
+            patchExpoGlPixelStorei(gl.getContext());
+          }}
           style={styles.canvas}
         >
           <Preview yawRef={yawRef} />

@@ -7,6 +7,8 @@ import type { PixelObjectMobileDto } from '@/shared/contracts/pixelObjects';
 import { parsePixelObjectMobileDto } from '@/shared/contracts/parsePixelObjectMobile';
 import { readPixelObjectId } from '@/shared/pixelObject/metadata';
 
+import { PIXEL_OBJECT_MOBILE_QUERY_KEY } from './fieldRefresh';
+
 type FetchTarget = {
   readonly id: string;
   readonly revision: number | null;
@@ -71,7 +73,7 @@ export function useFieldMobileAssets(): Readonly<Record<string, PixelObjectMobil
 
   const queries = useQueries({
     queries: fetchTargets.map((target) => ({
-      queryKey: ['pixel-objects', 'mobile', target.id, target.revision ?? 0],
+      queryKey: [...PIXEL_OBJECT_MOBILE_QUERY_KEY, target.id, target.revision ?? 0],
       queryFn: async () => {
         const raw = await getPixelObjectMobile(target.id);
         const parsed = parsePixelObjectMobileDto(raw);

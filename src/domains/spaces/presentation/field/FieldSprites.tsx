@@ -5,10 +5,11 @@ import { FieldSpriteBillboard } from './FieldSpriteBillboard';
 
 type FieldSpritesProps = {
   readonly sprites: readonly FieldSpritePlacement[];
+  readonly spanRows: number;
 };
 
 /** All field pixel objects in the shared R3F canvas (one WebGL context). */
-function FieldSpritesComponent({ sprites }: FieldSpritesProps): ReactElement {
+function FieldSpritesComponent({ sprites, spanRows }: FieldSpritesProps): ReactElement {
   return (
     <group>
       {sprites.map((sprite) => (
@@ -17,6 +18,7 @@ function FieldSpritesComponent({ sprites }: FieldSpritesProps): ReactElement {
           surfaceObjectId={sprite.surfaceObjectId}
           cell={sprite.cell}
           dto={sprite.dto}
+          spanRows={spanRows}
         />
       ))}
     </group>
