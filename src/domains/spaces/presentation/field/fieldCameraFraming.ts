@@ -1,3 +1,5 @@
+import { DEFAULT_FIELD_CONFIG } from './fieldConfig';
+import { getFieldConfig } from './fieldConfigStore';
 import type { Vec3 } from './fieldCameraMotion';
 
 export type FieldCameraPose = {
@@ -19,12 +21,23 @@ export type FieldCameraOptics = {
  * near/far = clipping planes (geometry closer than near or farther than far is culled).
  */
 export const FIELD_CAMERA_DEFAULT_POSE: FieldCameraOptics = {
-  position: { x: -469, y: 0, z: 408 },
-  rotationDeg: { x: 70, y: 0, z: -90 },
-  fov: 42,
-  near: 1,
-  far: 30_000,
+  position: DEFAULT_FIELD_CONFIG.camera.position,
+  rotationDeg: DEFAULT_FIELD_CONFIG.camera.rotationDeg,
+  fov: DEFAULT_FIELD_CONFIG.camera.fov,
+  near: DEFAULT_FIELD_CONFIG.camera.near,
+  far: DEFAULT_FIELD_CONFIG.camera.far,
 };
+
+export function fieldCameraOpticsFromConfig(): FieldCameraOptics {
+  const camera = getFieldConfig().camera;
+  return {
+    position: camera.position,
+    rotationDeg: camera.rotationDeg,
+    fov: camera.fov,
+    near: camera.near,
+    far: camera.far,
+  };
+}
 
 export type FieldCameraFramingInput = {
   readonly width: number;
@@ -53,7 +66,7 @@ function halfFovRadians(fovDeg: number, aspect: number): {
 
 /** Distance that fits a ground-plane bounding sphere into the perspective frustum. */
 export function distanceToFitFieldPlane(input: FieldCameraFramingInput): number {
-  const margin = input.margin ?? 1.18;
+  const margin = input.margin ?? getFieldConfig().camera.framingMargin;
   const halfW = (input.width / 2) * margin;
   const halfD = (input.depth / 2) * margin;
   const radius = Math.hypot(halfW, halfD);
@@ -65,7 +78,8 @@ export function distanceToFitFieldPlane(input: FieldCameraFramingInput): number 
  * Z-up framing helper (not used for the locked default; kept for framing experiments).
  */
 export function computeFieldCameraPose(input: FieldCameraFramingInput): FieldCameraPose {
-  const elevationDeg = input.elevationDeg ?? 58;
+  const elevationDeg =
+    input.elevationDeg ?? getFieldConfig().camera.framingElevationDeg;
   const elev = (elevationDeg * Math.PI) / 180;
   const dist = distanceToFitFieldPlane(input);
   const target = input.target ?? ([input.width / 2, 0, 0] as const);

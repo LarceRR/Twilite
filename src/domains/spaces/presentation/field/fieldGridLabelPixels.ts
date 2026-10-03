@@ -1,8 +1,9 @@
 import {
-  FIELD_ACTIVE_CENTER_RGBA,
-  FIELD_ACTIVE_FILL_RGBA,
+  fieldActiveCenterRgba,
+  fieldActiveFillRgba,
   isActiveFieldGridCell,
 } from './fieldGridActiveCells';
+import { getFieldConfig } from './fieldConfigStore';
 import { createFieldGridCells } from './fieldGridCells';
 import type { FieldGridConfig } from './fieldGridConfig';
 import { fieldGridWorldSize } from './fieldGridConfig';
@@ -45,8 +46,8 @@ function resolveColors(colors: FieldGridTextureColors): {
     fill: colors.fill,
     line: colors.line,
     text: colors.text,
-    activeFill: colors.activeFill ?? FIELD_ACTIVE_FILL_RGBA,
-    activeCenter: colors.activeCenter ?? FIELD_ACTIVE_CENTER_RGBA,
+    activeFill: colors.activeFill ?? fieldActiveFillRgba(),
+    activeCenter: colors.activeCenter ?? fieldActiveCenterRgba(),
   };
 }
 
@@ -58,12 +59,6 @@ function resolveLayerFlags(flags?: Partial<FieldGridLayerFlags>): FieldGridLayer
     showCellLabels: flags?.showCellLabels ?? DEFAULT_FIELD_GRID_LAYER_FLAGS.showCellLabels,
   };
 }
-
-const LABEL_SCALE = 1;
-const LABEL_PADDING = 3;
-const LABEL_RAISE = 10;
-const ACTIVE_CENTER_SIZE = 6;
-const ACTIVE_BORDER = 1;
 
 /** Solid fill without per-pixel bounds checks (hot path for chunk bake). */
 function fillBuffer(data: Uint8Array, color: Rgba): void {
@@ -161,14 +156,15 @@ function drawActiveBorders(
   color: Rgba,
 ): void {
   const { width } = fieldGridWorldSize(config);
+  const border = getFieldConfig().labels.activeBorder;
   const s = config.cellSize;
   for (const cell of createFieldGridCells(config, colStart)) {
     if (!isActiveFieldGridCell(cell.row, config.rows)) continue;
     const { minX, minY } = cellDataOrigin(cell.col, cell.row, config, colStart);
-    fillRect(data, width, minX, minY, s, ACTIVE_BORDER, color);
-    fillRect(data, width, minX, minY + s - ACTIVE_BORDER, s, ACTIVE_BORDER, color);
-    fillRect(data, width, minX, minY, ACTIVE_BORDER, s, color);
-    fillRect(data, width, minX + s - ACTIVE_BORDER, minY, ACTIVE_BORDER, s, color);
+    fillRect(data, width, minX, minY, s, border, color);
+    fillRect(data, width, minX, minY + s - border, s, border, color);
+    fillRect(data, width, minX, minY, border, s, color);
+    fillRect(data, width, minX + s - border, minY, border, s, color);
   }
 }
 
@@ -199,12 +195,11 @@ function drawLabelBottomRight(
   label: string,
   color: Rgba,
 ): void {
-  const scale = LABEL_SCALE;
+  const { scale, padding, raise } = getFieldConfig().labels;
   const alongY = DIGIT_GLYPH_WIDTH * scale;
   const gap = scale;
-  const startX = cellMinX + LABEL_PADDING + LABEL_RAISE;
-  let digitMinY =
-    cellMinY + LABEL_PADDING + (label.length - 1) * (alongY + gap);
+  const startX = cellMinX + padding + raise;
+  let digitMinY = cellMinY + padding + (label.length - 1) * (alongY + gap);
   for (const ch of label) {
     drawDigit(data, width, startX, digitMinY, ch, scale, color);
     digitMinY -= alongY + gap;
@@ -218,13 +213,14 @@ function drawActiveCenters(
   color: Rgba,
 ): void {
   const { width } = fieldGridWorldSize(config);
-  const half = Math.floor(ACTIVE_CENTER_SIZE / 2);
+  const size = getFieldConfig().labels.activeCenterSize;
+  const half = Math.floor(size / 2);
   for (const cell of createFieldGridCells(config, colStart)) {
     if (!isActiveFieldGridCell(cell.row, config.rows)) continue;
     const { minX, minY } = cellDataOrigin(cell.col, cell.row, config, colStart);
     const cx = minX + Math.floor(config.cellSize / 2) - half;
     const cy = minY + Math.floor(config.cellSize / 2) - half;
-    fillRect(data, width, cx, cy, ACTIVE_CENTER_SIZE, ACTIVE_CENTER_SIZE, color);
+    fillRect(data, width, cx, cy, size, size, color);
   }
 }
 

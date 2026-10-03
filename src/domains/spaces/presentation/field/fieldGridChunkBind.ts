@@ -6,10 +6,11 @@ import {
 } from 'three';
 
 import {
-  FIELD_ACTIVE_CENTER_RGBA,
-  FIELD_ACTIVE_FILL_RGBA,
-  FIELD_LABEL_TEXT_HEX,
+  fieldActiveCenterRgba,
+  fieldActiveFillRgba,
+  fieldLabelTextHex,
 } from './fieldGridActiveCells';
+import { getFieldConfig } from './fieldConfigStore';
 import { prepareFieldChunkTexture } from './fieldGridChunkBake';
 import {
   createFieldGridChunkSpec,
@@ -39,9 +40,9 @@ export function resolveFieldChunkTexture(input: FieldChunkBindInput): Texture {
     colors: {
       fill: hexToRgba(input.surfaceBase),
       line: hexToRgba(input.surfaceDot),
-      text: hexToRgba(FIELD_LABEL_TEXT_HEX),
-      activeFill: FIELD_ACTIVE_FILL_RGBA,
-      activeCenter: FIELD_ACTIVE_CENTER_RGBA,
+      text: hexToRgba(fieldLabelTextHex()),
+      activeFill: fieldActiveFillRgba(),
+      activeCenter: fieldActiveCenterRgba(),
     },
     layers: input.layers,
   });
@@ -55,7 +56,7 @@ export function writeFieldChunkLineGeometry(
   const spec = createFieldGridChunkSpec(chunkIndex, base);
   const positions = buildFieldGridLinePositions(
     fieldChunkToGridConfig(spec),
-    0.5,
+    getFieldConfig().chunks.lineZLift,
     spec.colStart,
   );
   lineGeometry.setAttribute('position', new Float32BufferAttribute(positions, 3));

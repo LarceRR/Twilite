@@ -1,5 +1,7 @@
 import type { Material, Object3D } from 'three';
 
+import { DEFAULT_FIELD_CONFIG } from './fieldConfig';
+import { getFieldConfig } from './fieldConfigStore';
 import type { WorldAxis } from './fieldCameraMotion';
 
 export type AxisColorPair = {
@@ -17,13 +19,13 @@ export const WORLD_AXIS_COLORS: Readonly<Record<WorldAxis, AxisColorPair>> = {
 export const WORLD_ORIGIN_COLOR = '#F5F5F5';
 export const WORLD_ORIGIN_COLOR_ACTIVE = '#FFFFFF';
 
-export const WORLD_AXIS_LENGTH = 180;
-export const WORLD_AXIS_HEAD_LENGTH = 36;
-export const WORLD_AXIS_HEAD_WIDTH = 18;
-export const WORLD_ORIGIN_RADIUS = 8;
+export const WORLD_AXIS_LENGTH = DEFAULT_FIELD_CONFIG.axes.length;
+export const WORLD_AXIS_HEAD_LENGTH = DEFAULT_FIELD_CONFIG.axes.headLength;
+export const WORLD_AXIS_HEAD_WIDTH = DEFAULT_FIELD_CONFIG.axes.headWidth;
+export const WORLD_ORIGIN_RADIUS = DEFAULT_FIELD_CONFIG.axes.originRadius;
 /** Lift above the XY deck so X/Y shafts are not buried in the mesh. */
-export const WORLD_AXIS_LIFT_Z = 6;
-export const WORLD_AXIS_RENDER_ORDER = 1000;
+export const WORLD_AXIS_LIFT_Z = DEFAULT_FIELD_CONFIG.axes.liftZ;
+export const WORLD_AXIS_RENDER_ORDER = DEFAULT_FIELD_CONFIG.axes.renderOrder;
 
 export function axisDisplayColor(
   axis: WorldAxis,
@@ -48,9 +50,10 @@ export function configureOverlayMaterial(material: Material | Material[]): void 
 
 /** Keep the gizmo drawable over the deck even when shafts cross the mesh. */
 export function configureAxisOverlayObject(object: Object3D): void {
-  object.renderOrder = WORLD_AXIS_RENDER_ORDER;
+  const renderOrder = getFieldConfig().axes.renderOrder;
+  object.renderOrder = renderOrder;
   object.traverse((child) => {
-    child.renderOrder = WORLD_AXIS_RENDER_ORDER;
+    child.renderOrder = renderOrder;
     const maybeMesh = child as Object3D & { material?: Material | Material[] };
     if (maybeMesh.material != null) {
       configureOverlayMaterial(maybeMesh.material);

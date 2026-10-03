@@ -1,3 +1,5 @@
+import { DEFAULT_FIELD_CONFIG } from './fieldConfig';
+import { getFieldConfig } from './fieldConfigStore';
 import { isActiveFieldGridCell } from './fieldGridActiveCells';
 import { cellLabelFromColRow } from './fieldGridCells';
 import type { FieldGridConfig } from './fieldGridConfig';
@@ -7,10 +9,11 @@ import {
 } from './fieldGridHitTest';
 
 /** Hold duration before a press becomes a long-press. */
-export const FIELD_CELL_LONG_PRESS_MS = 330;
+export const FIELD_CELL_LONG_PRESS_MS = DEFAULT_FIELD_CONFIG.press.longPressMs;
 
 /** Delay between the two waves fired on long-press. */
-export const FIELD_WAVE_SECOND_BURST_GAP_SEC = 0.12;
+export const FIELD_WAVE_SECOND_BURST_GAP_SEC =
+  DEFAULT_FIELD_CONFIG.press.secondBurstGapSec;
 
 export function fieldCellTapToastMessage(label: string): string {
   return `Вы нажали на ячейку ${label}`;
@@ -47,4 +50,12 @@ export function shouldKeepFieldCellPress(
   current: FieldGridCellCoord | null,
 ): boolean {
   return sameFieldCell(pressed, current);
+}
+
+export function fieldCellLongPressMs(): number {
+  return getFieldConfig().press.longPressMs;
+}
+
+export function fieldWaveSecondBurstGapSec(): number {
+  return getFieldConfig().press.secondBurstGapSec;
 }

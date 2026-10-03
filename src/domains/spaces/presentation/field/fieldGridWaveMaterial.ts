@@ -5,14 +5,10 @@ import {
   Vector2,
 } from 'three';
 
+import { fieldWaveMaxRadiusSteps } from './fieldConfig';
+import { getFieldConfig } from './fieldConfigStore';
 import {
-  FIELD_WAVE_DURATION_SEC,
-  FIELD_WAVE_FADE_IN_END,
-  FIELD_WAVE_FADE_OUT_START,
-  FIELD_WAVE_MAX_ALPHA,
   FIELD_WAVE_MAX_COUNT,
-  FIELD_WAVE_MAX_RADIUS_STEPS,
-  FIELD_WAVE_PIXEL_SIZE_PX,
   FIELD_WAVE_SLOT_INACTIVE,
   pickFieldWaveSlot,
 } from './fieldGridWave';
@@ -123,24 +119,36 @@ export type FieldGridWaveMaterial = ShaderMaterial & {
 export function createFieldGridWaveMaterial(
   map: Texture | null = null,
 ): FieldGridWaveMaterial {
+  const wave = getFieldConfig().wave;
   return new ShaderMaterial({
     uniforms: {
       uMap: { value: map },
       uOrigins: { value: createOrigins() },
       uStartTimes: { value: createStartTimes() },
       uTime: { value: 0 },
-      uDuration: { value: FIELD_WAVE_DURATION_SEC },
-      uMaxRadiusSteps: { value: FIELD_WAVE_MAX_RADIUS_STEPS },
-      uPixelSize: { value: FIELD_WAVE_PIXEL_SIZE_PX },
-      uMaxAlpha: { value: FIELD_WAVE_MAX_ALPHA },
-      uFadeInEnd: { value: FIELD_WAVE_FADE_IN_END },
-      uFadeOutStart: { value: FIELD_WAVE_FADE_OUT_START },
+      uDuration: { value: wave.durationSec },
+      uMaxRadiusSteps: { value: fieldWaveMaxRadiusSteps(wave) },
+      uPixelSize: { value: wave.pixelSizePx },
+      uMaxAlpha: { value: wave.maxAlpha },
+      uFadeInEnd: { value: wave.fadeInEnd },
+      uFadeOutStart: { value: wave.fadeOutStart },
     },
     vertexShader,
     fragmentShader,
     side: DoubleSide,
     toneMapped: false,
   }) as FieldGridWaveMaterial;
+}
+
+/** Keep shader uniforms in sync with runtime field config overrides. */
+export function syncFieldGridWaveConfig(material: FieldGridWaveMaterial): void {
+  const wave = getFieldConfig().wave;
+  material.uniforms.uDuration.value = wave.durationSec;
+  material.uniforms.uMaxRadiusSteps.value = fieldWaveMaxRadiusSteps(wave);
+  material.uniforms.uPixelSize.value = wave.pixelSizePx;
+  material.uniforms.uMaxAlpha.value = wave.maxAlpha;
+  material.uniforms.uFadeInEnd.value = wave.fadeInEnd;
+  material.uniforms.uFadeOutStart.value = wave.fadeOutStart;
 }
 
 export function syncFieldGridWaveTime(

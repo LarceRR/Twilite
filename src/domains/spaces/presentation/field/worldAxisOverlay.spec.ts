@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ArrowHelper, Vector3 } from 'three';
+import { ArrowHelper, type Material, Vector3 } from 'three';
 
 import { worldAxisFromMove } from './fieldCameraMotion';
 import {
@@ -8,9 +8,13 @@ import {
   axisDisplayColor,
   configureAxisOverlayObject,
   originDisplayColor,
-} from './fieldWorldAxes';
+} from './worldAxisOverlay';
 
-describe('fieldWorldAxes', () => {
+function asMaterial(material: Material | Material[]): Material {
+  return Array.isArray(material) ? material[0]! : material;
+}
+
+describe('worldAxisOverlay', () => {
   it('maps move controls onto Z-up RGB world axes', () => {
     expect(worldAxisFromMove('left')).toBe('x');
     expect(worldAxisFromMove('right')).toBe('x');
@@ -32,10 +36,10 @@ describe('fieldWorldAxes', () => {
     const arrow = new ArrowHelper(new Vector3(1, 0, 0), new Vector3(0, 0, 0), 10, 0xff0000);
     configureAxisOverlayObject(arrow);
     expect(arrow.renderOrder).toBe(WORLD_AXIS_RENDER_ORDER);
-    expect(arrow.line.material.depthTest).toBe(false);
-    expect(arrow.line.material.depthWrite).toBe(false);
-    expect(arrow.cone.material.depthTest).toBe(false);
-    expect(arrow.cone.material.depthWrite).toBe(false);
+    expect(asMaterial(arrow.line.material).depthTest).toBe(false);
+    expect(asMaterial(arrow.line.material).depthWrite).toBe(false);
+    expect(asMaterial(arrow.cone.material).depthTest).toBe(false);
+    expect(asMaterial(arrow.cone.material).depthWrite).toBe(false);
     arrow.dispose();
   });
 });

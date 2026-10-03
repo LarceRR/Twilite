@@ -7,12 +7,12 @@ import { useSceneColors } from '@/design-system/colors/colors';
 import { useSettingsStore } from '@/domains/settings/presentation/stores/settingsStore';
 
 import { bindFieldChunkSlot } from './fieldGridChunkBind';
-import { FIELD_CHUNK_COLS } from './fieldGridChunks';
 import type { FieldGridConfig } from './fieldGridConfig';
 import {
   createFieldGridWaveMaterial,
   type FieldGridWaveMaterial,
 } from './fieldGridWaveMaterial';
+import { useFieldConfig } from './useFieldConfig';
 
 type FieldGridChunkProps = {
   /** Null hides this recycled slot without tearing down GPU resources. */
@@ -62,6 +62,7 @@ export function FieldGridChunk({
   onPointerLeave,
 }: FieldGridChunkProps): ReactElement {
   const scene = useSceneColors();
+  const fieldConfig = useFieldConfig();
   const showActiveCells = useSettingsStore((s) => s.developerShowActiveCells);
   const showActiveCenters = useSettingsStore((s) => s.developerShowActiveCellCenters);
   const showCellLabels = useSettingsStore((s) => s.developerShowCellLabels);
@@ -70,7 +71,7 @@ export function FieldGridChunk({
   const meshRef = useRef<Mesh>(null);
   const boundChunkRef = useRef<number | null>(null);
 
-  const width = FIELD_CHUNK_COLS * base.cellSize;
+  const width = fieldConfig.chunks.cols * base.cellSize;
   const height = base.rows * base.cellSize;
   const { planeGeometry, lineGeometry, material } = useChunkSlotResources(width, height);
 

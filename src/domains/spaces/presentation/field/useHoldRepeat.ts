@@ -1,9 +1,7 @@
 import { useRef } from 'react';
 
 import { holdRepeatDelta } from './fieldCameraMotion';
-
-const TICK_MS = 50;
-const HOLD_START_DELAY_MS = 180;
+import { getFieldConfig } from './fieldConfigStore';
 
 type HoldHandlers = {
   readonly onPressIn: () => void;
@@ -27,11 +25,12 @@ export function useHoldRepeat(onStep: (delta: number) => void): HoldHandlers {
       clear();
       onStep(1);
       startedAtRef.current = Date.now();
+      const { tickMs, startDelayMs } = getFieldConfig().holdRepeat;
       timerRef.current = setInterval(() => {
         const elapsed = Date.now() - startedAtRef.current;
-        if (elapsed < HOLD_START_DELAY_MS) return;
-        onStep(holdRepeatDelta(elapsed - HOLD_START_DELAY_MS));
-      }, TICK_MS);
+        if (elapsed < startDelayMs) return;
+        onStep(holdRepeatDelta(elapsed - startDelayMs));
+      }, tickMs);
     },
     onPressOut: clear,
   };

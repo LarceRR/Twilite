@@ -9,6 +9,11 @@ import {
   persistedSettings,
   useSettingsStore,
 } from '@/domains/settings/presentation/stores/settingsStore';
+import type { FieldConfigOverrides } from '@/domains/spaces/presentation/field/fieldConfig';
+import {
+  persistedFieldConfigOverrides,
+  useFieldConfigStore,
+} from '@/domains/spaces/presentation/field/fieldConfigStore';
 import { toAppError } from '@/shared/errors';
 
 import { loadNativeTabIconSources } from '../navigation/nativeTabIconSources';
@@ -66,6 +71,16 @@ export function useBootstrap(): { readonly isReady: boolean } {
         if (settings !== null) useSettingsStore.getState().hydrate(settings);
       } catch (error) {
         logger.debug('Settings restore skipped', { error: String(error) });
+      }
+
+      try {
+        const fieldConfig = await withTimeout(
+          storage.read<FieldConfigOverrides>(storageKeys.fieldConfig),
+          'field config restore',
+        );
+        if (fieldConfig !== null) useFieldConfigStore.getState().hydrate(fieldConfig);
+      } catch (error) {
+        logger.debug('Field config restore skipped', { error: String(error) });
       }
 
       try {
@@ -128,6 +143,17 @@ export function useBootstrap(): { readonly isReady: boolean } {
     () =>
       useSettingsStore.subscribe((state) => {
         void storage.write(storageKeys.settings, persistedSettings(state));
+      }),
+    [storage],
+  );
+
+  useEffect(
+    () =>
+      useFieldConfigStore.subscribe((state) => {
+        void storage.write(
+          storageKeys.fieldConfig,
+          persistedFieldConfigOverrides(state),
+        );
       }),
     [storage],
   );

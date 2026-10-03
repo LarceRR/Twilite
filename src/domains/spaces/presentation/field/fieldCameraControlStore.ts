@@ -1,10 +1,13 @@
 import { create } from 'zustand';
 
+import { DEFAULT_FIELD_CONFIG } from './fieldConfig';
+import { getFieldConfig } from './fieldConfigStore';
 import { FIELD_CAMERA_DEFAULT_POSE } from './fieldCameraFraming';
 import type { Vec3, WorldAxis } from './fieldCameraMotion';
 
 /** How long an axis stays highlighted after the last move/rotate pulse. */
-export const ACTIVE_AXIS_HIGHLIGHT_MS = 280;
+export const ACTIVE_AXIS_HIGHLIGHT_MS =
+  DEFAULT_FIELD_CONFIG.camera.activeAxisHighlightMs;
 
 export type FieldCameraControlState = {
   readonly ready: boolean;
@@ -80,7 +83,8 @@ export const useFieldCameraControlStore = create<FieldCameraControlState>()((set
   pulseActiveWorldAxis: (axis) =>
     set({
       activeWorldAxis: axis,
-      activeAxisUntil: Date.now() + ACTIVE_AXIS_HIGHLIGHT_MS,
+      activeAxisUntil:
+        Date.now() + getFieldConfig().camera.activeAxisHighlightMs,
     }),
   markUserAdjusted: () => set({ userAdjusted: true }),
 }));

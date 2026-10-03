@@ -1,19 +1,21 @@
+import { DEFAULT_FIELD_CONFIG } from './fieldConfig';
+import { getFieldConfig } from './fieldConfigStore';
 import type { FieldGridConfig } from './fieldGridConfig';
 
 /** Cells along +X per streamed chunk. */
-export const FIELD_CHUNK_COLS = 10;
+export const FIELD_CHUNK_COLS = DEFAULT_FIELD_CONFIG.chunks.cols;
 
 /** Chunks kept behind the camera focus. */
-export const FIELD_CHUNK_BEHIND = 1;
+export const FIELD_CHUNK_BEHIND = DEFAULT_FIELD_CONFIG.chunks.behind;
 
 /** Chunks kept ahead of the camera focus (new terrain). */
-export const FIELD_CHUNK_AHEAD = 3;
+export const FIELD_CHUNK_AHEAD = DEFAULT_FIELD_CONFIG.chunks.ahead;
 
 /**
  * How far ahead of the camera (world +X) we treat as the streaming focus.
  * Keeps chunk 0 loaded at the default camera x≈-469 and gives bake time.
  */
-export const FIELD_CHUNK_LOOK_AHEAD_PX = 780;
+export const FIELD_CHUNK_LOOK_AHEAD_PX = DEFAULT_FIELD_CONFIG.chunks.lookAheadPx;
 
 export type FieldGridChunkSpec = {
   readonly chunkIndex: number;
@@ -64,25 +66,35 @@ export function fieldVisibleChunkIndices(
 export function fieldChunkIndicesForCameraX(
   cameraX: number,
   cellSize: number,
-  chunkCols: number = FIELD_CHUNK_COLS,
-  lookAheadPx: number = FIELD_CHUNK_LOOK_AHEAD_PX,
-  behind: number = FIELD_CHUNK_BEHIND,
-  ahead: number = FIELD_CHUNK_AHEAD,
+  chunkCols?: number,
+  lookAheadPx?: number,
+  behind?: number,
+  ahead?: number,
 ): readonly number[] {
-  const focusX = fieldChunkFocusWorldX(cameraX, lookAheadPx);
-  const anchor = fieldChunkIndexFromWorldX(focusX, cellSize, chunkCols);
-  return fieldVisibleChunkIndices(anchor, behind, ahead);
+  const chunks = getFieldConfig().chunks;
+  const focusX = fieldChunkFocusWorldX(cameraX, lookAheadPx ?? chunks.lookAheadPx);
+  const anchor = fieldChunkIndexFromWorldX(
+    focusX,
+    cellSize,
+    chunkCols ?? chunks.cols,
+  );
+  return fieldVisibleChunkIndices(
+    anchor,
+    behind ?? chunks.behind,
+    ahead ?? chunks.ahead,
+  );
 }
 
 export function createFieldGridChunkSpec(
   chunkIndex: number,
   base: Pick<FieldGridConfig, 'rows' | 'cellSize'>,
-  chunkCols: number = FIELD_CHUNK_COLS,
+  chunkCols?: number,
 ): FieldGridChunkSpec {
+  const cols = chunkCols ?? getFieldConfig().chunks.cols;
   return {
     chunkIndex,
-    colStart: fieldChunkColStart(chunkIndex, chunkCols),
-    cols: chunkCols,
+    colStart: fieldChunkColStart(chunkIndex, cols),
+    cols,
     rows: base.rows,
     cellSize: base.cellSize,
   };

@@ -6,11 +6,11 @@ import { spacing } from '@/design-system/spacing/spacing';
 
 import { useFieldCameraControlStore } from './fieldCameraControlStore';
 import {
-  CAMERA_MOVE_STEP_PX,
   type CameraMoveAxis,
   moveCameraPosition,
   worldAxisFromMove,
 } from './fieldCameraMotion';
+import { getFieldConfig } from './fieldConfigStore';
 import { GlassIconButton } from './GlassIconButton';
 
 const MOVE_BUTTONS: readonly {
@@ -33,7 +33,13 @@ export function FieldDevCameraMovePad(): ReactElement {
   const step = (axis: CameraMoveAxis, deltaUnits: number): void => {
     const { position } = useFieldCameraControlStore.getState();
     pulseActiveWorldAxis(worldAxisFromMove(axis));
-    setPosition(moveCameraPosition(position, axis, deltaUnits * CAMERA_MOVE_STEP_PX));
+    setPosition(
+      moveCameraPosition(
+        position,
+        axis,
+        deltaUnits * getFieldConfig().camera.moveStepPx,
+      ),
+    );
   };
 
   return (

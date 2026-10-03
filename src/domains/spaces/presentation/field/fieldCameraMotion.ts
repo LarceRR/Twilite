@@ -1,3 +1,6 @@
+import { DEFAULT_FIELD_CONFIG } from './fieldConfig';
+import { getFieldConfig } from './fieldConfigStore';
+
 export type Vec3 = {
   readonly x: number;
   readonly y: number;
@@ -19,26 +22,27 @@ export function worldAxisFromMove(axis: CameraMoveAxis): WorldAxis {
 }
 
 /** One logical pixel in world units (matches field cell pixel scale). */
-export const CAMERA_MOVE_STEP_PX = 1;
+export const CAMERA_MOVE_STEP_PX = DEFAULT_FIELD_CONFIG.camera.moveStepPx;
 
 /** One degree per rotate tap / hold unit. */
-export const CAMERA_ROTATE_STEP_DEG = 1;
+export const CAMERA_ROTATE_STEP_DEG = DEFAULT_FIELD_CONFIG.camera.rotateStepDeg;
 
 /** Hold ramp: reaches max step after this many ms. */
-export const CAMERA_HOLD_RAMP_MS = 1500;
+export const CAMERA_HOLD_RAMP_MS = DEFAULT_FIELD_CONFIG.camera.holdRampMs;
 
 /** Cap for hold acceleration (pixels or degrees per tick). */
-export const CAMERA_HOLD_MAX_STEP = 20;
+export const CAMERA_HOLD_MAX_STEP = DEFAULT_FIELD_CONFIG.camera.holdMaxStep;
 
 /** Dev HUD text publish interval — avoid React Glass/Text churn every hold tick. */
-export const CAMERA_HUD_PUBLISH_MS = 100;
+export const CAMERA_HUD_PUBLISH_MS = DEFAULT_FIELD_CONFIG.camera.hudPublishMs;
 
 export function shouldPublishThrottled(
   nowMs: number,
   lastPublishMs: number,
-  intervalMs: number = CAMERA_HUD_PUBLISH_MS,
+  intervalMs?: number,
 ): boolean {
-  return nowMs - lastPublishMs >= intervalMs;
+  const interval = intervalMs ?? getFieldConfig().camera.hudPublishMs;
+  return nowMs - lastPublishMs >= interval;
 }
 
 export function cameraNeedsProjectionUpdate(
@@ -52,9 +56,16 @@ export function cameraNeedsProjectionUpdate(
   );
 }
 
-export function holdRepeatDelta(elapsedMs: number): number {
-  const t = Math.min(1, Math.max(0, elapsedMs) / CAMERA_HOLD_RAMP_MS);
-  return Math.max(1, Math.round(1 + t * (CAMERA_HOLD_MAX_STEP - 1)));
+export function holdRepeatDelta(
+  elapsedMs: number,
+  rampMs?: number,
+  maxStep?: number,
+): number {
+  const camera = getFieldConfig().camera;
+  const ramp = rampMs ?? camera.holdRampMs;
+  const max = maxStep ?? camera.holdMaxStep;
+  const t = Math.min(1, Math.max(0, elapsedMs) / ramp);
+  return Math.max(1, Math.round(1 + t * (max - 1)));
 }
 
 export function nextRotateAxis(axis: CameraRotateAxis): CameraRotateAxis {

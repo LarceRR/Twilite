@@ -1,21 +1,27 @@
+import {
+  DEFAULT_FIELD_CONFIG,
+  fieldGridColsFromConfig,
+  fieldGridHeightFromConfig,
+  fieldGridWidthFromConfig,
+} from './fieldConfig';
+
 /** Logical pixel size of one field cell in world units (1 unit = 1 px). */
-export const FIELD_CELL_SIZE_PX = 60;
+export const FIELD_CELL_SIZE_PX = DEFAULT_FIELD_CONFIG.grid.cellSizePx;
 
 /** Original center band width before side expansion. */
-export const FIELD_GRID_CENTER_COLS = 10;
+export const FIELD_GRID_CENTER_COLS = DEFAULT_FIELD_CONFIG.grid.centerCols;
 
 /** Extra columns added on each horizontal side (left and right). */
-export const FIELD_GRID_SIDE_EXTRA_COLS = 20;
+export const FIELD_GRID_SIDE_EXTRA_COLS = DEFAULT_FIELD_CONFIG.grid.sideExtraCols;
 
 /** Number of cells along X (columns): center + 20 left + 20 right. */
-export const FIELD_GRID_COLS =
-  FIELD_GRID_CENTER_COLS + FIELD_GRID_SIDE_EXTRA_COLS * 2;
+export const FIELD_GRID_COLS = fieldGridColsFromConfig(DEFAULT_FIELD_CONFIG.grid);
 
 /** Number of cells along Y (rows) on the ground plane. */
-export const FIELD_GRID_ROWS = 15;
+export const FIELD_GRID_ROWS = DEFAULT_FIELD_CONFIG.grid.rows;
 
-export const FIELD_GRID_WIDTH = FIELD_GRID_COLS * FIELD_CELL_SIZE_PX;
-export const FIELD_GRID_HEIGHT = FIELD_GRID_ROWS * FIELD_CELL_SIZE_PX;
+export const FIELD_GRID_WIDTH = fieldGridWidthFromConfig(DEFAULT_FIELD_CONFIG.grid);
+export const FIELD_GRID_HEIGHT = fieldGridHeightFromConfig(DEFAULT_FIELD_CONFIG.grid);
 
 /**
  * Field uses Z-up (engineering / CAD style):

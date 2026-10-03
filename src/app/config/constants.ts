@@ -4,6 +4,7 @@ export const storageKeys = {
   localStateSchema: 'twilite.local-state.schema',
   offlineQueue: 'twilite.offline-queue',
   settings: 'twilite.settings',
+  fieldConfig: 'twilite.field-config',
   queryCache: 'twilite.query-cache',
 } as const;
 

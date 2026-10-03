@@ -6,11 +6,11 @@ import { spacing } from '@/design-system/spacing/spacing';
 
 import { useFieldCameraControlStore } from './fieldCameraControlStore';
 import {
-  CAMERA_ROTATE_STEP_DEG,
   type CameraRotateAxis,
   nextRotateAxis,
   rotateCameraEuler,
 } from './fieldCameraMotion';
+import { getFieldConfig } from './fieldConfigStore';
 import { GlassIconButton } from './GlassIconButton';
 
 export function FieldDevCameraRotatePad(): ReactElement {
@@ -22,7 +22,11 @@ export function FieldDevCameraRotatePad(): ReactElement {
     const { rotationDeg } = useFieldCameraControlStore.getState();
     pulseActiveWorldAxis(axis);
     setRotationDeg(
-      rotateCameraEuler(rotationDeg, axis, sign * deltaUnits * CAMERA_ROTATE_STEP_DEG),
+      rotateCameraEuler(
+        rotationDeg,
+        axis,
+        sign * deltaUnits * getFieldConfig().camera.rotateStepDeg,
+      ),
     );
   };
 

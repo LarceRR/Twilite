@@ -7,11 +7,12 @@ import { useSceneColors } from '@/design-system/colors/colors';
 import { useSettingsStore } from '@/domains/settings/presentation/stores/settingsStore';
 
 import {
-  FIELD_ACTIVE_CENTER_RGBA,
-  FIELD_ACTIVE_FILL_RGBA,
-  FIELD_LABEL_TEXT_HEX,
+  fieldActiveCenterRgba,
+  fieldActiveFillRgba,
+  fieldLabelTextHex,
 } from './fieldGridActiveCells';
 import { useFieldCameraControlStore } from './fieldCameraControlStore';
+import { getFieldConfig } from './fieldConfigStore';
 import {
   evictFieldChunkBakes,
   fieldChunkPrefetchIndices,
@@ -24,10 +25,10 @@ import {
 } from './fieldGridChunkBake';
 import { cellCenterOnPlane } from './fieldGridCells';
 import {
-  FIELD_CELL_LONG_PRESS_MS,
-  FIELD_WAVE_SECOND_BURST_GAP_SEC,
+  fieldCellLongPressMs,
   fieldCellLongPressToastMessage,
   fieldCellTapToastMessage,
+  fieldWaveSecondBurstGapSec,
   resolveActiveFieldCellAtPoint,
   sameFieldCell,
   shouldKeepFieldCellPress,
@@ -50,10 +51,12 @@ import {
   type FieldGridTextureColors,
 } from './fieldGridLabelPixels';
 import {
+  syncFieldGridWaveConfig,
   syncFieldGridWaveTime,
   triggerFieldGridWave,
   type FieldGridWaveMaterial,
 } from './fieldGridWaveMaterial';
+import { useFieldConfig } from './useFieldConfig';
 
 type FieldGridSurfaceProps = {
   readonly config: FieldGridConfig;
@@ -86,16 +89,18 @@ function fireWaveBurstOnMaterials(
   count: 1 | 2,
 ): void {
   const [cx, cy] = cellCenterOnPlane(cell.col, cell.row, config);
+  const gapSec = fieldWaveSecondBurstGapSec();
   for (const material of materials) {
     triggerFieldGridWave(material, cx, cy, nowSec);
     if (count === 2) {
-      triggerFieldGridWave(material, cx, cy, nowSec + FIELD_WAVE_SECOND_BURST_GAP_SEC);
+      triggerFieldGridWave(material, cx, cy, nowSec + gapSec);
     }
   }
 }
 
 function warmChunkPrefetch(desired: readonly number[], bake: BakeSnapshot): void {
-  const prefetchIds = fieldChunkPrefetchIndices(desired, 2);
+  const extraAhead = getFieldConfig().chunks.prefetchExtraAhead;
+  const prefetchIds = fieldChunkPrefetchIndices(desired, extraAhead);
   for (const chunkIndex of prefetchIds) {
     prefetchFieldChunk({
       chunkIndex,
@@ -111,11 +116,15 @@ function warmChunkPrefetch(desired: readonly number[], bake: BakeSnapshot): void
 export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElement {
   const showToast = useUiStore((s) => s.showToast);
   const scene = useSceneColors();
+  const fieldConfig = useFieldConfig();
   const showActiveCells = useSettingsStore((s) => s.developerShowActiveCells);
   const showActiveCenters = useSettingsStore((s) => s.developerShowActiveCellCenters);
   const showCellLabels = useSettingsStore((s) => s.developerShowCellLabels);
 
-  const slotCount = fieldChunkSlotCount();
+  const slotCount = fieldChunkSlotCount(
+    fieldConfig.chunks.behind,
+    fieldConfig.chunks.ahead,
+  );
   const initialCameraX = useFieldCameraControlStore.getState().position.x;
   const desiredRef = useRef<readonly number[]>(
     fieldChunkIndicesForCameraX(initialCameraX, config.cellSize),
@@ -138,9 +147,9 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
       colors: {
         fill: hexToRgba(scene.surfaceBase),
         line: hexToRgba(scene.surfaceDot),
-        text: hexToRgba(FIELD_LABEL_TEXT_HEX),
-        activeFill: FIELD_ACTIVE_FILL_RGBA,
-        activeCenter: FIELD_ACTIVE_CENTER_RGBA,
+        text: hexToRgba(fieldLabelTextHex()),
+        activeFill: fieldActiveFillRgba(),
+        activeCenter: fieldActiveCenterRgba(),
       },
       layers: { showActiveCells, showActiveCenters, showCellLabels },
     }),
@@ -152,6 +161,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
       showActiveCells,
       showActiveCenters,
       showCellLabels,
+      fieldConfig.activeCells,
     ],
   );
   const bakeRef = useRef(bake);
@@ -219,8 +229,9 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
       warmChunkPrefetch(beforeUpload.desired, bakeNow);
     }
 
+    const steady = getFieldConfig().chunks.gpuUploadSteady;
     const budget = bootstrappedRef.current
-      ? 1
+      ? steady
       : Math.max(beforeUpload.desired.length, 1);
     pumpFieldChunkGpuUploads(gl, budget);
     if (
@@ -252,6 +263,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
     }
 
     for (const material of materialsRef.current.values()) {
+      syncFieldGridWaveConfig(material);
       syncFieldGridWaveTime(material, clock.elapsedTime);
     }
   });
@@ -289,7 +301,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
           2,
         );
         showToast(fieldCellLongPressToastMessage(session.cell.label));
-      }, FIELD_CELL_LONG_PRESS_MS);
+      }, fieldCellLongPressMs());
 
       pressRef.current = {
         cell,

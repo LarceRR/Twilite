@@ -4,9 +4,10 @@ import { StyleSheet, View } from 'react-native';
 
 import { useSceneColors } from '@/design-system/colors/colors';
 
-import { FIELD_CAMERA_DEFAULT_POSE } from './fieldCameraFraming';
-import { FIELD_CAMERA_FOV, FieldSpaceCamera } from './FieldSpaceCamera';
+import { fieldCameraOpticsFromConfig } from './fieldCameraFraming';
+import { FieldSpaceCamera } from './FieldSpaceCamera';
 import { FieldSpaceScene } from './FieldSpaceScene';
+import { useFieldConfig } from './useFieldConfig';
 
 /**
  * Expo / R3F native canvas for the Field tab.
@@ -14,7 +15,8 @@ import { FieldSpaceScene } from './FieldSpaceScene';
  */
 export function FieldSpaceCanvas(): ReactElement {
   const scene = useSceneColors();
-  const pose = FIELD_CAMERA_DEFAULT_POSE;
+  const pose = fieldCameraOpticsFromConfig();
+  const fov = useFieldConfig().camera.fov;
 
   return (
     <View style={[styles.root, { backgroundColor: scene.background }]}>
@@ -28,7 +30,7 @@ export function FieldSpaceCanvas(): ReactElement {
             (pose.rotationDeg.z * Math.PI) / 180,
           ],
           up: [0, 0, 1],
-          fov: FIELD_CAMERA_FOV,
+          fov,
           near: pose.near,
           far: pose.far,
         }}

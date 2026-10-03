@@ -1,11 +1,13 @@
-import { FIELD_CHUNK_AHEAD, FIELD_CHUNK_BEHIND } from './fieldGridChunks';
+import { DEFAULT_FIELD_CONFIG } from './fieldConfig';
+import { getFieldConfig } from './fieldConfigStore';
 
 /** Max simultaneous chunk meshes: behind + anchor + ahead. */
 export function fieldChunkSlotCount(
-  behind: number = FIELD_CHUNK_BEHIND,
-  ahead: number = FIELD_CHUNK_AHEAD,
+  behind?: number,
+  ahead?: number,
 ): number {
-  return behind + ahead + 1;
+  const chunks = getFieldConfig().chunks;
+  return (behind ?? chunks.behind) + (ahead ?? chunks.ahead) + 1;
 }
 
 /**
@@ -49,3 +51,7 @@ export function fieldChunkSlotsEqual(
   }
   return true;
 }
+
+/** Default slot count from compile-time defaults (for specs / static math). */
+export const FIELD_CHUNK_SLOT_COUNT_DEFAULT =
+  DEFAULT_FIELD_CONFIG.chunks.behind + DEFAULT_FIELD_CONFIG.chunks.ahead + 1;

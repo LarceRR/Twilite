@@ -3,7 +3,10 @@ import { useLayoutEffect } from 'react';
 import type { ReactElement } from 'react';
 import { MathUtils, PerspectiveCamera, Vector3 } from 'three';
 
-import { FIELD_CAMERA_DEFAULT_POSE } from './fieldCameraFraming';
+import {
+  FIELD_CAMERA_DEFAULT_POSE,
+  fieldCameraOpticsFromConfig,
+} from './fieldCameraFraming';
 import { useFieldCameraControlStore } from './fieldCameraControlStore';
 import { cameraNeedsProjectionUpdate } from './fieldCameraMotion';
 import { FIELD_WORLD_UP } from './fieldGridConfig';
@@ -32,7 +35,7 @@ function applyStoreToCamera(camera: PerspectiveCamera): void {
 }
 
 function applyLockedDefault(camera: PerspectiveCamera): void {
-  const pose = FIELD_CAMERA_DEFAULT_POSE;
+  const pose = fieldCameraOpticsFromConfig();
   camera.up.copy(WORLD_UP);
   camera.fov = pose.fov;
   camera.near = pose.near;
