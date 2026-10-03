@@ -1,0 +1,25 @@
+---
+description: Do not inspect or search git history unless the user explicitly asks.
+alwaysApply: true
+---
+
+# No Git History Unless Asked
+
+## Default
+
+**Do not** look into, search, or summarize git history unless the user **explicitly** asks for it.
+
+## Do not (unless asked)
+
+- `git log`, `git blame`, `git show`, `git reflog`
+- Browsing old commits, diffs against past SHAs, or commit message archaeology
+- Inferring intent, authorship, or “how this used to work” from history
+
+## Allowed without a history ask
+
+- Current working tree only when needed for the task: `git status`, `git diff` (unstaged/staged)
+- Git operations the user explicitly requested (commit, PR, branch, etc.), using only the history those steps require
+
+## When history is allowed
+
+Only after a clear request, e.g. “look at git history”, “who changed this”, “what changed in commit X”, or “compare to last release”.

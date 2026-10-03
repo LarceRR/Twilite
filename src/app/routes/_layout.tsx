@@ -61,7 +61,6 @@ function RootNavigator(): ReactElement {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="settings" options={{ presentation: 'card' }} />
         <Stack.Screen name="theme-catalog" options={{ presentation: 'card' }} />
-        <Stack.Screen name="pixel-object-catalog" options={{ presentation: 'card' }} />
         <Stack.Screen name="devices" options={{ presentation: 'card' }} />
         <Stack.Screen name="billing" options={{ presentation: 'card' }} />
         <Stack.Screen name="admin" options={{ presentation: 'card' }} />

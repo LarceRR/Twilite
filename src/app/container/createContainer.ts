@@ -25,34 +25,6 @@ import {
 import { createHttpSpaceRepository } from '@/domains/spaces/infrastructure/repositories/httpSpaceRepository';
 import { createLocalSpaceRepository } from '@/domains/spaces/infrastructure/repositories/localSpaceRepository';
 import {
-  activateSurfaceObjectUseCase,
-  ageSurfaceObjectUseCase,
-  softenSurfaceObjectUseCase,
-} from '@/domains/surface-objects/application/changeSurfaceObjectState';
-import { createSurfaceObjectUseCase } from '@/domains/surface-objects/application/createSurfaceObject';
-import {
-  deleteSurfaceObjectUseCase,
-  toggleFavoriteUseCase,
-} from '@/domains/surface-objects/application/toggleFavorite';
-import { createHttpSurfaceObjectRepository } from '@/domains/surface-objects/infrastructure/repositories/httpSurfaceObjectRepository';
-import { createLocalSurfaceObjectRepository } from '@/domains/surface-objects/infrastructure/repositories/localSurfaceObjectRepository';
-import { getSurfaceSnapshotUseCase } from '@/domains/surfaces/application/getSurfaceSnapshot';
-import { createHttpSurfaceRepository } from '@/domains/surfaces/infrastructure/repositories/httpSurfaceRepository';
-import { createLocalSurfaceRepository } from '@/domains/surfaces/infrastructure/repositories/localSurfaceRepository';
-import { getTimelineUseCase } from '@/domains/timeline/application/getTimeline';
-import { createHttpTimelineRepository } from '@/domains/timeline/infrastructure/repositories/httpTimelineRepository';
-import { createLocalTimelineRepository } from '@/domains/timeline/infrastructure/repositories/localTimelineRepository';
-import {
-  getPixelObjectMobileUseCase,
-  listPublishedPixelObjectsUseCase,
-} from '@/domains/pixel-objects/application/pixelObjectUseCases';
-import {
-  createHttpPixelObjectCatalogRepository,
-} from '@/domains/pixel-objects/infrastructure/repositories/httpPixelObjectCatalogRepository';
-import {
-  createLocalPixelObjectCatalogRepository,
-} from '@/domains/pixel-objects/infrastructure/repositories/localPixelObjectCatalogRepository';
-import {
   applyThemeUseCase,
   getThemeDetailUseCase,
   hydrateAppliedThemeUseCase,
@@ -146,11 +118,7 @@ export function createContainer(hooks: ContainerHooks): Container {
       auth: createLocalAuthRepository(backend),
       admin: createLocalAdminRepository(),
       spaces: createLocalSpaceRepository(backend),
-      surfaces: createLocalSurfaceRepository(backend),
-      surfaceObjects: createLocalSurfaceObjectRepository(backend),
-      timeline: createLocalTimelineRepository(backend),
       themes: createLocalThemeCatalogRepository(storage),
-      pixelObjects: createLocalPixelObjectCatalogRepository(),
     };
   } else {
     const apiBaseUrl = env.apiBaseUrl;
@@ -171,11 +139,7 @@ export function createContainer(hooks: ContainerHooks): Container {
       auth: createHttpAuthRepository(http),
       admin: createHttpAdminRepository(http),
       spaces: createHttpSpaceRepository(http),
-      surfaces: createHttpSurfaceRepository(http),
-      surfaceObjects: createHttpSurfaceObjectRepository(http),
-      timeline: createHttpTimelineRepository(http),
       themes: createHttpThemeCatalogRepository(http, storage),
-      pixelObjects: createHttpPixelObjectCatalogRepository(http),
     };
   }
 
@@ -228,10 +192,6 @@ export function createContainer(hooks: ContainerHooks): Container {
     currentUser,
   };
 
-  const objectDeps = {
-    surfaceObjects: repositories.surfaceObjects,
-  };
-
   return {
     services,
     repositories,
@@ -252,32 +212,10 @@ export function createContainer(hooks: ContainerHooks): Container {
       inviteMember: inviteMemberUseCase(spaceDeps),
       respondToInvitation: respondToInvitationUseCase(spaceDeps),
 
-      getSurfaceSnapshot: getSurfaceSnapshotUseCase({
-        surfaces: repositories.surfaces,
-      }),
-
-      createSurfaceObject: createSurfaceObjectUseCase({
-        spaces: repositories.spaces,
-        surfaceObjects: repositories.surfaceObjects,
-        currentUser,
-      }),
-      activateSurfaceObject: activateSurfaceObjectUseCase(objectDeps),
-      softenSurfaceObject: softenSurfaceObjectUseCase(objectDeps),
-      ageSurfaceObject: ageSurfaceObjectUseCase(objectDeps),
-      toggleFavorite: toggleFavoriteUseCase(objectDeps),
-      deleteSurfaceObject: deleteSurfaceObjectUseCase(objectDeps),
-
-      getTimeline: getTimelineUseCase({
-        timeline: repositories.timeline,
-      }),
-
       listPublishedThemes: listPublishedThemesUseCase(repositories.themes),
       getThemeDetail: getThemeDetailUseCase(repositories.themes),
       applyTheme: applyThemeUseCase(repositories.themes),
       hydrateAppliedTheme: hydrateAppliedThemeUseCase(repositories.themes),
-
-      listPublishedPixelObjects: listPublishedPixelObjectsUseCase(repositories.pixelObjects),
-      getPixelObjectMobile: getPixelObjectMobileUseCase(repositories.pixelObjects),
     },
   };
 }

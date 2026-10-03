@@ -1,84 +1,61 @@
 import { create } from 'zustand';
 import { type ThemeMode, useThemeStore } from '@/design-system/colors/colors';
-export type GridShape = 'square' | 'round';
-export type GridVisibility = 'on' | 'off';
+
 export type SettingsState = {
   themeMode: ThemeMode;
   reduceMotion: boolean;
-  showPerformanceOverlay: boolean;
-  cameraControlEnabled: boolean;
-  showHitbox: boolean;
-  manualHitbox: boolean;
-  hitboxWidthPx: number;
-  hitboxHeightPx: number;
-  gridVisibility: GridVisibility;
-  gridShape: GridShape;
-  gridObjectsOnly: boolean;
-  surfaceBackground: string | null;
-  highlightEndpoints: boolean;
+  developerCameraControlsEnabled: boolean;
+  developerShowActiveCells: boolean;
+  developerShowWorldAxes: boolean;
+  developerShowCellLabels: boolean;
+  developerShowActiveCellCenters: boolean;
   setThemeMode: (v: ThemeMode) => void;
   setReduceMotion: (v: boolean) => void;
-  setShowPerformanceOverlay: (v: boolean) => void;
-  setCameraControlEnabled: (v: boolean) => void;
-  setShowHitbox: (v: boolean) => void;
-  setManualHitbox: (v: boolean) => void;
-  setHitboxWidthPx: (v: number) => void;
-  setHitboxHeightPx: (v: number) => void;
-  setGridVisibility: (v: GridVisibility) => void;
-  setGridShape: (v: GridShape) => void;
-  setGridObjectsOnly: (v: boolean) => void;
-  setSurfaceBackground: (v: string | null) => void;
-  setHighlightEndpoints: (v: boolean) => void;
+  setDeveloperCameraControlsEnabled: (v: boolean) => void;
+  setDeveloperShowActiveCells: (v: boolean) => void;
+  setDeveloperShowWorldAxes: (v: boolean) => void;
+  setDeveloperShowCellLabels: (v: boolean) => void;
+  setDeveloperShowActiveCellCenters: (v: boolean) => void;
   hydrate: (v: Partial<PersistedSettings>) => void;
 };
+
 export type PersistedSettings = {
   readonly themeMode: ThemeMode;
   readonly reduceMotion: boolean;
-  readonly showPerformanceOverlay: boolean;
-  readonly cameraControlEnabled?: boolean;
-  readonly showHitbox: boolean;
-  readonly manualHitbox?: boolean;
-  readonly hitboxWidthPx?: number;
-  readonly hitboxHeightPx?: number;
-  readonly gridVisibility?: GridVisibility;
-  readonly gridShape?: GridShape;
-  readonly gridObjectsOnly?: boolean;
-  readonly surfaceBackground: string | null;
-  readonly highlightEndpoints: boolean;
+  readonly developerCameraControlsEnabled: boolean;
+  readonly developerShowActiveCells: boolean;
+  readonly developerShowWorldAxes: boolean;
+  readonly developerShowCellLabels: boolean;
+  readonly developerShowActiveCellCenters: boolean;
 };
+
 function publishThemeMode(mode: ThemeMode): void {
   useThemeStore.getState().setMode(mode);
 }
+
 export const useSettingsStore = create<SettingsState>()((set) => ({
   themeMode: 'system',
   reduceMotion: false,
-  showPerformanceOverlay: false,
-  cameraControlEnabled: false,
-  showHitbox: false,
-  manualHitbox: false,
-  hitboxWidthPx: 84,
-  hitboxHeightPx: 120,
-  gridVisibility: 'on',
-  gridShape: 'square',
-  gridObjectsOnly: false,
-  surfaceBackground: null,
-  highlightEndpoints: false,
+  developerCameraControlsEnabled: false,
+  developerShowActiveCells: true,
+  developerShowWorldAxes: true,
+  developerShowCellLabels: true,
+  developerShowActiveCellCenters: true,
   setThemeMode: (themeMode) => {
     publishThemeMode(themeMode);
     set({ themeMode });
   },
   setReduceMotion: (reduceMotion) => set({ reduceMotion }),
-  setShowPerformanceOverlay: (showPerformanceOverlay) => set({ showPerformanceOverlay }),
-  setCameraControlEnabled: (cameraControlEnabled) => set({ cameraControlEnabled }),
-  setShowHitbox: (showHitbox) => set({ showHitbox }),
-  setManualHitbox: (manualHitbox) => set({ manualHitbox }),
-  setHitboxWidthPx: (v) => set({ hitboxWidthPx: Math.max(8, v) }),
-  setHitboxHeightPx: (v) => set({ hitboxHeightPx: Math.max(8, v) }),
-  setGridVisibility: (gridVisibility) => set({ gridVisibility }),
-  setGridShape: (gridShape) => set({ gridShape }),
-  setGridObjectsOnly: (gridObjectsOnly) => set({ gridObjectsOnly }),
-  setSurfaceBackground: (surfaceBackground) => set({ surfaceBackground }),
-  setHighlightEndpoints: (highlightEndpoints) => set({ highlightEndpoints }),
+  setDeveloperCameraControlsEnabled: (developerCameraControlsEnabled) =>
+    set({ developerCameraControlsEnabled }),
+  setDeveloperShowActiveCells: (developerShowActiveCells) =>
+    set({ developerShowActiveCells }),
+  setDeveloperShowWorldAxes: (developerShowWorldAxes) =>
+    set({ developerShowWorldAxes }),
+  setDeveloperShowCellLabels: (developerShowCellLabels) =>
+    set({ developerShowCellLabels }),
+  setDeveloperShowActiveCellCenters: (developerShowActiveCellCenters) =>
+    set({ developerShowActiveCellCenters }),
   hydrate: (v) => {
     const next: Partial<SettingsState> = {};
     if (v.themeMode !== undefined) {
@@ -86,41 +63,35 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
       publishThemeMode(v.themeMode);
     }
     if (v.reduceMotion !== undefined) next.reduceMotion = v.reduceMotion;
-    if (v.showPerformanceOverlay !== undefined)
-      next.showPerformanceOverlay = v.showPerformanceOverlay;
-    if (v.cameraControlEnabled !== undefined)
-      next.cameraControlEnabled = v.cameraControlEnabled;
-    if (v.showHitbox !== undefined) next.showHitbox = v.showHitbox;
-    if (v.manualHitbox !== undefined) next.manualHitbox = v.manualHitbox;
-    if (v.hitboxWidthPx !== undefined) next.hitboxWidthPx = Math.max(8, v.hitboxWidthPx);
-    if (v.hitboxHeightPx !== undefined) next.hitboxHeightPx = Math.max(8, v.hitboxHeightPx);
-    if (v.gridVisibility !== undefined) next.gridVisibility = v.gridVisibility;
-    if (v.gridShape !== undefined) next.gridShape = v.gridShape;
-    if (v.gridObjectsOnly !== undefined) next.gridObjectsOnly = v.gridObjectsOnly;
-    if (v.surfaceBackground !== undefined) next.surfaceBackground = v.surfaceBackground;
-    if (v.highlightEndpoints !== undefined) next.highlightEndpoints = v.highlightEndpoints;
+    if (v.developerCameraControlsEnabled !== undefined) {
+      next.developerCameraControlsEnabled = v.developerCameraControlsEnabled;
+    }
+    if (v.developerShowActiveCells !== undefined) {
+      next.developerShowActiveCells = v.developerShowActiveCells;
+    }
+    if (v.developerShowWorldAxes !== undefined) {
+      next.developerShowWorldAxes = v.developerShowWorldAxes;
+    }
+    if (v.developerShowCellLabels !== undefined) {
+      next.developerShowCellLabels = v.developerShowCellLabels;
+    }
+    if (v.developerShowActiveCellCenters !== undefined) {
+      next.developerShowActiveCellCenters = v.developerShowActiveCellCenters;
+    }
     set(next);
   },
 }));
+
 export function persistedSettings(s: SettingsState): PersistedSettings {
   return {
     themeMode: s.themeMode,
     reduceMotion: s.reduceMotion,
-    showPerformanceOverlay: s.showPerformanceOverlay,
-    cameraControlEnabled: s.cameraControlEnabled,
-    showHitbox: s.showHitbox,
-    manualHitbox: s.manualHitbox,
-    hitboxWidthPx: s.hitboxWidthPx,
-    hitboxHeightPx: s.hitboxHeightPx,
-    gridVisibility: s.gridVisibility,
-    gridShape: s.gridShape,
-    gridObjectsOnly: s.gridObjectsOnly,
-    surfaceBackground: s.surfaceBackground,
-    highlightEndpoints: s.highlightEndpoints,
+    developerCameraControlsEnabled: s.developerCameraControlsEnabled,
+    developerShowActiveCells: s.developerShowActiveCells,
+    developerShowWorldAxes: s.developerShowWorldAxes,
+    developerShowCellLabels: s.developerShowCellLabels,
+    developerShowActiveCellCenters: s.developerShowActiveCellCenters,
   };
 }
+
 export const selectThemeMode = (s: SettingsState): ThemeMode => s.themeMode;
-export const selectSurfaceBackground = (s: SettingsState): string | null => s.surfaceBackground;
-export const selectHighlightEndpoints = (s: SettingsState): boolean => s.highlightEndpoints;
-export const selectShowHitbox = (s: SettingsState): boolean => s.showHitbox;
-export const selectManualHitbox = (s: SettingsState): boolean => s.manualHitbox;

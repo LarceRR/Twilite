@@ -17,6 +17,7 @@ describe('normalizePathname', () => {
 describe('resolvePageConfig', () => {
   it('resolves static and dynamic routes', () => {
     expect(resolvePageTitle('/settings')).toBe('Настройки');
+    expect(resolvePageTitle('/settings/scene')).toBe('Сцена');
     expect(resolvePageConfig('/admin/users/abc-1')?.title).toBe('Пользователь');
     expect(resolvePageConfig('/theme-catalog/pack-9')?.title).toBe('Тема');
   });

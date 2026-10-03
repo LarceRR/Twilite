@@ -9,8 +9,6 @@ import {
   persistedSettings,
   useSettingsStore,
 } from '@/domains/settings/presentation/stores/settingsStore';
-import type { FireSettings } from '@/scene/objects/fire/fireSettings';
-import { useFireSettingsStore } from '@/scene/objects/fire/fireSettingsStore';
 import { toAppError } from '@/shared/errors';
 
 import { loadNativeTabIconSources } from '../navigation/nativeTabIconSources';
@@ -68,16 +66,6 @@ export function useBootstrap(): { readonly isReady: boolean } {
         if (settings !== null) useSettingsStore.getState().hydrate(settings);
       } catch (error) {
         logger.debug('Settings restore skipped', { error: String(error) });
-      }
-
-      try {
-        const fire = await withTimeout(
-          storage.read<FireSettings>(storageKeys.fireSettings),
-          'fire settings restore',
-        );
-        useFireSettingsStore.getState().hydrate(fire);
-      } catch (error) {
-        logger.debug('Fire settings restore skipped', { error: String(error) });
       }
 
       try {
@@ -140,14 +128,6 @@ export function useBootstrap(): { readonly isReady: boolean } {
     () =>
       useSettingsStore.subscribe((state) => {
         void storage.write(storageKeys.settings, persistedSettings(state));
-      }),
-    [storage],
-  );
-
-  useEffect(
-    () =>
-      useFireSettingsStore.subscribe((state) => {
-        void storage.write(storageKeys.fireSettings, state.settings);
       }),
     [storage],
   );
