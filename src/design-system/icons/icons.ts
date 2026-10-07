@@ -36,6 +36,8 @@ export const icons = {
   moveForward: 'navigate-outline',
   moveBack: 'return-down-back-outline',
   search: 'search-outline',
+  filters: 'options-outline',
+  download: 'download-outline',
   checkmark: 'checkmark',
   favorite: 'heart',
   favoriteOutline: 'heart-outline',

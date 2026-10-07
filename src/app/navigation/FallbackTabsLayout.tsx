@@ -6,6 +6,7 @@ import { BottomBar } from '@/design-system/components/BottomBar/BottomBar';
 import { UserAvatar } from '@/design-system/components/UserAvatar/UserAvatar';
 import { useAuthStore } from '@/domains/auth/presentation/stores/authStore';
 
+import { openCreateSheet } from './openCreateSheet';
 import { CREATE_TAB_NAME, isMainTabRoute, TAB_ROUTES } from './tabRoutes';
 
 /** Floating glass tab bar shared across Android and non-native targets. */
@@ -30,7 +31,7 @@ export function FallbackTabsLayout(): ReactElement {
               index: focusedMainIndex < 0 ? 0 : focusedMainIndex,
             }}
             addAccessibilityLabel="Добавить"
-            onAddPress={() => router.push(`/${CREATE_TAB_NAME}`)}
+            onAddPress={() => openCreateSheet(router)}
             renderIcon={({ routeName, focused, color, size }) =>
               routeName === 'profile' ? (
                 <UserAvatar
@@ -54,7 +55,7 @@ export function FallbackTabsLayout(): ReactElement {
       {TAB_ROUTES.map((route) => (
         <Tabs.Screen key={route.name} name={route.name} options={{ title: route.title }} />
       ))}
-      <Tabs.Screen name={CREATE_TAB_NAME} options={{ href: null, title: 'Добавить' }} />
+      <Tabs.Screen name={CREATE_TAB_NAME} options={{ href: null }} />
     </Tabs>
   );
 }

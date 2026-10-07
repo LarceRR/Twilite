@@ -1,3 +1,5 @@
+import type { AppThemePack } from '@/design-system/themes';
+import type { RevokeAllDeviceSessionsResult } from '@/domains/auth/application/authUseCases';
 import type { AuthSession } from '@/domains/auth/domain/entities/AuthSession';
 import type { DeviceSession } from '@/domains/auth/domain/entities/DeviceSession';
 import type { QrLoginPreview } from '@/domains/auth/domain/entities/QrLoginPreview';
@@ -5,7 +7,10 @@ import type {
   SignInCredentials,
   SignUpCredentials,
 } from '@/domains/auth/domain/repositories/AuthRepository';
-import type { RevokeAllDeviceSessionsResult } from '@/domains/auth/application/authUseCases';
+import type {
+  MomentCatalogPage,
+  MomentCatalogQuery,
+} from '@/domains/moments/domain/entities/MomentCatalog';
 import type {
   CreateSpaceCommand,
   InviteMemberCommand,
@@ -13,7 +18,6 @@ import type {
 } from '@/domains/spaces/application/spaceUseCases';
 import type { Invitation } from '@/domains/spaces/domain/entities/Invitation';
 import type { Space } from '@/domains/spaces/domain/entities/Space';
-import type { AppThemePack } from '@/design-system/themes';
 import type { UseCase } from '@/shared/application/UseCase';
 
 export type UseCases = {
@@ -40,4 +44,6 @@ export type UseCases = {
   readonly getThemeDetail: UseCase<string, AppThemePack>;
   readonly applyTheme: UseCase<AppThemePack, void>;
   readonly hydrateAppliedTheme: UseCase<void, void>;
+
+  readonly listMomentCatalogPage: UseCase<MomentCatalogQuery, MomentCatalogPage>;
 };

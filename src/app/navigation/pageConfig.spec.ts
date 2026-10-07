@@ -16,6 +16,9 @@ describe('normalizePathname', () => {
 
 describe('resolvePageConfig', () => {
   it('resolves static and dynamic routes', () => {
+    expect(resolvePageTitle('/create')).toBe('Создать момент');
+    expect(resolvePageTitle('/moment-catalog')).toBe('Каталог моментов');
+    expect(resolvePageTitle('/moment-filters')).toBe('Фильтры');
     expect(resolvePageTitle('/settings')).toBe('Настройки');
     expect(resolvePageTitle('/settings/scene')).toBe('Сцена');
     expect(resolvePageConfig('/admin/users/abc-1')?.title).toBe('Пользователь');

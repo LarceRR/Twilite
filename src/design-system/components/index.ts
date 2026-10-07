@@ -11,6 +11,8 @@ export { EmptyState } from './EmptyState/EmptyState';
 export type { FloatingAddButtonProps } from './FloatingAddButton/FloatingAddButton';
 export { FloatingAddButton } from './FloatingAddButton/FloatingAddButton';
 export { GlassSurface, isLiquidGlassSurfaceAvailable } from './GlassSurface/GlassSurface';
+export type { GlassTintButtonProps } from './GlassTintButton/GlassTintButton';
+export { GlassTintButton } from './GlassTintButton/GlassTintButton';
 export { IconButton } from './IconButton/IconButton';
 export { ListRow } from './ListRow/ListRow';
 export { Modal } from './Modal/Modal';
@@ -21,8 +23,11 @@ export type {
   SegmentedControlProps,
 } from './SegmentedControl/SegmentedControl';
 export { SegmentedControl } from './SegmentedControl/SegmentedControl';
+export type { SheetHeadingProps } from './SheetHeading/SheetHeading';
+export { SheetHeading } from './SheetHeading/SheetHeading';
 export type { SliderProps } from './Slider/Slider';
 export { Slider } from './Slider/Slider';
+export type { SwitchProps } from './Switch/Switch';
 export { Switch } from './Switch/Switch';
 export type { TextProps } from './Text/Text';
 export { Text } from './Text/Text';

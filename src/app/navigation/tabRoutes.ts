@@ -3,8 +3,11 @@ import { icons } from '@/design-system/icons/icons';
 
 export type TabRouteName = 'index' | 'timeline' | 'ai' | 'profile';
 
-/** Trailing Liquid Glass control (iOS `role="search"` / Android separate FAB). */
-export const CREATE_TAB_NAME = 'create' as const;
+/**
+ * Trailing Liquid Glass control slot (iOS `role="search"` / Android FAB host).
+ * Not a real destination — pressing it opens the root `/create` form sheet.
+ */
+export const CREATE_TAB_NAME = 'create-action' as const;
 
 export type TabGlyphs = { readonly active: IconName; readonly inactive: IconName };
 

@@ -16,6 +16,9 @@ import type { AuthRepository } from '@/domains/auth/domain/repositories/AuthRepo
 import { createHttpAuthRepository } from '@/domains/auth/infrastructure/repositories/httpAuthRepository';
 import { createLocalAuthRepository } from '@/domains/auth/infrastructure/repositories/localAuthRepository';
 import { createSessionManager } from '@/domains/auth/infrastructure/sessionManager';
+import { listMomentCatalogPageUseCase } from '@/domains/moments/application/momentCatalogUseCases';
+import { createHttpMomentCatalogRepository } from '@/domains/moments/infrastructure/repositories/httpMomentCatalogRepository';
+import { createLocalMomentCatalogRepository } from '@/domains/moments/infrastructure/repositories/localMomentCatalogRepository';
 import {
   createSpaceUseCase,
   inviteMemberUseCase,
@@ -103,9 +106,7 @@ export function createContainer(hooks: ContainerHooks): Container {
   const isSandbox = env.apiBaseUrl === null;
 
   if (env.isProduction && isSandbox) {
-    throw new UnknownError(
-      'Production app cannot start without an API base URL',
-    );
+    throw new UnknownError('Production app cannot start without an API base URL');
   }
 
   let repositories: Repositories;
@@ -119,14 +120,13 @@ export function createContainer(hooks: ContainerHooks): Container {
       admin: createLocalAdminRepository(),
       spaces: createLocalSpaceRepository(backend),
       themes: createLocalThemeCatalogRepository(storage),
+      moments: createLocalMomentCatalogRepository(),
     };
   } else {
     const apiBaseUrl = env.apiBaseUrl;
 
     if (apiBaseUrl === null) {
-      throw new UnknownError(
-        `API base URL is required in ${env.mode} mode`,
-      );
+      throw new UnknownError(`API base URL is required in ${env.mode} mode`);
     }
 
     http = createHttpClient({
@@ -140,6 +140,7 @@ export function createContainer(hooks: ContainerHooks): Container {
       admin: createHttpAdminRepository(http),
       spaces: createHttpSpaceRepository(http),
       themes: createHttpThemeCatalogRepository(http, storage),
+      moments: createHttpMomentCatalogRepository(http, apiBaseUrl),
     };
   }
 
@@ -216,6 +217,8 @@ export function createContainer(hooks: ContainerHooks): Container {
       getThemeDetail: getThemeDetailUseCase(repositories.themes),
       applyTheme: applyThemeUseCase(repositories.themes),
       hydrateAppliedTheme: hydrateAppliedThemeUseCase(repositories.themes),
+
+      listMomentCatalogPage: listMomentCatalogPageUseCase(repositories.moments),
     },
   };
 }

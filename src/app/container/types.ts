@@ -5,6 +5,7 @@ import type {
   SessionStorage,
 } from '@/domains/auth/domain/repositories/AuthRepository';
 import type { SessionManager } from '@/domains/auth/infrastructure/sessionManager';
+import type { MomentCatalogRepository } from '@/domains/moments/domain/repositories/MomentCatalogRepository';
 import type { SpaceRepository } from '@/domains/spaces/domain/repositories/SpaceRepository';
 import type { ThemeCatalogRepository } from '@/domains/themes/domain/repositories/ThemeCatalogRepository';
 import type { OfflineQueue } from '@/infrastructure/offline-queue/offlineQueue';
@@ -33,6 +34,7 @@ export type Repositories = {
   readonly admin: AdminRepository;
   readonly spaces: SpaceRepository;
   readonly themes: ThemeCatalogRepository;
+  readonly moments: MomentCatalogRepository;
 };
 
 export type Container = {

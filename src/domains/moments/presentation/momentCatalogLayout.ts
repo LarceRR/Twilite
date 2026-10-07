@@ -1,0 +1,23 @@
+/** Measurements taken from the moment-catalog form sheets. */
+export const momentCatalogLayout = {
+  screenGutter: 10,
+  headingGap: 20,
+  sectionGap: 8,
+  cardRadius: 16,
+  cardPaddingTop: 10,
+  cardPaddingX: 10,
+  cardPaddingBottom: 16,
+  cardGap: 16,
+  tileWidth: 82,
+  tileArtHeight: 70,
+  tileLabelHeight: 21,
+  tileRadius: 10,
+  tileGap: 8,
+  toolbarHeight: 42,
+  toolbarRadius: 4,
+  toolbarGap: 8,
+  searchPaddingX: 6,
+  searchGap: 6,
+  avatarSize: 24,
+  metaIconSize: 8,
+} as const;
