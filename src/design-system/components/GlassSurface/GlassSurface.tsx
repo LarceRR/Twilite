@@ -12,6 +12,8 @@ export type GlassSurfaceProps = {
   readonly style?: StyleProp<ViewStyle>;
   readonly cornerRadius?: number;
   readonly interactive?: boolean;
+  /** Overrides the theme glass tint (Liquid Glass on iOS 26+). */
+  readonly tintColor?: string;
 };
 
 /**
@@ -47,19 +49,21 @@ function GlassSurfaceComponent({
   style,
   cornerRadius = radius.xl,
   interactive = false,
+  tintColor,
 }: GlassSurfaceProps): ReactElement {
   const theme = useThemeColors();
   const isDark = useIsDarkTheme();
+  const glassTint = tintColor ?? theme.glassTint;
 
   if (LIQUID_GLASS_AVAILABLE) {
     const scheme = isDark ? 'dark' : 'light';
     return (
       <GlassView
-        key={`glass-${scheme}`}
+        key={`glass-${scheme}-${glassTint}`}
         style={[{ borderRadius: cornerRadius }, style]}
         glassEffectStyle="regular"
         colorScheme={scheme}
-        tintColor={theme.glassTint}
+        tintColor={glassTint}
         isInteractive={interactive}
       >
         {children}
@@ -75,7 +79,7 @@ function GlassSurfaceComponent({
           shadows.medium,
           {
             borderRadius: cornerRadius,
-            backgroundColor: theme.glassFillAndroid,
+            backgroundColor: tintColor ?? theme.glassFillAndroid,
             borderWidth: StyleSheet.hairlineWidth,
             borderColor: theme.glassRimAndroid,
           },

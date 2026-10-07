@@ -25,7 +25,7 @@ export function createQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: cacheConfig.surfaceStaleMs,
+        staleTime: cacheConfig.activeSpaceTtlMs,
         gcTime: 30 * 60_000,
         retry: shouldRetry,
         refetchOnReconnect: true,

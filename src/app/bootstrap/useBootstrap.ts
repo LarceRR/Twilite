@@ -9,8 +9,11 @@ import {
   persistedSettings,
   useSettingsStore,
 } from '@/domains/settings/presentation/stores/settingsStore';
-import type { FireSettings } from '@/scene/objects/fire/fireSettings';
-import { useFireSettingsStore } from '@/scene/objects/fire/fireSettingsStore';
+import type { FieldConfigOverrides } from '@/domains/spaces/presentation/field/fieldConfig';
+import {
+  persistedFieldConfigOverrides,
+  useFieldConfigStore,
+} from '@/domains/spaces/presentation/field/fieldConfigStore';
 import { toAppError } from '@/shared/errors';
 
 import { loadNativeTabIconSources } from '../navigation/nativeTabIconSources';
@@ -71,13 +74,13 @@ export function useBootstrap(): { readonly isReady: boolean } {
       }
 
       try {
-        const fire = await withTimeout(
-          storage.read<FireSettings>(storageKeys.fireSettings),
-          'fire settings restore',
+        const fieldConfig = await withTimeout(
+          storage.read<FieldConfigOverrides>(storageKeys.fieldConfig),
+          'field config restore',
         );
-        useFireSettingsStore.getState().hydrate(fire);
+        if (fieldConfig !== null) useFieldConfigStore.getState().hydrate(fieldConfig);
       } catch (error) {
-        logger.debug('Fire settings restore skipped', { error: String(error) });
+        logger.debug('Field config restore skipped', { error: String(error) });
       }
 
       try {
@@ -146,8 +149,11 @@ export function useBootstrap(): { readonly isReady: boolean } {
 
   useEffect(
     () =>
-      useFireSettingsStore.subscribe((state) => {
-        void storage.write(storageKeys.fireSettings, state.settings);
+      useFieldConfigStore.subscribe((state) => {
+        void storage.write(
+          storageKeys.fieldConfig,
+          persistedFieldConfigOverrides(state),
+        );
       }),
     [storage],
   );

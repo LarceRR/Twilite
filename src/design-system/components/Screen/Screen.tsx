@@ -11,6 +11,8 @@ import { icons } from '../../icons/icons';
 import { layout, spacing } from '../../spacing/spacing';
 import { IconButton } from '../IconButton/IconButton';
 import { Text } from '../Text/Text';
+import { screenHeaderTitle } from './screenHeaderTitle';
+import { screenTopPadding } from './screenTopPadding';
 import { shouldShowScreenBack } from './shouldShowScreenBack';
 
 export type ScreenProps = {
@@ -22,6 +24,12 @@ export type ScreenProps = {
   readonly reserveTabBar?: boolean;
   /** Hide the back control even when the stack can go back. */
   readonly hideBack?: boolean;
+  /** Skip status-bar top inset (native form sheets already sit below chrome). */
+  readonly skipTopSafeArea?: boolean;
+  /** Skip the chrome title, including the route-title fallback. */
+  readonly hideHeader?: boolean;
+  /** Horizontal inset. Sheets that specify their own gutter pass it here. */
+  readonly contentGutter?: number;
 };
 
 function ScreenComponent({
@@ -31,13 +39,16 @@ function ScreenComponent({
   scroll = true,
   reserveTabBar = reservesFloatingTabBar(),
   hideBack = false,
+  skipTopSafeArea = false,
+  hideHeader = false,
+  contentGutter = layout.screenGutter,
 }: ScreenProps): ReactElement {
   const insets = useSafeAreaInsets();
   const theme = useThemeColors();
   const router = useRouter();
   const pathname = usePathname();
   const isFocused = useIsFocused();
-  const resolvedTitle = title ?? resolvePageTitle(pathname) ?? undefined;
+  const resolvedTitle = screenHeaderTitle(hideHeader, title, resolvePageTitle(pathname));
   const showBack = shouldShowScreenBack({
     hideBack,
     isFocused,
@@ -45,6 +56,7 @@ function ScreenComponent({
     canGoBack: router.canGoBack(),
   });
   const bottomPadding = tabScreenBottomPadding(insets.bottom, reserveTabBar);
+  const topPadding = screenTopPadding(insets.top, skipTopSafeArea);
   const background = { backgroundColor: theme.surface };
 
   const header =
@@ -75,9 +87,16 @@ function ScreenComponent({
 
   if (!scroll) {
     return (
-      <View style={[styles.root, background, { paddingTop: insets.top + spacing.md }]}>
+      <View style={[styles.root, background, { paddingTop: topPadding }]}>
         {header}
-        <View style={[styles.flexBody, { paddingBottom: bottomPadding }]}>{children}</View>
+        <View
+          style={[
+            styles.flexBody,
+            { paddingBottom: bottomPadding, paddingHorizontal: contentGutter },
+          ]}
+        >
+          {children}
+        </View>
       </View>
     );
   }
@@ -87,7 +106,7 @@ function ScreenComponent({
       style={[styles.root, background]}
       contentContainerStyle={[
         styles.scrollBody,
-        { paddingTop: insets.top + spacing.md, paddingBottom: bottomPadding },
+        { paddingTop: topPadding, paddingBottom: bottomPadding, paddingHorizontal: contentGutter },
       ]}
       contentInsetAdjustmentBehavior={
         Platform.OS === 'ios' && !reserveTabBar ? 'automatic' : 'never'

@@ -1,23 +1,8 @@
-import { memo, type ReactElement, useEffect } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
-import Animated, {
-  interpolateColor,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import { Host, Switch as ExpoSwitch } from '@expo/ui';
+import { memo, type ReactElement } from 'react';
 
-import { useThemeColors } from '../../colors/themeStore';
-import { durations } from '../../motion/durations';
-import { reanimatedEasing } from '../../motion/easings';
-import { radius } from '../../radius/radius';
-import { shadows } from '../../shadows/shadows';
-import { layout, spacing } from '../../spacing/spacing';
-
-const TRACK_WIDTH = 50;
-const TRACK_HEIGHT = 30;
-const THUMB_SIZE = 26;
-const THUMB_TRAVEL = TRACK_WIDTH - THUMB_SIZE - spacing.xxs * 2;
+import { useIsDarkTheme, useThemeColors } from '../../colors/colors';
+import { createSwitchHostProps } from './createSwitchHostProps';
 
 export type SwitchProps = {
   readonly value: boolean;
@@ -26,6 +11,10 @@ export type SwitchProps = {
   readonly disabled?: boolean;
 };
 
+/**
+ * Native platform switch: SwiftUI Toggle (Liquid Glass on iOS 26+) and
+ * Material 3 Switch on Android, themed via Host seedColor from the active pack.
+ */
 function SwitchComponent({
   value,
   onValueChange,
@@ -33,62 +22,25 @@ function SwitchComponent({
   disabled = false,
 }: SwitchProps): ReactElement {
   const theme = useThemeColors();
-  const progress = useSharedValue(value ? 1 : 0);
-  const trackOff = theme.controlTrack;
-  const trackOn = theme.accent;
-
-  useEffect(() => {
-    progress.value = withTiming(value ? 1 : 0, {
-      duration: durations.fast,
-      easing: reanimatedEasing('standard'),
-    });
-  }, [value, progress]);
-
-  const trackStyle = useAnimatedStyle(
-    () => ({
-      backgroundColor: interpolateColor(progress.value, [0, 1], [trackOff, trackOn]),
-    }),
-    [trackOff, trackOn],
-  );
-
-  const thumbStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: progress.value * THUMB_TRAVEL }],
-  }));
+  const isDark = useIsDarkTheme();
+  const host = createSwitchHostProps({ accent: theme.accent, isDark });
 
   return (
-    <Pressable
+    <Host
+      matchContents
+      seedColor={host.seedColor}
+      colorScheme={host.colorScheme}
       accessibilityRole="switch"
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ checked: value, disabled }}
-      disabled={disabled}
-      hitSlop={layout.hitSlop}
-      onPress={() => onValueChange(!value)}
     >
-      <Animated.View style={[styles.track, trackStyle, disabled && styles.disabled]}>
-        <Animated.View
-          style={[styles.thumb, { backgroundColor: theme.surfaceRaised }, shadows.low, thumbStyle]}
-        />
-      </Animated.View>
-    </Pressable>
+      <ExpoSwitch
+        value={value}
+        onValueChange={onValueChange}
+        disabled={disabled}
+      />
+    </Host>
   );
 }
 
 export const Switch = memo(SwitchComponent);
-
-const styles = StyleSheet.create({
-  track: {
-    width: TRACK_WIDTH,
-    height: TRACK_HEIGHT,
-    borderRadius: radius.pill,
-    padding: spacing.xxs,
-    justifyContent: 'center',
-  },
-  thumb: {
-    width: THUMB_SIZE,
-    height: THUMB_SIZE,
-    borderRadius: radius.pill,
-  },
-  disabled: {
-    opacity: 0.5,
-  },
-});

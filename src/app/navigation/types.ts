@@ -5,6 +5,8 @@ export const routes = {
   ai: '/ai',
   profile: '/profile',
   create: '/create',
+  momentCatalog: '/moment-catalog',
+  momentFilters: '/moment-filters',
   devices: '/devices',
   deviceSession: '/devices/[sessionId]',
   qrScan: '/qr-scan',

@@ -1,11 +1,7 @@
 import { create } from 'zustand';
 
-import type { SurfaceObjectKind } from '@/domains/surface-objects/domain/value-objects/SurfaceObjectKind';
-
 export type ActiveSheet =
   | { readonly type: 'none' }
-  | { readonly type: 'createObject'; readonly kind: SurfaceObjectKind }
-  | { readonly type: 'objectDetails' }
   | { readonly type: 'spacePicker' };
 
 export type Toast = {
