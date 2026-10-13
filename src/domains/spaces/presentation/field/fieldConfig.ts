@@ -116,8 +116,8 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
     fadeOutStart: 0.55,
   },
   camera: {
-    position: { x: -469, y: 0, z: 408 },
-    rotationDeg: { x: 70, y: 0, z: -90 },
+    position: { x: -323, y: 0, z: 171 },
+    rotationDeg: { x: 83, y: 0, z: -90 },
     fov: 42,
     near: 1,
     far: 30_000,

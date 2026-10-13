@@ -10,7 +10,7 @@ export const momentCatalogLayout = {
   cardGap: 16,
   tileWidth: 82,
   tileArtHeight: 70,
-  tileLabelHeight: 21,
+  tileLabelHeight: 22,
   tileRadius: 10,
   tileGap: 8,
   toolbarHeight: 42,
