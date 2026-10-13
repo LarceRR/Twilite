@@ -1,14 +1,12 @@
-import { useLoader } from '@react-three/fiber/native';
 import { Asset } from 'expo-asset';
 import type { ReactElement } from 'react';
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ClampToEdgeWrapping,
   DoubleSide,
   NearestFilter,
   SRGBColorSpace,
-  type Texture,
-  TextureLoader,
+  Texture,
 } from 'three';
 
 import type { AuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAssetHeaders';
@@ -28,13 +26,21 @@ export function FieldSurfaceObjectArtwork({
 }): ReactElement | null {
   const uri = useCachedSpriteUri(sprite?.sheetUrl ?? null, headers);
   if (sprite === null || uri === null) return null;
+
   return (
-    <Suspense fallback={null}>
-      <LoadedArtwork height={height} onTextureReady={onTextureReady} sprite={sprite} uri={uri} />
-    </Suspense>
+    <LoadedArtwork
+      height={height}
+      onTextureReady={onTextureReady}
+      sprite={sprite}
+      uri={uri}
+    />
   );
 }
 
+/**
+ * expo-gl does not provide a DOM Image element for Three's browser TextureLoader.
+ * Pass an Expo Asset directly to the native GL texture upload path instead.
+ */
 function LoadedArtwork({
   sprite,
   uri,
@@ -45,18 +51,48 @@ function LoadedArtwork({
   readonly uri: string;
   readonly height: number;
   readonly onTextureReady: (texture: Texture | null) => void;
-}): ReactElement {
-  const source = useLoader(TextureLoader, uri);
-  const texture = useMemo(() => configureTexture(source.clone()), [source]);
+}): ReactElement | null {
+  const [texture, setTexture] = useState<Texture | null>(null);
   const width = height * (sprite.canvas.width / sprite.canvas.height);
 
   useEffect(() => {
-    onTextureReady(texture);
-    return () => {
-      onTextureReady(null);
-      texture.dispose();
+    let active = true;
+    let ownedTexture: Texture | null = null;
+
+    const load = async (): Promise<void> => {
+      const asset = Asset.fromURI(uri);
+      await asset.downloadAsync();
+
+      // expo-gl's texImage2D accepts an Expo Asset as a native image source.
+      const nextTexture = new Texture(asset as unknown as Texture['image']);
+      configureTexture(nextTexture);
+      nextTexture.needsUpdate = true;
+
+      if (!active) {
+        nextTexture.dispose();
+        return;
+      }
+
+      ownedTexture = nextTexture;
+      setTexture(nextTexture);
+      onTextureReady(nextTexture);
     };
-  }, [onTextureReady, texture]);
+
+    void load().catch(() => {
+      if (active) onTextureReady(null);
+    });
+
+    return () => {
+      active = false;
+      onTextureReady(null);
+      if (ownedTexture !== null) {
+        ownedTexture.dispose();
+        ownedTexture = null;
+      }
+    };
+  }, [onTextureReady, uri]);
+
+  if (texture === null) return null;
 
   return (
     <mesh rotation={[0, -Math.PI / 2, 0]}>
@@ -72,15 +108,13 @@ function LoadedArtwork({
   );
 }
 
-function configureTexture(texture: Texture): Texture {
+function configureTexture(texture: Texture): void {
   texture.colorSpace = SRGBColorSpace;
   texture.magFilter = NearestFilter;
   texture.minFilter = NearestFilter;
   texture.wrapS = ClampToEdgeWrapping;
   texture.wrapT = ClampToEdgeWrapping;
   texture.generateMipmaps = false;
-  texture.needsUpdate = true;
-  return texture;
 }
 
 function useCachedSpriteUri(
@@ -91,15 +125,20 @@ function useCachedSpriteUri(
   useEffect(() => {
     let active = true;
     setUri(null);
-    if (sheetUrl === null || headers === null)
+    if (sheetUrl === null || headers === null) {
       return () => {
         active = false;
       };
+    }
+
     void loadCachedSprite(sheetUrl, headers)
       .then((fileUri) => {
         if (active) setUri(fileUri);
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (active) setUri(null);
+      });
+
     return () => {
       active = false;
     };

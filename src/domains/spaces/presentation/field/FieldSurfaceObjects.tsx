@@ -8,6 +8,7 @@ import type { SurfaceObject } from '@/domains/spaces/domain/entities/SurfaceObje
 import { FieldSurfaceObjectArtwork } from './FieldSurfaceObjectArtwork';
 import { cellCenterOnPlane } from './fieldGridCells';
 import type { FieldGridConfig } from './fieldGridConfig';
+import { useFieldConfig } from './useFieldConfig';
 import {
   advanceSpritePlayback,
   easeOutCubic,
@@ -15,7 +16,7 @@ import {
 } from './surfaceObjectAnimation';
 
 const RISE_DURATION_MS = 760;
-const COLUMN_HEIGHT_RATIO = 0.28;
+const COLUMN_HEIGHT_RATIO = 0.12;
 const ART_HEIGHT_RATIO = 0.62;
 
 type RuntimeObject = {
@@ -42,6 +43,7 @@ export function FieldSurfaceObjects({
 }): ReactElement {
   const runtime = useRef(new Map<string, RuntimeObject>());
   const appearing = useAppearingObjects(objects);
+  const platformColor = useFieldPlatformColor();
 
   const register = useCallback((item: RuntimeObject): (() => void) => {
     runtime.current.set(item.object.id, item);
@@ -64,6 +66,7 @@ export function FieldSurfaceObjects({
           animate={appearing.has(object.id)}
           config={config}
           headers={headers}
+          platformColor={platformColor}
           key={object.id}
           object={object}
           register={register}
@@ -73,17 +76,23 @@ export function FieldSurfaceObjects({
   );
 }
 
+function useFieldPlatformColor(): string {
+  return useFieldConfig().activeCells.fillHex;
+}
+
 function FieldSurfaceObjectColumn({
   object,
   config,
   headers,
   animate,
+  platformColor,
   register,
 }: {
   readonly object: SurfaceObject;
   readonly config: FieldGridConfig;
   readonly headers: AuthenticatedAssetHeaders;
   readonly animate: boolean;
+  readonly platformColor: string;
   readonly register: (item: RuntimeObject) => () => void;
 }): ReactElement {
   const column = useRef<Mesh>(null);
@@ -119,8 +128,8 @@ function FieldSurfaceObjectColumn({
   return (
     <group position={[center[0], center[1], 0]}>
       <mesh ref={column}>
-        <boxGeometry args={[config.cellSize - 4, config.cellSize - 4, 1]} />
-        <meshStandardMaterial color="#fdba2f" roughness={0.82} />
+        <boxGeometry args={[config.cellSize, config.cellSize, 1]} />
+        <meshStandardMaterial color={platformColor} roughness={0.82} />
       </mesh>
       <group ref={artwork} rotation={[0, 0, 0]}>
         <FieldSurfaceObjectArtwork
