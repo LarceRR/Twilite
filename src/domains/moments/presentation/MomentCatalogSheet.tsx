@@ -1,13 +1,13 @@
 import { memo, type ReactElement, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, StyleSheet, View } from 'react-native';
-
+import { useAuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAssetHeaders';
 import { useThemeColors } from '@/design-system/colors/colors';
 import { EmptyState } from '@/design-system/components/EmptyState/EmptyState';
 import { SheetHeading } from '@/design-system/components/SheetHeading/SheetHeading';
 import { icons } from '@/design-system/icons/icons';
 import { spacing } from '@/design-system/spacing/spacing';
 
-import type { MomentKind } from '../domain/entities/MomentCatalog';
+import type { MomentKind, MomentPreview } from '../domain/entities/MomentCatalog';
 import { CatalogToolbar } from './CatalogToolbar';
 import { MomentPackSection } from './MomentPackSection';
 import { useReduceMotion } from './MomentSpriteView';
@@ -18,13 +18,14 @@ import {
   momentCatalogTitle,
 } from './momentCatalog';
 import { momentCatalogLayout as layout } from './momentCatalogLayout';
-import { useCatalogImageHeaders } from './useCatalogImageHeaders';
 import { useMomentCatalog } from './useMomentCatalog';
 import { usePackWindow } from './usePackWindow';
 
 export type MomentCatalogSheetProps = {
   readonly kind: MomentKind;
   readonly onFilterPress?: (() => void) | undefined;
+  readonly disabled: boolean;
+  readonly onSelect: (moment: MomentPreview) => void;
 };
 
 /**
@@ -35,11 +36,13 @@ export type MomentCatalogSheetProps = {
 function MomentCatalogSheetComponent({
   kind,
   onFilterPress,
+  disabled,
+  onSelect,
 }: MomentCatalogSheetProps): ReactElement {
   const theme = useThemeColors();
   const [query, setQuery] = useState('');
   const catalog = useMomentCatalog(kind, query);
-  const imageHeaders = useCatalogImageHeaders();
+  const imageHeaders = useAuthenticatedAssetHeaders();
   const allowMotion = !useReduceMotion();
   const visible = filterMomentCatalog(catalogFromPacks(kind, catalog.packs), query);
   const packWindow = usePackWindow(catalog.loadMore);
@@ -87,6 +90,8 @@ function MomentCatalogSheetComponent({
               allowMotion={allowMotion}
               imageHeaders={imageHeaders}
               pack={pack}
+              disabled={disabled}
+              onSelect={onSelect}
             />
           </View>
         ))}

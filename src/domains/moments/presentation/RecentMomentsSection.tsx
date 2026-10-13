@@ -13,6 +13,8 @@ export type RecentMomentsSectionProps = {
   readonly moments: readonly MomentPreview[];
 };
 
+function ignoreMomentSelection(_moment: MomentPreview): void {}
+
 function RecentMomentsSectionComponent({ moments }: RecentMomentsSectionProps): ReactElement {
   const theme = useThemeColors();
 
@@ -21,7 +23,14 @@ function RecentMomentsSectionComponent({ moments }: RecentMomentsSectionProps): 
       <Text align="center" color={theme.textPrimary} style={styles.title}>
         {MOMENT_CATALOG_COPY.recentTitle}
       </Text>
-      <MomentPreviewRow active={false} allowMotion={false} imageHeaders={null} moments={moments} />
+      <MomentPreviewRow
+        active={false}
+        allowMotion={false}
+        disabled
+        imageHeaders={null}
+        moments={moments}
+        onSelect={ignoreMomentSelection}
+      />
     </CatalogSectionCard>
   );
 }

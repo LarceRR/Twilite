@@ -25,8 +25,14 @@ import {
   listSpacesUseCase,
   respondToInvitationUseCase,
 } from '@/domains/spaces/application/spaceUseCases';
+import {
+  createSurfaceObjectUseCase,
+  getSurfaceSnapshotUseCase,
+} from '@/domains/spaces/application/surfaceUseCases';
 import { createHttpSpaceRepository } from '@/domains/spaces/infrastructure/repositories/httpSpaceRepository';
+import { createHttpSurfaceRepository } from '@/domains/spaces/infrastructure/repositories/httpSurfaceRepository';
 import { createLocalSpaceRepository } from '@/domains/spaces/infrastructure/repositories/localSpaceRepository';
+import { createLocalSurfaceRepository } from '@/domains/spaces/infrastructure/repositories/localSurfaceRepository';
 import {
   applyThemeUseCase,
   getThemeDetailUseCase,
@@ -119,6 +125,7 @@ export function createContainer(hooks: ContainerHooks): Container {
       auth: createLocalAuthRepository(backend),
       admin: createLocalAdminRepository(),
       spaces: createLocalSpaceRepository(backend),
+      surface: createLocalSurfaceRepository(),
       themes: createLocalThemeCatalogRepository(storage),
       moments: createLocalMomentCatalogRepository(),
     };
@@ -139,6 +146,7 @@ export function createContainer(hooks: ContainerHooks): Container {
       auth: createHttpAuthRepository(http),
       admin: createHttpAdminRepository(http),
       spaces: createHttpSpaceRepository(http),
+      surface: createHttpSurfaceRepository(http, apiBaseUrl),
       themes: createHttpThemeCatalogRepository(http, storage),
       moments: createHttpMomentCatalogRepository(http, apiBaseUrl),
     };
@@ -219,6 +227,8 @@ export function createContainer(hooks: ContainerHooks): Container {
       hydrateAppliedTheme: hydrateAppliedThemeUseCase(repositories.themes),
 
       listMomentCatalogPage: listMomentCatalogPageUseCase(repositories.moments),
+      getSurfaceSnapshot: getSurfaceSnapshotUseCase(repositories.surface),
+      createSurfaceObject: createSurfaceObjectUseCase(repositories.surface),
     },
   };
 }

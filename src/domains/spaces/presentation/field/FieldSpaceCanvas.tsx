@@ -1,19 +1,25 @@
 import { Canvas } from '@react-three/fiber/native';
 import type { ReactElement } from 'react';
 import { StyleSheet, View } from 'react-native';
-
+import type { AuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAssetHeaders';
 import { useSceneColors } from '@/design-system/colors/colors';
-
-import { fieldCameraOpticsFromConfig } from './fieldCameraFraming';
+import type { SurfaceObject } from '@/domains/spaces/domain/entities/SurfaceObject';
 import { FieldSpaceCamera } from './FieldSpaceCamera';
 import { FieldSpaceScene } from './FieldSpaceScene';
+import { fieldCameraOpticsFromConfig } from './fieldCameraFraming';
 import { useFieldConfig } from './useFieldConfig';
 
 /**
  * Expo / R3F native canvas for the Field tab.
  * Imports from `@react-three/fiber/native` (expo-gl under the hood).
  */
-export function FieldSpaceCanvas(): ReactElement {
+export function FieldSpaceCanvas({
+  objects,
+  headers,
+}: {
+  readonly objects: readonly SurfaceObject[];
+  readonly headers: AuthenticatedAssetHeaders;
+}): ReactElement {
   const scene = useSceneColors();
   const pose = fieldCameraOpticsFromConfig();
   const fov = useFieldConfig().camera.fov;
@@ -38,7 +44,7 @@ export function FieldSpaceCanvas(): ReactElement {
       >
         <color attach="background" args={[scene.background]} />
         <FieldSpaceCamera />
-        <FieldSpaceScene />
+        <FieldSpaceScene headers={headers} objects={objects} />
       </Canvas>
     </View>
   );

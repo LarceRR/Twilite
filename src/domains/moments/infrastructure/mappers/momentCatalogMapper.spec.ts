@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
-
+import { catalogAssetUrl } from '@/shared/utils/catalogAssetUrl';
 import { mergeMomentCatalogPages } from '../../application/mergeMomentCatalogPages';
-import { catalogAssetUrl } from './catalogAssetUrl';
 import { catalogSearchParams, parseMomentCatalogPage } from './momentCatalogMapper';
 
 const BASE = 'http://10.0.2.2:3000/v1';

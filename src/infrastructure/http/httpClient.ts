@@ -1,5 +1,5 @@
 import { httpConfig } from '@/app/config/constants';
-import { errorFromStatus, NetworkError, toAppError } from '@/shared/errors';
+import { errorFromStatus, NetworkError, toAppError, ValidationError } from '@/shared/errors';
 import type { Logger } from '@/shared/logger';
 
 import { isFetchAbortError } from './isFetchAbortError';
@@ -10,19 +10,16 @@ export type AccessTokenProvider = {
   invalidate(): Promise<string | null>;
 };
 export type SearchParams = Readonly<Record<string, string | number>>;
+export type HttpPostOptions = { readonly idempotencyKey?: string };
 export type HttpClient = {
   get<T>(path: string, searchParams?: SearchParams): Promise<T>;
-  post<T>(path: string, body?: unknown): Promise<T>;
+  post<T>(path: string, body?: unknown, options?: HttpPostOptions): Promise<T>;
   patch<T>(path: string, body?: unknown): Promise<T>;
   delete(path: string, body?: unknown): Promise<void>;
 };
 
 /** Auth endpoints that authenticate via body, not Bearer — must not trigger token refresh. */
-const UNAUTHENTICATED_PATHS = new Set([
-  'auth/sign-in',
-  'auth/sign-up',
-  'auth/refresh',
-]);
+const UNAUTHENTICATED_PATHS = new Set(['auth/sign-in', 'auth/sign-up', 'auth/refresh']);
 
 function isUnauthenticatedPath(path: string): boolean {
   return UNAUTHENTICATED_PATHS.has(path);
@@ -90,7 +87,11 @@ export function createHttpClient(options: {
   const request = async <T>(
     method: 'get' | 'post' | 'patch' | 'delete',
     path: string,
-    init: { readonly json?: unknown; readonly searchParams?: SearchParams },
+    init: {
+      readonly json?: unknown;
+      readonly searchParams?: SearchParams;
+      readonly idempotencyKey?: string;
+    },
     retryOnUnauthorized = true,
   ): Promise<T> => {
     const normalizedPath = path.replace(/^\/+/, '');
@@ -112,22 +113,25 @@ export function createHttpClient(options: {
       if (typeof token === 'string' && token.length > 0) {
         headers.Authorization = `Bearer ${token}`;
       }
+      if (init.idempotencyKey !== undefined) {
+        const key = init.idempotencyKey.trim();
+        if (!/^[a-zA-Z0-9._:-]{1,200}$/.test(key)) {
+          throw new ValidationError('Некорректный idempotency key');
+        }
+        headers['Idempotency-Key'] = key;
+      }
 
-      const response = await fetchWithTimeout(
-        url,
-        {
-          method,
-          headers,
-          body: requestBody === undefined ? undefined : JSON.stringify(requestBody),
-        },
-        httpConfig.timeoutMs,
-      );
+      const fetchInit: RequestInit = {
+        method,
+        headers,
+        ...(requestBody === undefined ? {} : { body: JSON.stringify(requestBody) }),
+      };
+      const response = await fetchWithTimeout(url, fetchInit, httpConfig.timeoutMs);
       const text = await response.text();
       const data = text.length > 0 ? parseResponseBody(text) : undefined;
       if (response.status === 204) return undefined as T;
       if (!response.ok) {
-        const canRetryUnauthorized =
-          response.status === 401 && retryOnUnauthorized && !skipAuth;
+        const canRetryUnauthorized = response.status === 401 && retryOnUnauthorized && !skipAuth;
         if (canRetryUnauthorized) {
           const refreshed = await options.tokens.invalidate();
           if (refreshed !== null) return request<T>(method, path, init, false);
@@ -151,8 +155,13 @@ export function createHttpClient(options: {
     get<T>(path: string, searchParams?: SearchParams): Promise<T> {
       return request<T>('get', path, searchParams === undefined ? {} : { searchParams });
     },
-    post<T>(path: string, body?: unknown): Promise<T> {
-      return request<T>('post', path, { json: body });
+    post<T>(path: string, body?: unknown, options?: HttpPostOptions): Promise<T> {
+      return request<T>('post', path, {
+        ...(body === undefined ? {} : { json: body }),
+        ...(options?.idempotencyKey === undefined
+          ? {}
+          : { idempotencyKey: options.idempotencyKey }),
+      });
     },
     patch<T>(path: string, body?: unknown): Promise<T> {
       return request<T>('patch', path, { json: body });

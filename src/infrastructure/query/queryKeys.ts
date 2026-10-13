@@ -5,4 +5,5 @@ export const queryKeys = {
   profile: () => ['profile'] as const,
   sessions: () => ['sessions'] as const,
   space: (spaceId: SpaceId) => ['space', spaceId] as const,
+  surface: (spaceId: SpaceId) => ['space', spaceId, 'surface'] as const,
 } as const;
