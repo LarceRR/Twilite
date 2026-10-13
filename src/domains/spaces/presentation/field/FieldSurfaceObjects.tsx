@@ -16,7 +16,7 @@ import {
 } from './surfaceObjectAnimation';
 
 const RISE_DURATION_MS = 760;
-const COLUMN_HEIGHT_RATIO = 0.12;
+const PLATFORM_HEIGHT_RATIO = 0.12;
 const ART_HEIGHT_RATIO = 0.62;
 
 type RuntimeObject = {
@@ -24,7 +24,7 @@ type RuntimeObject = {
   readonly artwork: RefObject<Group | null>;
   readonly object: SurfaceObject;
   readonly animate: boolean;
-  readonly cellSize: number;
+  readonly platformHeight: number;
   readonly artHeight: number;
   texture: Texture | null;
   cursor: SpritePlaybackCursor;
@@ -97,6 +97,7 @@ function FieldSurfaceObjectColumn({
 }): ReactElement {
   const column = useRef<Mesh>(null);
   const artwork = useRef<Group>(null);
+  const platformHeight = config.cellSize * PLATFORM_HEIGHT_RATIO;
   const artHeight = config.cellSize * ART_HEIGHT_RATIO;
   const center = cellCenterOnPlane(object.cell.x, object.cell.y, config);
   const item = useMemo<RuntimeObject>(
@@ -105,14 +106,14 @@ function FieldSurfaceObjectColumn({
       artwork,
       object,
       animate,
-      cellSize: config.cellSize,
+      platformHeight,
       artHeight,
       texture: null,
       cursor: { index: 0, elapsedMs: 0 },
       elapsedMs: animate ? 0 : RISE_DURATION_MS,
       frame: null,
     }),
-    [animate, artHeight, config.cellSize, object],
+    [animate, artHeight, object, platformHeight],
   );
 
   useEffect(() => register(item), [item, register]);
@@ -128,7 +129,7 @@ function FieldSurfaceObjectColumn({
   return (
     <group position={[center[0], center[1], 0]}>
       <mesh ref={column}>
-        <boxGeometry args={[config.cellSize, config.cellSize, 1]} />
+        <boxGeometry args={[config.cellSize, config.cellSize, platformHeight]} />
         <meshStandardMaterial color={platformColor} roughness={0.82} />
       </mesh>
       <group ref={artwork} rotation={[0, 0, 0]}>
@@ -146,9 +147,10 @@ function FieldSurfaceObjectColumn({
 function advanceColumn(item: RuntimeObject, deltaMs: number): void {
   item.elapsedMs = Math.min(RISE_DURATION_MS, item.elapsedMs + deltaMs);
   const progress = easeOutCubic(item.elapsedMs / RISE_DURATION_MS);
-  const height = item.cellSize * COLUMN_HEIGHT_RATIO * progress;
+  const height = item.platformHeight * progress;
   if (item.column.current !== null) {
-    item.column.current.scale.z = height;
+    // Scale only the explicit platform depth, keeping its bottom on the deck.
+    item.column.current.scale.z = progress;
     item.column.current.position.z = height / 2;
   }
   if (item.artwork.current !== null) {
