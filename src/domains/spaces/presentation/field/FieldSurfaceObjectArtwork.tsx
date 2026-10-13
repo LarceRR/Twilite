@@ -64,7 +64,15 @@ function LoadedArtwork({
       await asset.downloadAsync();
 
       // expo-gl's texImage2D accepts an Expo Asset as a native image source.
-      const nextTexture = new Texture(asset as unknown as Texture['image']);
+      // Three's native renderer forwards Texture.image to expo-gl's patched
+      // texImage2D. Keep the downloaded Asset as the image source (not a DOM
+      // Image); explicitly provide dimensions because file-backed Assets may
+      // otherwise report 0×0 before the native upload occurs.
+      const image = Object.assign(asset, {
+        width: sprite.sheet.width,
+        height: sprite.sheet.height,
+      });
+      const nextTexture = new Texture(image as unknown as Texture['image']);
       configureTexture(nextTexture);
       nextTexture.needsUpdate = true;
 
