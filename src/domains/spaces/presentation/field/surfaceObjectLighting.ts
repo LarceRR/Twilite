@@ -63,20 +63,28 @@ export function candleFlickerMultiplier(elapsedMs: number, seed: number): number
   return Math.round(value * 100) / 100;
 }
 
-/** Shared key-light shadow contrast tracks the average visible candle flicker. */
+/** Shared key-light shadow contrast follows both emitter strength and flicker. */
 export function resolveSceneShadowIntensity(
   lights: readonly SurfaceObjectLightingIdentity[],
   elapsedMs: number,
 ): number {
-  let intensitySum = 0;
-  let lightCount = 0;
+  let weightedFlicker = 0;
+  let totalIntensity = 0;
   for (const item of lights) {
-    if (item.light === null) continue;
-    intensitySum += candleFlickerMultiplier(elapsedMs, surfaceObjectFlickerSeed(item.id));
-    lightCount += 1;
+    if (item.light === null || !Number.isFinite(item.light.intensity)) continue;
+    const sourceIntensity = Math.max(0, item.light.intensity);
+    if (sourceIntensity === 0) continue;
+    weightedFlicker +=
+      candleFlickerMultiplier(elapsedMs, surfaceObjectFlickerSeed(item.id)) *
+      sourceIntensity;
+    totalIntensity += sourceIntensity;
   }
-  if (lightCount === 0) return 0.42;
+  if (totalIntensity === 0) return 0.42;
 
-  const average = intensitySum / lightCount;
-  return Math.max(0.2, Math.min(0.82, 0.2 + average * 0.55));
+  const averageFlicker = weightedFlicker / totalIntensity;
+  const emissionStrength = Math.min(1, totalIntensity / 2.5);
+  return Math.max(
+    0.2,
+    Math.min(0.82, 0.42 + averageFlicker * 0.38 * emissionStrength),
+  );
 }

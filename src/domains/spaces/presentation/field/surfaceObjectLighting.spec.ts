@@ -39,11 +39,20 @@ describe('surfaceObjectLighting', () => {
   it('raises shared shadow contrast with brighter emitters and uses a neutral baseline without lights', () => {
     const withoutLights = resolveSceneShadowIntensity([], 800);
     const oneLight = resolveSceneShadowIntensity(
-      [{ id: 'bright', light: { intensity: 1 } }],
+      [{ id: 'same-light', light: { intensity: 1 } }],
+      800,
+    );
+    const dimLight = resolveSceneShadowIntensity(
+      [{ id: 'same-light', light: { intensity: 0.1 } }],
+      800,
+    );
+    const brightLight = resolveSceneShadowIntensity(
+      [{ id: 'same-light', light: { intensity: 4 } }],
       800,
     );
     expect(withoutLights).toBe(0.42);
-    expect(oneLight).toBeGreaterThan(0.2);
+    expect(oneLight).toBeGreaterThan(0.42);
     expect(oneLight).toBeLessThanOrEqual(0.82);
+    expect(dimLight).toBeLessThan(brightLight);
   });
 });
