@@ -8,7 +8,11 @@ import { useSettingsStore } from '@/domains/settings/presentation/stores/setting
 
 import { compositeThemeColorOver } from './fieldGridActiveCells';
 import { bindFieldChunkSlot } from './fieldGridChunkBind';
-import { fieldGridWorldSize, type FieldGridConfig } from './fieldGridConfig';
+import {
+  FIELD_GRID_OVERLAY_RENDER_ORDER,
+  fieldGridWorldSize,
+  type FieldGridConfig,
+} from './fieldGridConfig';
 import {
   createFieldGridWaveMaterial,
   type FieldGridWaveMaterial,
@@ -143,7 +147,7 @@ function FieldGridChunkComponent({
         ref={meshRef}
         geometry={planeGeometry}
         material={material}
-        renderOrder={0}
+        renderOrder={FIELD_GRID_OVERLAY_RENDER_ORDER}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
