@@ -49,21 +49,14 @@ function SettingControl({
   readonly config: FieldConfig;
   readonly onChange: (setting: FieldConfigSetting, value: unknown) => void;
 }): ReactElement {
-  const theme = useThemeColors();
   const value = fieldConfigSettingValue(config, setting.path);
 
   if (setting.kind === 'boolean') {
     return (
-      <ListRow
-        title={setting.label}
-        subtitle={setting.description}
-        trailing={
-          <Switch
-            value={value === true}
-            onValueChange={(next) => onChange(setting, next)}
-            accessibilityLabel={setting.label}
-          />
-        }
+      <BooleanSettingControl
+        setting={setting}
+        value={value === true}
+        onChange={(next) => onChange(setting, next)}
       />
     );
   }
@@ -79,6 +72,49 @@ function SettingControl({
   }
 
   const numberValue = typeof value === 'number' && Number.isFinite(value) ? value : setting.min;
+  return (
+    <NumberSettingControl
+      setting={setting}
+      value={numberValue}
+      onChange={(next) => onChange(setting, next)}
+    />
+  );
+}
+
+function BooleanSettingControl({
+  setting,
+  value,
+  onChange,
+}: {
+  readonly setting: Extract<FieldConfigSetting, { readonly kind: 'boolean' }>;
+  readonly value: boolean;
+  readonly onChange: (value: boolean) => void;
+}): ReactElement {
+  return (
+    <ListRow
+      title={setting.label}
+      subtitle={setting.description}
+      trailing={
+        <Switch
+          value={value}
+          onValueChange={onChange}
+          accessibilityLabel={setting.label}
+        />
+      }
+    />
+  );
+}
+
+function NumberSettingControl({
+  setting,
+  value: numberValue,
+  onChange,
+}: {
+  readonly setting: Extract<FieldConfigSetting, { readonly kind: 'number' }>;
+  readonly value: number;
+  readonly onChange: (value: number) => void;
+}): ReactElement {
+  const theme = useThemeColors();
   const boundedValue = Math.max(setting.min, Math.min(setting.max, numberValue));
   const digits = setting.digits ?? inferDigits(setting.step);
   const [draft, setDraft] = useState(numberValue.toFixed(digits));
@@ -107,7 +143,7 @@ function SettingControl({
       Math.min(setting.max, setting.min + stepCount * setting.step),
     );
     const committed = Number(stepped.toFixed(Math.max(digits, 0)));
-    onChange(setting, committed);
+    onChange(committed);
     setDraft(committed.toFixed(digits));
   };
 
@@ -138,7 +174,7 @@ function SettingControl({
         min={setting.min}
         max={setting.max}
         step={setting.step}
-        onChange={(next) => onChange(setting, next)}
+        onChange={onChange}
       />
       {(numberValue < setting.min || numberValue > setting.max) ? (
         <Text variant="caption" color={theme.textTertiary}>
@@ -147,6 +183,12 @@ function SettingControl({
       ) : null}
     </View>
   );
+}
+
+function inferDigits(step: number): number {
+  if (Number.isInteger(step)) return 0;
+  const text = step.toString();
+  return text.includes('.') ? Math.min(4, text.split('.')[1]?.length ?? 0) : 0;
 }
 
 function ColorSettingControl({
