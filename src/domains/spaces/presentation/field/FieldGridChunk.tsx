@@ -1,7 +1,7 @@
 import { type ThreeEvent } from '@react-three/fiber/native';
 import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import type { ReactElement } from 'react';
-import { BufferGeometry, DoubleSide, PlaneGeometry, type Group, type Mesh } from 'three';
+import { BufferGeometry, Color, DoubleSide, PlaneGeometry, type Group, type Mesh } from 'three';
 
 import { useThemeColors } from '@/design-system/colors/colors';
 import { useSettingsStore } from '@/domains/settings/presentation/stores/settingsStore';
@@ -66,6 +66,18 @@ function FieldGridChunkComponent({
   const { surface, surfaceDivider } = useThemeColors();
   const gridLineColor = compositeThemeColorOver(surfaceDivider, surface);
   const fieldConfig = useFieldConfig();
+  const surfaceMaterialColor = useMemo(
+    () =>
+      new Color(surface).lerp(
+        new Color(fieldConfig.lighting.surfaceAmbientColor),
+        fieldConfig.lighting.surfaceAmbientIntensity,
+      ),
+    [
+      surface,
+      fieldConfig.lighting.surfaceAmbientColor,
+      fieldConfig.lighting.surfaceAmbientIntensity,
+    ],
+  );
   const showActiveCells = useSettingsStore((s) => s.developerShowActiveCells);
   const showActiveCenters = useSettingsStore((s) => s.developerShowActiveCellCenters);
   const showCellLabels = useSettingsStore((s) => s.developerShowCellLabels);
@@ -141,7 +153,7 @@ function FieldGridChunkComponent({
   return (
     <group ref={groupRef} visible={chunkIndex != null}>
       <mesh ref={surfaceMeshRef} geometry={planeGeometry} receiveShadow>
-        <meshLambertMaterial color={surface} side={DoubleSide} />
+        <meshLambertMaterial color={surfaceMaterialColor} side={DoubleSide} />
       </mesh>
       <mesh
         ref={meshRef}

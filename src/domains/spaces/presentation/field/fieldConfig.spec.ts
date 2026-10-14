@@ -65,6 +65,13 @@ describe('fieldConfig', () => {
     );
   });
 
+  it('uses low warm reflectance and softened but enabled platform shadows by default', () => {
+    expect(DEFAULT_FIELD_CONFIG.lighting.surfaceAmbientColor).toBe('#FFAE00');
+    expect(DEFAULT_FIELD_CONFIG.lighting.surfaceAmbientIntensity).toBe(0.025);
+    expect(DEFAULT_FIELD_CONFIG.lighting.shadows.filterRadius).toBe(6);
+    expect(DEFAULT_FIELD_CONFIG.lighting.objectGlow.heightAbovePlatform).toBe(44);
+  });
+
   it('derives grid cols and wave radius steps', () => {
     expect(fieldGridColsFromConfig(DEFAULT_FIELD_CONFIG.grid)).toBe(50);
     expect(fieldWaveMaxRadiusSteps(DEFAULT_FIELD_CONFIG.wave)).toBe(12);

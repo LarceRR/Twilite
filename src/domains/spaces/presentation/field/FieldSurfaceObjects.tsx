@@ -2,6 +2,7 @@ import { useFrame } from '@react-three/fiber/native';
 import type { ReactElement, RefObject } from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
+  Color,
   Vector3,
   type Group,
   type Mesh,
@@ -125,6 +126,18 @@ export function FieldSurfaceObjects({
   const appearance = useAppearingObjects(objects);
   const { surfaceRaised } = useThemeColors();
   const lightingConfig = useFieldConfig().lighting;
+  const platformColor = useMemo(
+    () =>
+      new Color(surfaceRaised).lerp(
+        new Color(lightingConfig.surfaceAmbientColor),
+        lightingConfig.surfaceAmbientIntensity,
+      ),
+    [
+      surfaceRaised,
+      lightingConfig.surfaceAmbientColor,
+      lightingConfig.surfaceAmbientIntensity,
+    ],
+  );
   const objectGlowConfig = lightingConfig.objectGlow;
   const shadowConfig = lightingConfig.shadows;
   const lastBillboardCameraXY = useRef({ x: Number.NaN, y: Number.NaN });
@@ -257,7 +270,7 @@ export function FieldSurfaceObjects({
           config={config}
           headers={headers}
           objectGlowConfig={objectGlowConfig}
-          platformColor={surfaceRaised}
+          platformColor={platformColor}
           key={object.id}
           object={object}
           register={register}
@@ -281,7 +294,7 @@ function FieldSurfaceObjectColumn({
   readonly headers: AuthenticatedAssetHeaders;
   readonly objectGlowConfig: FieldConfig['lighting']['objectGlow'];
   readonly appearanceDelayMs: number | null;
-  readonly platformColor: string;
+  readonly platformColor: Color;
   readonly register: (item: RuntimeObject) => () => void;
 }): ReactElement {
   const column = useRef<Mesh>(null);

@@ -42,6 +42,12 @@ describe('surfaceObjectLighting', () => {
     })).toBeNull();
   });
 
+  it('keeps point-light falloff low enough to illuminate platform sides', () => {
+    expect(DEFAULT_FIELD_CONFIG.lighting.objectGlow.decay).toBe(0.5);
+    expect(DEFAULT_FIELD_CONFIG.lighting.surfaceAmbientIntensity).toBeGreaterThan(0);
+    expect(DEFAULT_FIELD_CONFIG.lighting.shadows.filterRadius).toBe(6);
+  });
+
   it('creates stable seeds for object identities', () => {
     expect(surfaceObjectFlickerSeed('torch-1')).toBe(surfaceObjectFlickerSeed('torch-1'));
     expect(surfaceObjectFlickerSeed('torch-1')).not.toBe(surfaceObjectFlickerSeed('torch-2'));

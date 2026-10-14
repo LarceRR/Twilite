@@ -109,6 +109,11 @@ function validateConfigConstraints(config: FieldConfig): void {
     config.holdRepeat.tickMs > 0 && config.holdRepeat.startDelayMs >= 0,
     'повтор движения должен иметь положительный интервал.',
   );
+  assertConfigConstraint(
+    config.lighting.surfaceAmbientIntensity >= 0 &&
+      config.lighting.surfaceAmbientIntensity <= 0.15,
+    'lighting.surfaceAmbientIntensity должен быть от 0 до 0.15.',
+  );
   const glow = config.lighting.objectGlow;
   assertConfigConstraint(
     glow.fallbackIntensity >= 0 && glow.fallbackDistance > 0 &&

@@ -162,9 +162,9 @@ export type FieldConfig = {
     readonly directionalIntensity: number;
     /** Directional-light position offset from the camera focus, in world units [X, Y, Z]. */
     readonly directionalPosition: readonly [number, number, number];
-    /** Subtle warm fill added by the field shader so black surfaces remain gently readable. */
+    /** Warm low-level reflectance tint blended into the field and raised platform materials. */
     readonly surfaceAmbientColor: string;
-    /** Strength of the shader-level ambient fill, separate from Three.js ambient light. */
+    /** Strength of the warm base reflectance tint, separate from actual scene lights. */
     readonly surfaceAmbientIntensity: number;
     /** Per-object glow configuration, including the temporary API-independent testing mode. */
     readonly objectGlow: {
@@ -347,14 +347,14 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
     directionalIntensity: 0.55,
     directionalPosition: [240, 420, 180],
     surfaceAmbientColor: '#FFAE00',
-    surfaceAmbientIntensity: 0.035,
+    surfaceAmbientIntensity: 0.025,
     objectGlow: {
       forceAllObjectsForTesting: true,
       fallbackColor: '#FFAE00',
       fallbackIntensity: 2.1,
       fallbackDistance: 300,
       heightAbovePlatform: 44,
-      decay: 2,
+      decay: 0.5,
       minimumVisibleIntensity: 0.005,
       flicker: {
         minMultiplier: 0.62,
@@ -378,7 +378,7 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
       mapSizePx: 512,
       localShadowLights: 3,
       localShadowMapSizePx: 128,
-      filterRadius: 4,
+      filterRadius: 6,
       cameraLeft: -800,
       cameraRight: 800,
       cameraTop: 500,
