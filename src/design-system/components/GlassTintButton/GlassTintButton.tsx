@@ -1,12 +1,11 @@
 import { memo, type ReactElement } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import { radius } from '../../radius/radius';
-import { shadows } from '../../shadows/shadows';
 import { layout, spacing } from '../../spacing/spacing';
 import { fontFamily, fontWeights } from '../../typography/fonts';
-import { GlassSurface, isLiquidGlassSurfaceAvailable } from '../GlassSurface/GlassSurface';
+import { GlassSurface } from '../GlassSurface/GlassSurface';
 import { usePressFeedback } from '../Pressable/usePressFeedback';
 import { Text } from '../Text/Text';
 
@@ -19,9 +18,7 @@ export type GlassTintButtonProps = {
   readonly accessibilityLabel?: string;
 };
 
-/**
- * Pill CTA with Liquid Glass on iOS 26+ and a tinted fill elsewhere.
- */
+/** Pill CTA that delegates iOS/Android material rendering to the shared GlassSurface. */
 function GlassTintButtonComponent({
   label,
   onPress,
@@ -31,37 +28,6 @@ function GlassTintButtonComponent({
   accessibilityLabel,
 }: GlassTintButtonProps): ReactElement {
   const feedback = usePressFeedback({ scaleTo: 0.96 });
-  const labelNode = (
-    <Text color={labelColor} numberOfLines={1} style={styles.label}>
-      {label}
-    </Text>
-  );
-
-  const surface = isLiquidGlassSurfaceAvailable() ? (
-    <GlassSurface
-      cornerRadius={radius.pill}
-      interactive
-      tintColor={tintColor}
-      style={styles.surface}
-    >
-      <View style={styles.inner}>{labelNode}</View>
-    </GlassSurface>
-  ) : (
-    <View
-      style={[
-        styles.surface,
-        styles.inner,
-        Platform.OS === 'ios' ? null : shadows.medium,
-        {
-          backgroundColor: tintColor,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: 'rgba(255,255,255,0.28)',
-        },
-      ]}
-    >
-      {labelNode}
-    </View>
-  );
 
   return (
     <Animated.View style={feedback.animatedStyle}>
@@ -74,9 +40,20 @@ function GlassTintButtonComponent({
         onPress={onPress}
         onPressIn={feedback.onPressIn}
         onPressOut={feedback.onPressOut}
-        style={disabled ? styles.disabled : null}
+        style={disabled ? styles.disabled : undefined}
       >
-        {surface}
+        <GlassSurface
+          cornerRadius={radius.pill}
+          interactive
+          tintColor={tintColor}
+          style={styles.surface}
+        >
+          <View style={styles.inner}>
+            <Text color={labelColor} numberOfLines={1} style={styles.label}>
+              {label}
+            </Text>
+          </View>
+        </GlassSurface>
       </Pressable>
     </Animated.View>
   );
