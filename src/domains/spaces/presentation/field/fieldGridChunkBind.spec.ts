@@ -43,7 +43,7 @@ describe('fieldGridChunkBind', () => {
           showCellLabels: true,
         },
         surface: '#101010',
-        surfaceRaised: '#303030',
+        activeFill: '#303030',
         surfaceDivider: 'rgba(0, 0, 0, 0.1)',
       },
       material,
