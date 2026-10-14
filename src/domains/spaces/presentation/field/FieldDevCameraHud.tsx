@@ -8,11 +8,7 @@ import { radius } from '@/design-system/radius/radius';
 import { spacing } from '@/design-system/spacing/spacing';
 
 import { useFieldCameraControlStore } from './fieldCameraControlStore';
-import {
-  CAMERA_HUD_PUBLISH_MS,
-  formatCameraHud,
-  shouldPublishThrottled,
-} from './fieldCameraMotion';
+import { formatCameraHud, shouldPublishThrottled } from './fieldCameraMotion';
 
 function hudTextFromStore(): string {
   const s = useFieldCameraControlStore.getState();
@@ -36,7 +32,7 @@ export function FieldDevCameraHud(): ReactElement | null {
     let lastPublishMs = 0;
     return useFieldCameraControlStore.subscribe(() => {
       const now = Date.now();
-      if (!shouldPublishThrottled(now, lastPublishMs, CAMERA_HUD_PUBLISH_MS)) return;
+      if (!shouldPublishThrottled(now, lastPublishMs)) return;
       lastPublishMs = now;
       setText(hudTextFromStore());
     });
