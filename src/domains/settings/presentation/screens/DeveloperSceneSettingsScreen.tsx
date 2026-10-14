@@ -98,42 +98,42 @@ export function DeveloperSceneSettingsScreen(): ReactElement {
 
   return (
     <Screen title="Сцена" reserveTabBar={false}>
-      <FieldConfigExplorer />
+      <FieldConfigExplorer>
+        <CollapsibleSection title="Отображение">
+          <SceneToggle
+            title="Отображать активные ячейки"
+            subtitle="Жёлтая полоса активных клеток"
+            value={developerShowActiveCells}
+            onValueChange={setDeveloperShowActiveCells}
+          />
+          <SceneToggle
+            title="Отображать осевые стрелки"
+            subtitle="RGB-оси в мире поля"
+            value={developerShowWorldAxes}
+            onValueChange={setDeveloperShowWorldAxes}
+          />
+          <SceneToggle
+            title="Отображать нумерацию ячеек поля"
+            value={developerShowCellLabels}
+            onValueChange={setDeveloperShowCellLabels}
+          />
+          <SceneToggle
+            title="Отображать центр активных ячеек"
+            subtitle="Розовые точки в центре активных клеток"
+            value={developerShowActiveCellCenters}
+            onValueChange={setDeveloperShowActiveCellCenters}
+          />
+        </CollapsibleSection>
 
-      <CollapsibleSection title="Отображение">
-        <SceneToggle
-          title="Отображать активные ячейки"
-          subtitle="Жёлтая полоса активных клеток"
-          value={developerShowActiveCells}
-          onValueChange={setDeveloperShowActiveCells}
-        />
-        <SceneToggle
-          title="Отображать осевые стрелки"
-          subtitle="RGB-оси в мире поля"
-          value={developerShowWorldAxes}
-          onValueChange={setDeveloperShowWorldAxes}
-        />
-        <SceneToggle
-          title="Отображать нумерацию ячеек поля"
-          value={developerShowCellLabels}
-          onValueChange={setDeveloperShowCellLabels}
-        />
-        <SceneToggle
-          title="Отображать центр активных ячеек"
-          subtitle="Розовые точки в центре активных клеток"
-          value={developerShowActiveCellCenters}
-          onValueChange={setDeveloperShowActiveCellCenters}
-        />
-      </CollapsibleSection>
-
-      <CollapsibleSection title="Камера">
-        <SceneToggle
-          title="Управление камерой"
-          subtitle="Показывает отладку и контролы на экране Поле"
-          value={developerCameraControlsEnabled}
-          onValueChange={setDeveloperCameraControlsEnabled}
-        />
-      </CollapsibleSection>
+        <CollapsibleSection title="Камера">
+          <SceneToggle
+            title="Управление камерой"
+            subtitle="Показывает отладку и контролы на экране Поле"
+            value={developerCameraControlsEnabled}
+            onValueChange={setDeveloperCameraControlsEnabled}
+          />
+        </CollapsibleSection>
+      </FieldConfigExplorer>
     </Screen>
   );
 }
