@@ -47,6 +47,7 @@ import {
 } from './surfaceObjectAnimation';
 import {
   createPixelCirclePlatformGeometry,
+  createPixelCircleSideGeometry,
   createPixelCircleTopGeometry,
 } from './fieldPixelCircleGeometry';
 import { useFieldConfig } from './useFieldConfig';
@@ -58,6 +59,7 @@ type RuntimeObject = {
   readonly artwork: RefObject<Group | null>;
   readonly light: RefObject<PointLight | null>;
   readonly waveOverlay: RefObject<Mesh | null>;
+  readonly sideLightOverlay: RefObject<Mesh | null>;
   readonly object: SurfaceObject;
   readonly centerX: number;
   readonly centerY: number;
@@ -319,6 +321,7 @@ function FieldSurfaceObjectColumn({
   const artwork = useRef<Group>(null);
   const light = useRef<PointLight>(null);
   const waveOverlay = useRef<Mesh>(null);
+  const sideLightOverlay = useRef<Mesh>(null);
   const platformSize = config.cellSize;
   const platformGeometry = useMemo(
     () => createPixelCirclePlatformGeometry(platformSize, platformHeight, platformPixelResolution),
@@ -327,6 +330,10 @@ function FieldSurfaceObjectColumn({
   const platformTopGeometry = useMemo(
     () => createPixelCircleTopGeometry(platformSize, platformPixelResolution),
     [platformSize, platformPixelResolution],
+  );
+  const platformSideGeometry = useMemo(
+    () => createPixelCircleSideGeometry(platformSize, platformHeight, platformPixelResolution),
+    [platformSize, platformHeight, platformPixelResolution],
   );
   const artHeight =
     object.pixelObject === null
@@ -351,6 +358,7 @@ function FieldSurfaceObjectColumn({
       artwork,
       light,
       waveOverlay,
+      sideLightOverlay,
       object,
       waveMaterial,
       unregisterWaveMaterial: null,
@@ -410,6 +418,7 @@ function FieldSurfaceObjectColumn({
 
   useEffect(() => () => platformGeometry.dispose(), [platformGeometry]);
   useEffect(() => () => platformTopGeometry.dispose(), [platformTopGeometry]);
+  useEffect(() => () => platformSideGeometry.dispose(), [platformSideGeometry]);
 
   useEffect(() => () => waveMaterial.dispose(), [waveMaterial]);
 
@@ -442,6 +451,16 @@ function FieldSurfaceObjectColumn({
         geometry={platformGeometry}
       >
         <meshLambertMaterial color={platformColor} side={DoubleSide} />
+      </mesh>
+      <mesh
+        ref={sideLightOverlay}
+        geometry={platformSideGeometry}
+        visible={initialProgress > 0}
+        position={[0, 0, (platformHeight * initialProgress) / 2]}
+        scale={[1, 1, initialProgress]}
+        renderOrder={FIELD_GRID_OVERLAY_RENDER_ORDER + 1}
+      >
+        <primitive object={waveMaterial} attach="material" />
       </mesh>
       <mesh
         ref={waveOverlay}
@@ -491,6 +510,12 @@ function advanceColumn(item: RuntimeObject, deltaMs: number): void {
       const overlayZ = item.platformHeight + 0.2;
       if (item.waveOverlay.current.position.z !== overlayZ) item.waveOverlay.current.position.z = overlayZ;
     }
+    if (item.sideLightOverlay.current !== null) {
+      if (!item.sideLightOverlay.current.visible) item.sideLightOverlay.current.visible = true;
+      if (item.sideLightOverlay.current.scale.z !== 1) item.sideLightOverlay.current.scale.z = 1;
+      const sideZ = item.platformHeight / 2;
+      if (item.sideLightOverlay.current.position.z !== sideZ) item.sideLightOverlay.current.position.z = sideZ;
+    }
     if (item.artworkMaterial !== null && item.artworkMaterial.opacity !== 1) {
       item.artworkMaterial.opacity = 1;
     }
@@ -512,6 +537,11 @@ function advanceColumn(item: RuntimeObject, deltaMs: number): void {
   if (item.waveOverlay.current !== null) {
     item.waveOverlay.current.visible = progress > 0;
     item.waveOverlay.current.position.z = height + 0.2;
+  }
+  if (item.sideLightOverlay.current !== null) {
+    item.sideLightOverlay.current.visible = progress > 0;
+    item.sideLightOverlay.current.scale.z = progress;
+    item.sideLightOverlay.current.position.z = height / 2;
   }
   if (item.artworkMaterial !== null) item.artworkMaterial.opacity = progress;
   if (item.artwork.current !== null) {
