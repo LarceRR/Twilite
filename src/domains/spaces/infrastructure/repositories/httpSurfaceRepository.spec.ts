@@ -59,4 +59,23 @@ describe('createHttpSurfaceRepository', () => {
       { idempotencyKey: 'surface_operation-1' },
     );
   });
+
+  it('loads aggregate moment counts and clears a space through dedicated endpoints', async () => {
+    const get = vi.fn(async () => ({ total: 8, good: 3, bad: 4 }));
+    const deleteRequest = vi.fn(async () => undefined);
+    const repository = createHttpSurfaceRepository(
+      { get, delete: deleteRequest } as unknown as HttpClient,
+      'https://api.test/v1',
+    );
+
+    await expect(repository.getMomentStats(spaceId)).resolves.toEqual({
+      total: 8,
+      good: 3,
+      bad: 4,
+    });
+    await repository.clearMoments(spaceId);
+
+    expect(get).toHaveBeenCalledWith(`spaces/${spaceId}/surface-objects/stats`);
+    expect(deleteRequest).toHaveBeenCalledWith(`spaces/${spaceId}/surface-objects`);
+  });
 });

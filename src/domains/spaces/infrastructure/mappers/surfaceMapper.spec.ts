@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseSurfaceSnapshot } from './surfaceMapper';
+import { parseSurfaceMomentStats, parseSurfaceSnapshot } from './surfaceMapper';
 
 const objectId = '123e4567-e89b-12d3-a456-426614174000';
 const sheetPath = `/v1/tpg/pixel-objects/${objectId}/revisions/2/sheet`;
@@ -70,5 +70,19 @@ describe('parseSurfaceSnapshot', () => {
     expect(() => parseSurfaceSnapshot(raw, 'https://api.example.test/v1')).toThrow(
       /некорректный объект/,
     );
+  });
+});
+
+describe('parseSurfaceMomentStats', () => {
+  it('parses non-negative aggregate counts', () => {
+    expect(parseSurfaceMomentStats({ total: 8, good: 3, bad: 4 })).toEqual({
+      total: 8,
+      good: 3,
+      bad: 4,
+    });
+  });
+
+  it('rejects counts that exceed the total', () => {
+    expect(() => parseSurfaceMomentStats({ total: 2, good: 2, bad: 1 })).toThrow(/Сводка моментов/);
   });
 });

@@ -25,6 +25,7 @@ export function useFieldGridConfig(): FieldGridConfig {
         fieldGridColsFromConfig(config.grid),
         config.grid.rows,
         config.grid.cellSizePx,
+        config.grid.dividerWidthPx,
       ),
     [config.grid],
   );

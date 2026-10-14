@@ -2,7 +2,7 @@ import type { SurfaceObjectStateDto } from '@/shared/contracts';
 import { parsePixelObjectMobileDto } from '@/shared/contracts/parsePixelObjectMobile';
 import { ValidationError } from '@/shared/errors';
 import { catalogAssetUrl } from '@/shared/utils/catalogAssetUrl';
-
+import type { SurfaceMomentStats } from '../../domain/entities/SurfaceMomentStats';
 import type { SurfaceObject } from '../../domain/entities/SurfaceObject';
 import type { SurfaceBounds, SurfaceSnapshot } from '../../domain/entities/SurfaceSnapshot';
 import { spaceId } from '../../domain/value-objects/SpaceId';
@@ -38,6 +38,19 @@ export function parseSurfaceObject(raw: unknown, baseUrl: string): SurfaceObject
   const object = parseObject(raw, baseUrl);
   if (object === null) throw new ValidationError('Объект поверхности пришёл в неожиданном виде');
   return object;
+}
+
+export function parseSurfaceMomentStats(raw: unknown): SurfaceMomentStats {
+  if (
+    !isRecord(raw) ||
+    !isNonNegativeInt(raw.total) ||
+    !isNonNegativeInt(raw.good) ||
+    !isNonNegativeInt(raw.bad) ||
+    raw.good + raw.bad > raw.total
+  ) {
+    throw new ValidationError('Сводка моментов пришла в неожиданном виде');
+  }
+  return { total: raw.total, good: raw.good, bad: raw.bad };
 }
 
 function parseObject(raw: unknown, baseUrl: string): SurfaceObject | null {

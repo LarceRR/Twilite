@@ -61,11 +61,19 @@ export function ProfileScreen(): ReactElement {
         </View>
       </BlurCard>
 
-      <BlurCard title={activeSpace?.title ?? 'Поле'}>
-        <Text variant="caption">
-          {spaces.length === 1 ? 'У вас одно пространство' : `У вас ${spaces.length} пространства`}
-          {isSandbox ? ' · офлайн-режим без сервера' : ''}
-        </Text>
+      <BlurCard>
+        <ListRow
+          title="Мои пространства"
+          subtitle={
+            activeSpace?.title ??
+            (spaces.length === 1
+              ? 'У вас одно пространство'
+              : `У вас ${spaces.length} пространства`)
+          }
+          icon={icons.space}
+          onPress={() => router.push('/my-spaces' as Href)}
+        />
+        {isSandbox ? <Text variant="caption">Офлайн-режим без сервера</Text> : null}
       </BlurCard>
 
       <BlurCard>

@@ -26,7 +26,9 @@ import {
   respondToInvitationUseCase,
 } from '@/domains/spaces/application/spaceUseCases';
 import {
+  clearSurfaceMomentsUseCase,
   createSurfaceObjectUseCase,
+  getSurfaceMomentStatsUseCase,
   getSurfaceSnapshotUseCase,
 } from '@/domains/spaces/application/surfaceUseCases';
 import { createHttpSpaceRepository } from '@/domains/spaces/infrastructure/repositories/httpSpaceRepository';
@@ -228,6 +230,8 @@ export function createContainer(hooks: ContainerHooks): Container {
 
       listMomentCatalogPage: listMomentCatalogPageUseCase(repositories.moments),
       getSurfaceSnapshot: getSurfaceSnapshotUseCase(repositories.surface),
+      getSurfaceMomentStats: getSurfaceMomentStatsUseCase(repositories.surface),
+      clearSurfaceMoments: clearSurfaceMomentsUseCase(repositories.surface),
       createSurfaceObject: createSurfaceObjectUseCase(repositories.surface),
     },
   };

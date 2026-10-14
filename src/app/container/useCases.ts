@@ -18,6 +18,7 @@ import type {
 } from '@/domains/spaces/application/spaceUseCases';
 import type { Invitation } from '@/domains/spaces/domain/entities/Invitation';
 import type { Space } from '@/domains/spaces/domain/entities/Space';
+import type { SurfaceMomentStats } from '@/domains/spaces/domain/entities/SurfaceMomentStats';
 import type { SurfaceObject } from '@/domains/spaces/domain/entities/SurfaceObject';
 import type { SurfaceSnapshot } from '@/domains/spaces/domain/entities/SurfaceSnapshot';
 import type { CreateSurfaceObjectInput } from '@/domains/spaces/domain/repositories/SurfaceRepository';
@@ -44,6 +45,8 @@ export type UseCases = {
   readonly inviteMember: UseCase<InviteMemberCommand, Invitation>;
   readonly respondToInvitation: UseCase<RespondToInvitationCommand, Invitation>;
   readonly getSurfaceSnapshot: UseCase<SpaceId, SurfaceSnapshot>;
+  readonly getSurfaceMomentStats: UseCase<SpaceId, SurfaceMomentStats>;
+  readonly clearSurfaceMoments: UseCase<SpaceId, void>;
   readonly createSurfaceObject: UseCase<CreateSurfaceObjectInput, SurfaceObject>;
 
   readonly listPublishedThemes: UseCase<void, readonly AppThemePack[]>;

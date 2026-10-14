@@ -4,7 +4,12 @@ import type { SurfaceObject } from '../domain/entities/SurfaceObject';
 import type { SurfaceSnapshot } from '../domain/entities/SurfaceSnapshot';
 import type { SurfaceRepository } from '../domain/repositories/SurfaceRepository';
 import type { SpaceId } from '../domain/value-objects/SpaceId';
-import { createSurfaceObjectUseCase, getSurfaceSnapshotUseCase } from './surfaceUseCases';
+import {
+  clearSurfaceMomentsUseCase,
+  createSurfaceObjectUseCase,
+  getSurfaceMomentStatsUseCase,
+  getSurfaceSnapshotUseCase,
+} from './surfaceUseCases';
 
 const spaceId = 'space-1' as SpaceId;
 const snapshot: SurfaceSnapshot = {
@@ -48,5 +53,17 @@ describe('surfaceUseCases', () => {
 
     await expect(createSurfaceObjectUseCase(repository)(input)).resolves.toBe(object);
     expect(createObject).toHaveBeenCalledWith(input);
+  });
+
+  it('loads aggregate counts and clears space moments through the repository', async () => {
+    const stats = { total: 4, good: 2, bad: 1 };
+    const getMomentStats = vi.fn(async () => stats);
+    const clearMoments = vi.fn(async () => undefined);
+    const repository = { getMomentStats, clearMoments } as unknown as SurfaceRepository;
+
+    await expect(getSurfaceMomentStatsUseCase(repository)(spaceId)).resolves.toBe(stats);
+    await expect(clearSurfaceMomentsUseCase(repository)(spaceId)).resolves.toBeUndefined();
+    expect(getMomentStats).toHaveBeenCalledWith(spaceId);
+    expect(clearMoments).toHaveBeenCalledWith(spaceId);
   });
 });

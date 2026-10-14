@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import {
   ClampToEdgeWrapping,
   DoubleSide,
+  type MeshBasicMaterial,
   NearestFilter,
   SRGBColorSpace,
   Texture,
@@ -16,12 +17,14 @@ import type { PixelObjectMobileDto } from '@/shared/contracts';
 export function FieldSurfaceObjectArtwork({
   sprite,
   headers,
-  height,
+  size,
+  onMaterialReady,
   onTextureReady,
 }: {
   readonly sprite: PixelObjectMobileDto | null;
   readonly headers: AuthenticatedAssetHeaders;
-  readonly height: number;
+  readonly size: number;
+  readonly onMaterialReady: (material: MeshBasicMaterial | null) => void;
   readonly onTextureReady: (texture: Texture | null) => void;
 }): ReactElement | null {
   const uri = useCachedSpriteUri(sprite?.sheetUrl ?? null, headers);
@@ -29,7 +32,8 @@ export function FieldSurfaceObjectArtwork({
 
   return (
     <LoadedArtwork
-      height={height}
+      size={size}
+      onMaterialReady={onMaterialReady}
       onTextureReady={onTextureReady}
       sprite={sprite}
       uri={uri}
@@ -44,16 +48,19 @@ export function FieldSurfaceObjectArtwork({
 function LoadedArtwork({
   sprite,
   uri,
-  height,
+  size,
+  onMaterialReady,
   onTextureReady,
 }: {
   readonly sprite: PixelObjectMobileDto;
   readonly uri: string;
-  readonly height: number;
+  readonly size: number;
+  readonly onMaterialReady: (material: MeshBasicMaterial | null) => void;
   readonly onTextureReady: (texture: Texture | null) => void;
 }): ReactElement | null {
   const [texture, setTexture] = useState<Texture | null>(null);
-  const width = height * (sprite.canvas.width / sprite.canvas.height);
+  const width = size;
+  const height = size * (sprite.canvas.height / sprite.canvas.width);
 
   useEffect(() => {
     let active = true;
@@ -69,8 +76,8 @@ function LoadedArtwork({
       // Image); explicitly provide dimensions because file-backed Assets may
       // otherwise report 0×0 before the native upload occurs.
       const image = Object.assign(asset, {
-        width: sprite.sheet.width,
-        height: sprite.sheet.height,
+        width: sprite.sheet.frameWidth * sprite.sheet.columns,
+        height: sprite.sheet.frameHeight * sprite.sheet.rows,
       });
       const nextTexture = new Texture(image as unknown as Texture['image']);
       configureTexture(nextTexture);
@@ -98,16 +105,26 @@ function LoadedArtwork({
         ownedTexture = null;
       }
     };
-  }, [onTextureReady, uri]);
+  }, [
+    onTextureReady,
+    sprite.sheet.columns,
+    sprite.sheet.frameHeight,
+    sprite.sheet.frameWidth,
+    sprite.sheet.rows,
+    uri,
+  ]);
 
   if (texture === null) return null;
 
   return (
-    <mesh rotation={[0, -Math.PI / 2, 0]}>
-      <planeGeometry args={[height, width]} />
+    <mesh>
+      <planeGeometry args={[width, height]} />
       <meshBasicMaterial
+        ref={onMaterialReady}
         alphaTest={0.02}
+        depthWrite={false}
         map={texture}
+        opacity={0}
         side={DoubleSide}
         transparent
         toneMapped={false}

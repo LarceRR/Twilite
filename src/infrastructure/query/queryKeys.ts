@@ -6,4 +6,5 @@ export const queryKeys = {
   sessions: () => ['sessions'] as const,
   space: (spaceId: SpaceId) => ['space', spaceId] as const,
   surface: (spaceId: SpaceId) => ['space', spaceId, 'surface'] as const,
+  surfaceMomentStats: (spaceId: SpaceId) => ['space', spaceId, 'surface-moment-stats'] as const,
 } as const;

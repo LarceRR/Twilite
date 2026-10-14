@@ -12,7 +12,7 @@ describe('fieldGridHitTest', () => {
 
   it('maps world points to col/row', () => {
     expect(worldPointToFieldCell(30, 600, config)).toEqual({ col: 0, row: 0 });
-    expect(worldPointToFieldCell(2970, -600, config)).toEqual({ col: 49, row: 20 });
+    expect(worldPointToFieldCell(3020, -610, config)).toEqual({ col: 49, row: 20 });
     const mid = cellCenterOnPlane(24, 10, config);
     expect(worldPointToFieldCell(mid[0], mid[1], config)).toEqual({ col: 24, row: 10 });
   });
@@ -22,8 +22,13 @@ describe('fieldGridHitTest', () => {
     expect(worldPointToFieldCell(10, 900, config)).toBeNull();
   });
 
+  it('does not treat divider strips as part of a cell', () => {
+    expect(worldPointToFieldCell(0.5, 610, config)).toBeNull();
+    expect(worldPointToFieldCell(31, 579.5, config)).toBeNull();
+  });
+
   it('allows streamed columns beyond the legacy finite width', () => {
-    expect(worldPointToFieldCell(3030, 0, config)).toEqual({ col: 50, row: 10 });
+    expect(worldPointToFieldCell(3080, 0, config)).toEqual({ col: 50, row: 10 });
   });
 
   it('detects the active center band', () => {

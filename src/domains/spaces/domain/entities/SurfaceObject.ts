@@ -10,6 +10,7 @@ export type SurfaceObject = {
   readonly id: string;
   readonly spaceId: SpaceId;
   readonly surfaceId: string;
+  /** Zero-based API cell coordinates: x maps to grid col, y maps to grid row. */
   readonly cell: { readonly x: number; readonly y: number };
   readonly kind: SurfaceObjectKindDto;
   readonly state: SurfaceObjectStateDto;

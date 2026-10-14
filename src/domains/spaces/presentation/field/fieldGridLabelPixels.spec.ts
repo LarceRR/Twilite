@@ -12,7 +12,7 @@ import {
   type FieldGridTextureColors,
   type Rgba,
 } from './fieldGridLabelPixels';
-import { isDigitGlyphPixelOn } from './fieldGridDigitGlyphs';
+import { isLabelGlyphPixelOn } from './fieldGridDigitGlyphs';
 
 const FILL: Rgba = [10, 20, 30, 255];
 const LINE: Rgba = [200, 200, 200, 255];
@@ -62,30 +62,30 @@ function countColorInRect(
 describe('fieldGridLabelPixels', () => {
   const config = createFieldGridConfig(50, 21, 60);
 
-  it('builds a 3000×1260 RGBA buffer with fill, grid lines, and text ink', () => {
+  it('builds a pitch-sized RGBA buffer with fill, grid lines, and text ink', () => {
     const { data, width, height } = buildFieldGridLabelPixels(config, COLORS);
-    expect(width).toBe(3000);
-    expect(height).toBe(1260);
-    expect(data.length).toBe(3000 * 1260 * 4);
+    expect(width).toBe(3050);
+    expect(height).toBe(1282);
+    expect(data.length).toBe(3050 * 1282 * 4);
     // Avoid bottom-right label ink; sample near cell center of an inactive corner cell.
     expect(sample(data, width, 30, 30)).toEqual(FILL);
     expect(sample(data, width, 0, 30)).toEqual(LINE);
-    expect(sample(data, width, 60, 30)).toEqual(LINE);
+    expect(sample(data, width, 61, 30)).toEqual(LINE);
   });
 
   it('paints small cell-1 ink raised in the camera bottom-right corner', () => {
     const { data, width } = buildFieldGridLabelPixels(config, COLORS);
     // Cell (0,0): raised ~LABEL_PADDING+LABEL_RAISE along data x, low data y-in-cell.
-    const textPixels = countColorInRect(data, width, 10, 30, 1202, 1220, TEXT);
+    const textPixels = countColorInRect(data, width, 10, 30, 1223, 1241, TEXT);
     expect(textPixels).toBeGreaterThan(5);
-    expect(isDigitGlyphPixelOn('1', 2, 0)).toBe(true);
+    expect(isLabelGlyphPixelOn('1', 2, 0)).toBe(true);
   });
 
   it('fills the active center band with #fdba2f and a pink center mark', () => {
     const { data, width } = buildFieldGridLabelPixels(config, COLORS);
-    // Active cell (col0,row10): x∈[0,60), data y∈[600,660).
+    // Active cell (col0,row10): x∈[1,61), data y∈[611,671).
     expect(sample(data, width, 20, 620)).toEqual(ACTIVE_FILL);
-    expect(sample(data, width, 30, 630)).toEqual(ACTIVE_CENTER);
+    expect(sample(data, width, 30, 640)).toEqual(ACTIVE_CENTER);
     // Outside the active band stays base fill.
     expect(sample(data, width, 20, 50)).toEqual(FILL);
   });
@@ -97,7 +97,7 @@ describe('fieldGridLabelPixels', () => {
       text: TEXT,
     });
     expect(sample(data, width, 20, 620)).toEqual(ACTIVE_FILL);
-    expect(sample(data, width, 30, 630)).toEqual(ACTIVE_CENTER);
+    expect(sample(data, width, 30, 640)).toEqual(ACTIVE_CENTER);
   });
 
   it('skips yellow active fills when showActiveCells is off', () => {
@@ -120,7 +120,7 @@ describe('fieldGridLabelPixels', () => {
     const { data, width } = buildFieldGridLabelPixels(config, COLORS, {
       showCellLabels: false,
     });
-    const textPixels = countColorInRect(data, width, 10, 30, 1202, 1220, TEXT);
+    const textPixels = countColorInRect(data, width, 10, 30, 1223, 1241, TEXT);
     expect(textPixels).toBe(0);
   });
 
@@ -132,8 +132,8 @@ describe('fieldGridLabelPixels', () => {
       undefined,
       10,
     );
-    expect(width).toBe(600);
-    expect(height).toBe(1260);
+    expect(width).toBe(610);
+    expect(height).toBe(1282);
     // Absolute col 10 / row 0 → label "11,1" ink in local cell (0,0).
     const textPixels = countColorInRect(data, width, 10, 40, 1202, 1250, TEXT);
     expect(textPixels).toBeGreaterThan(5);

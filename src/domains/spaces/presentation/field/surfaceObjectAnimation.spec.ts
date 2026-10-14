@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { advanceSpritePlayback, easeOutCubic } from './surfaceObjectAnimation';
+import {
+  advanceSpritePlayback,
+  easeOutCubic,
+  SURFACE_OBJECT_ANIMATION_CONFIG,
+  staggerAppearanceDelays,
+} from './surfaceObjectAnimation';
 
 describe('surfaceObjectAnimation', () => {
   it('eases the column rise from zero to one without overshoot', () => {
@@ -26,5 +31,17 @@ describe('surfaceObjectAnimation', () => {
     expect(
       advanceSpritePlayback({ index: 0, elapsedMs: 0 }, [{ frame: 2, durationMs: 0 }], 1000),
     ).toEqual({ cursor: { index: 0, elapsedMs: 1000 }, frame: 2 });
+  });
+
+  it('staggers object appearance in order', () => {
+    expect([...staggerAppearanceDelays(['first', 'second', 'third'])]).toEqual([
+      ['first', 0],
+      ['second', SURFACE_OBJECT_ANIMATION_CONFIG.staggerDelayMs],
+      ['third', SURFACE_OBJECT_ANIMATION_CONFIG.staggerDelayMs * 2],
+    ]);
+  });
+
+  it('continues the stagger queue after an earlier batch', () => {
+    expect([...staggerAppearanceDelays(['later'], 240)]).toEqual([['later', 240]]);
   });
 });

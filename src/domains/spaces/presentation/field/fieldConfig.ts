@@ -8,7 +8,9 @@ export type FieldVec3 = {
 
 export type FieldConfig = {
   readonly grid: {
+    /** Clear cell interior size; divider pixels are added to the grid pitch. */
     readonly cellSizePx: number;
+    readonly dividerWidthPx: number;
     readonly centerCols: number;
     readonly sideExtraCols: number;
     readonly rows: number;
@@ -94,6 +96,7 @@ export type DeepPartial<T> = {
 export const DEFAULT_FIELD_CONFIG: FieldConfig = {
   grid: {
     cellSizePx: 60,
+    dividerWidthPx: 1,
     centerCols: 10,
     sideExtraCols: 20,
     rows: 15,
@@ -171,11 +174,11 @@ export function fieldGridColsFromConfig(grid: FieldConfig['grid']): number {
 }
 
 export function fieldGridWidthFromConfig(grid: FieldConfig['grid']): number {
-  return fieldGridColsFromConfig(grid) * grid.cellSizePx;
+  return fieldGridColsFromConfig(grid) * (grid.cellSizePx + grid.dividerWidthPx);
 }
 
 export function fieldGridHeightFromConfig(grid: FieldConfig['grid']): number {
-  return grid.rows * grid.cellSizePx;
+  return grid.rows * (grid.cellSizePx + grid.dividerWidthPx) + grid.dividerWidthPx;
 }
 
 export function fieldWaveMaxRadiusPx(wave: FieldConfig['wave']): number {

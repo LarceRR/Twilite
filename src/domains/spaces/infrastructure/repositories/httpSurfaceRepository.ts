@@ -4,13 +4,26 @@ import type {
   CreateSurfaceObjectInput,
   SurfaceRepository,
 } from '../../domain/repositories/SurfaceRepository';
-import { parseSurfaceObject, parseSurfaceSnapshot } from '../mappers/surfaceMapper';
+import {
+  parseSurfaceMomentStats,
+  parseSurfaceObject,
+  parseSurfaceSnapshot,
+} from '../mappers/surfaceMapper';
 
 export function createHttpSurfaceRepository(http: HttpClient, baseUrl: string): SurfaceRepository {
   return {
     async getSnapshot(spaceId) {
       const payload = await http.get<unknown>(`spaces/${spaceId}/surface`);
       return parseSurfaceSnapshot(payload, baseUrl);
+    },
+
+    async getMomentStats(spaceId) {
+      const payload = await http.get<unknown>(`spaces/${spaceId}/surface-objects/stats`);
+      return parseSurfaceMomentStats(payload);
+    },
+
+    async clearMoments(spaceId) {
+      await http.delete(`spaces/${spaceId}/surface-objects`);
     },
 
     async createObject(input: CreateSurfaceObjectInput) {

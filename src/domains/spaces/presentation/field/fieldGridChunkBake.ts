@@ -8,6 +8,7 @@ import {
   type WebGLRenderer,
 } from 'three';
 
+import { FIELD_GRID_DIVIDER_WIDTH } from './fieldGridConfig';
 import {
   createFieldGridChunkSpec,
   fieldChunkConfigsEqual,
@@ -25,7 +26,7 @@ import {
 
 export type FieldChunkBakeRequest = {
   readonly chunkIndex: number;
-  readonly base: Pick<FieldGridConfig, 'rows' | 'cellSize'>;
+  readonly base: Pick<FieldGridConfig, 'rows' | 'cellSize' | 'dividerWidth'>;
   readonly colors: FieldGridTextureColors;
   readonly layers: FieldGridLayerFlags;
 };
@@ -59,6 +60,7 @@ export function fieldChunkBakeCacheKey(request: FieldChunkBakeRequest): string {
     chunkIndex,
     base.rows,
     base.cellSize,
+    base.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH,
     layers.showActiveCells ? 1 : 0,
     layers.showActiveCenters ? 1 : 0,
     layers.showCellLabels ? 1 : 0,

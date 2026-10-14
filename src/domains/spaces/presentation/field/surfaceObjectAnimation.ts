@@ -3,10 +3,30 @@ export type SurfaceSpriteFrame = {
   readonly durationMs: number;
 };
 
+export const SURFACE_OBJECT_ANIMATION_CONFIG = {
+  riseDurationMs: 760,
+  staggerDelayMs: 80,
+  completionBufferMs: 100,
+  platformHeightRatio: 0.12,
+  artworkOffset: 0.01,
+} as const;
+
 export type SpritePlaybackCursor = {
   readonly index: number;
   readonly elapsedMs: number;
 };
+
+export function staggerAppearanceDelays(
+  ids: readonly string[],
+  firstDelayMs = 0,
+): ReadonlyMap<string, number> {
+  return new Map(
+    ids.map((id, index) => [
+      id,
+      firstDelayMs + index * SURFACE_OBJECT_ANIMATION_CONFIG.staggerDelayMs,
+    ]),
+  );
+}
 
 export function easeOutCubic(progress: number): number {
   const bounded = Math.max(0, Math.min(1, progress));

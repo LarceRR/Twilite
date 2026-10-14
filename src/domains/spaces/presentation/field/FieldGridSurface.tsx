@@ -42,7 +42,7 @@ import {
   fieldChunkSlotCount,
   fieldChunkSlotsEqual,
 } from './fieldGridChunkSlots';
-import type { FieldGridConfig } from './fieldGridConfig';
+import { fieldGridCellPitch, type FieldGridConfig } from './fieldGridConfig';
 import type { FieldGridCellCoord } from './fieldGridHitTest';
 import { FieldGridChunk } from './FieldGridChunk';
 import {
@@ -127,7 +127,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
   );
   const initialCameraX = useFieldCameraControlStore.getState().position.x;
   const desiredRef = useRef<readonly number[]>(
-    fieldChunkIndicesForCameraX(initialCameraX, config.cellSize),
+    fieldChunkIndicesForCameraX(initialCameraX, fieldGridCellPitch(config)),
   );
   const mountedRef = useRef<readonly number[]>(desiredRef.current);
   const slotsRef = useRef<readonly (number | null)[]>(
@@ -143,7 +143,11 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
 
   const bake = useMemo(
     (): BakeSnapshot => ({
-      base: { rows: config.rows, cellSize: config.cellSize },
+      base: {
+        rows: config.rows,
+        cellSize: config.cellSize,
+        dividerWidth: config.dividerWidth,
+      },
       colors: {
         fill: hexToRgba(scene.surfaceBase),
         line: hexToRgba(scene.surfaceDot),
@@ -156,6 +160,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
     [
       config.rows,
       config.cellSize,
+      config.dividerWidth,
       scene.surfaceBase,
       scene.surfaceDot,
       showActiveCells,
@@ -219,7 +224,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
 
     const beforeUpload = syncMountedChunkWindow(
       cameraX,
-      bakeNow.base.cellSize,
+      fieldGridCellPitch(bakeNow.base),
       mountedRef.current,
       isGpuReady,
       !bootstrappedRef.current,
@@ -244,7 +249,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
 
     const afterUpload = syncMountedChunkWindow(
       cameraX,
-      bakeNow.base.cellSize,
+      fieldGridCellPitch(bakeNow.base),
       mountedRef.current,
       isGpuReady,
       !bootstrappedRef.current,

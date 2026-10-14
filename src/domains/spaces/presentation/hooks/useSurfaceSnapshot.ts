@@ -25,7 +25,7 @@ export function useSurfaceSnapshot(spaceId: SpaceId | null) {
       if (
         'spaceId' in message &&
         message.spaceId === spaceId &&
-        message.type.startsWith('surfaceObject.')
+        (message.type.startsWith('surfaceObject.') || message.type === 'surface.cleared')
       ) {
         invalidate();
       }

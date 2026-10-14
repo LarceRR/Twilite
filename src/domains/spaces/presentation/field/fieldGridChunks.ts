@@ -1,6 +1,10 @@
 import { DEFAULT_FIELD_CONFIG } from './fieldConfig';
 import { getFieldConfig } from './fieldConfigStore';
-import type { FieldGridConfig } from './fieldGridConfig';
+import {
+  FIELD_GRID_DIVIDER_WIDTH,
+  fieldGridCellPitch,
+  type FieldGridConfig,
+} from './fieldGridConfig';
 
 /** Cells along +X per streamed chunk. */
 export const FIELD_CHUNK_COLS = DEFAULT_FIELD_CONFIG.chunks.cols;
@@ -23,17 +27,18 @@ export type FieldGridChunkSpec = {
   readonly cols: number;
   readonly rows: number;
   readonly cellSize: number;
+  readonly dividerWidth?: number;
 };
 
 export function fieldChunkIndexFromWorldX(
   worldX: number,
-  cellSize: number,
+  cellPitch: number,
   chunkCols: number = FIELD_CHUNK_COLS,
 ): number {
-  if (cellSize <= 0 || chunkCols < 1) {
-    throw new Error('chunk indexing requires positive cellSize and chunkCols');
+  if (cellPitch <= 0 || chunkCols < 1) {
+    throw new Error('chunk indexing requires positive cellPitch and chunkCols');
   }
-  const col = Math.floor(worldX / cellSize);
+  const col = Math.floor(worldX / cellPitch);
   return Math.max(0, Math.floor(col / chunkCols));
 }
 
@@ -65,7 +70,7 @@ export function fieldVisibleChunkIndices(
 
 export function fieldChunkIndicesForCameraX(
   cameraX: number,
-  cellSize: number,
+  cellPitch: number,
   chunkCols?: number,
   lookAheadPx?: number,
   behind?: number,
@@ -75,7 +80,7 @@ export function fieldChunkIndicesForCameraX(
   const focusX = fieldChunkFocusWorldX(cameraX, lookAheadPx ?? chunks.lookAheadPx);
   const anchor = fieldChunkIndexFromWorldX(
     focusX,
-    cellSize,
+    cellPitch,
     chunkCols ?? chunks.cols,
   );
   return fieldVisibleChunkIndices(
@@ -87,7 +92,7 @@ export function fieldChunkIndicesForCameraX(
 
 export function createFieldGridChunkSpec(
   chunkIndex: number,
-  base: Pick<FieldGridConfig, 'rows' | 'cellSize'>,
+  base: Pick<FieldGridConfig, 'rows' | 'cellSize' | 'dividerWidth'>,
   chunkCols?: number,
 ): FieldGridChunkSpec {
   const cols = chunkCols ?? getFieldConfig().chunks.cols;
@@ -97,15 +102,19 @@ export function createFieldGridChunkSpec(
     cols,
     rows: base.rows,
     cellSize: base.cellSize,
+    dividerWidth: base.dividerWidth,
   };
 }
 
 export function fieldChunkWorldWidth(spec: FieldGridChunkSpec): number {
-  return spec.cols * spec.cellSize;
+  return spec.cols * fieldGridCellPitch(spec);
 }
 
 export function fieldChunkWorldHeight(spec: FieldGridChunkSpec): number {
-  return spec.rows * spec.cellSize;
+  return (
+    spec.rows * fieldGridCellPitch(spec) +
+    (spec.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH)
+  );
 }
 
 /** Plane center so the chunk covers absolute x∈[colStart*size, (colStart+cols)*size]. */
@@ -113,7 +122,7 @@ export function fieldChunkPlanePosition(
   spec: FieldGridChunkSpec,
 ): readonly [number, number, number] {
   const width = fieldChunkWorldWidth(spec);
-  const originX = spec.colStart * spec.cellSize;
+  const originX = spec.colStart * fieldGridCellPitch(spec);
   return [originX + width / 2, 0, 0];
 }
 
@@ -134,5 +143,6 @@ export function fieldChunkToGridConfig(spec: FieldGridChunkSpec): FieldGridConfi
     cols: spec.cols,
     rows: spec.rows,
     cellSize: spec.cellSize,
+    dividerWidth: spec.dividerWidth,
   };
 }

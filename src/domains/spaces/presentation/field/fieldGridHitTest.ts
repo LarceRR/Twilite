@@ -1,6 +1,10 @@
 import { isActiveFieldGridCell } from './fieldGridActiveCells';
 import type { FieldGridConfig } from './fieldGridConfig';
-import { fieldGridWorldSize } from './fieldGridConfig';
+import {
+  FIELD_GRID_DIVIDER_WIDTH,
+  fieldGridCellPitch,
+  fieldGridWorldSize,
+} from './fieldGridConfig';
 
 export type FieldGridCellCoord = {
   readonly col: number;
@@ -17,11 +21,18 @@ export function worldPointToFieldCell(
   config: FieldGridConfig,
 ): FieldGridCellCoord | null {
   const { height } = fieldGridWorldSize(config);
+  const pitch = fieldGridCellPitch(config);
+  const dividerWidth = config.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH;
   if (worldX < 0) return null;
   if (worldY < -height / 2 || worldY >= height / 2) return null;
-  const col = Math.floor(worldX / config.cellSize);
-  const row = Math.floor((height / 2 - worldY) / config.cellSize);
+  const col = Math.floor(worldX / pitch);
+  const localX = worldX - col * pitch;
+  const distanceFromTop = height / 2 - worldY - dividerWidth;
+  if (localX < dividerWidth || distanceFromTop < 0) return null;
+  const row = Math.floor(distanceFromTop / pitch);
+  const localY = distanceFromTop - row * pitch;
   if (col < 0 || row < 0 || row >= config.rows) return null;
+  if (localY >= config.cellSize) return null;
   return { col, row };
 }
 

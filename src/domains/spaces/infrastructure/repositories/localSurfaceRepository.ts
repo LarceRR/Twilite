@@ -14,6 +14,14 @@ export function createLocalSurfaceRepository(): SurfaceRepository {
       };
     },
 
+    async getMomentStats() {
+      return { total: 0, good: 0, bad: 0 };
+    },
+
+    clearMoments() {
+      return Promise.resolve();
+    },
+
     async createObject() {
       throw new NetworkError('Добавление объектов требует подключения к API', null);
     },

@@ -35,6 +35,7 @@ export default function MomentCatalogRoute(): ReactElement {
     if (kind === null || activeSpace === null || createSurfaceObject.isPending) return;
     const idempotencyKey = idempotencyKeys.current.get(moment.id) ?? createLocalId('surface');
     idempotencyKeys.current.set(moment.id, idempotencyKey);
+    router.dismissAll();
     try {
       await createSurfaceObject.mutateAsync(
         selectMomentForSurface({
@@ -46,7 +47,6 @@ export default function MomentCatalogRoute(): ReactElement {
       );
       idempotencyKeys.current.delete(moment.id);
       showToast('Момент добавлен на поверхность');
-      router.back();
     } catch {
       showToast('Не удалось добавить момент. Проверьте подключение.', 'negative');
     }

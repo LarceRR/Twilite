@@ -7,6 +7,7 @@ import {
 
 /** Logical pixel size of one field cell in world units (1 unit = 1 px). */
 export const FIELD_CELL_SIZE_PX = DEFAULT_FIELD_CONFIG.grid.cellSizePx;
+export const FIELD_GRID_DIVIDER_WIDTH = DEFAULT_FIELD_CONFIG.grid.dividerWidthPx;
 
 /** Original center band width before side expansion. */
 export const FIELD_GRID_CENTER_COLS = DEFAULT_FIELD_CONFIG.grid.centerCols;
@@ -33,33 +34,49 @@ export const FIELD_WORLD_UP: readonly [number, number, number] = [0, 0, 1];
 export type FieldGridConfig = {
   readonly cols: number;
   readonly rows: number;
+  /** Interior cell dimension, excluding the divider at its boundary. */
   readonly cellSize: number;
+  readonly dividerWidth?: number;
 };
 
 export function createFieldGridConfig(
   cols: number = FIELD_GRID_COLS,
   rows: number = FIELD_GRID_ROWS,
   cellSize: number = FIELD_CELL_SIZE_PX,
+  dividerWidth: number = FIELD_GRID_DIVIDER_WIDTH,
 ): FieldGridConfig {
-  if (cols < 1 || rows < 1 || cellSize <= 0) {
+  if (
+    cols < 1 ||
+    rows < 1 ||
+    cellSize <= 0 ||
+    !Number.isInteger(dividerWidth) ||
+    dividerWidth < 0
+  ) {
     throw new Error('Field grid config must use positive cols, rows, and cellSize');
   }
-  return { cols, rows, cellSize };
+  return { cols, rows, cellSize, dividerWidth };
+}
+
+export function fieldGridCellPitch(
+  config: Pick<FieldGridConfig, 'cellSize' | 'dividerWidth'>,
+): number {
+  return config.cellSize + (config.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH);
 }
 
 export function fieldGridWorldSize(config: FieldGridConfig): {
   readonly width: number;
   readonly height: number;
 } {
+  const pitch = fieldGridCellPitch(config);
   return {
-    width: config.cols * config.cellSize,
-    height: config.rows * config.cellSize,
+    width: config.cols * pitch,
+    height: config.rows * pitch + (config.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH),
   };
 }
 
 /**
  * Mesh origin = center of the left edge.
- * At world (0,0,0): deck occupies x∈[0,width], y∈[-height/2, height/2], z=0.
+ * Width uses cell pitch; height also reserves the final divider row.
  */
 export const FIELD_MESH_ORIGIN: readonly [number, number, number] = [0, 0, 0];
 

@@ -6,11 +6,15 @@ import {
 import { getFieldConfig } from './fieldConfigStore';
 import { createFieldGridCells } from './fieldGridCells';
 import type { FieldGridConfig } from './fieldGridConfig';
-import { fieldGridWorldSize } from './fieldGridConfig';
 import {
-  DIGIT_GLYPH_HEIGHT,
-  DIGIT_GLYPH_WIDTH,
-  isDigitGlyphPixelOn,
+  FIELD_GRID_DIVIDER_WIDTH,
+  fieldGridCellPitch,
+  fieldGridWorldSize,
+} from './fieldGridConfig';
+import {
+  LABEL_GLYPH_HEIGHT,
+  LABEL_GLYPH_WIDTH,
+  isLabelGlyphPixelOn,
 } from './fieldGridDigitGlyphs';
 
 export type Rgba = readonly [number, number, number, number];
@@ -113,9 +117,11 @@ function cellDataOrigin(
   config: FieldGridConfig,
   colStart: number,
 ): { readonly minX: number; readonly minY: number } {
+  const pitch = fieldGridCellPitch(config);
+  const inset = config.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH;
   return {
-    minX: (col - colStart) * config.cellSize,
-    minY: (config.rows - 1 - row) * config.cellSize,
+    minX: (col - colStart) * pitch + inset,
+    minY: (config.rows - 1 - row) * pitch + inset,
   };
 }
 
@@ -139,13 +145,14 @@ function drawGridLines(
   line: Rgba,
 ): void {
   const { width, height } = fieldGridWorldSize(config);
-  for (let c = 0; c <= config.cols; c += 1) {
-    const x = Math.min(c * config.cellSize, width - 1);
-    fillRect(data, width, x, 0, 1, height, line);
+  const pitch = fieldGridCellPitch(config);
+  for (let c = 0; c < config.cols; c += 1) {
+    const x = Math.min(c * pitch, width - 1);
+    fillRect(data, width, x, 0, config.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH, height, line);
   }
   for (let r = 0; r <= config.rows; r += 1) {
-    const y = Math.min(r * config.cellSize, height - 1);
-    fillRect(data, width, 0, y, width, 1, line);
+    const y = Math.min(r * pitch, height - 1);
+    fillRect(data, width, 0, y, width, config.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH, line);
   }
 }
 
@@ -173,15 +180,15 @@ function drawDigit(
   width: number,
   minDataX: number,
   minDataY: number,
-  digit: string,
+  glyph: string,
   scale: number,
   color: Rgba,
 ): void {
-  for (let gy = 0; gy < DIGIT_GLYPH_HEIGHT; gy += 1) {
-    for (let gx = 0; gx < DIGIT_GLYPH_WIDTH; gx += 1) {
-      if (!isDigitGlyphPixelOn(digit, gx, gy)) continue;
-      const dx = minDataX + (DIGIT_GLYPH_HEIGHT - 1 - gy) * scale;
-      const dy = minDataY + (DIGIT_GLYPH_WIDTH - 1 - gx) * scale;
+  for (let gy = 0; gy < LABEL_GLYPH_HEIGHT; gy += 1) {
+    for (let gx = 0; gx < LABEL_GLYPH_WIDTH; gx += 1) {
+      if (!isLabelGlyphPixelOn(glyph, gx, gy)) continue;
+      const dx = minDataX + (LABEL_GLYPH_HEIGHT - 1 - gy) * scale;
+      const dy = minDataY + (LABEL_GLYPH_WIDTH - 1 - gx) * scale;
       fillRect(data, width, dx, dy, scale, scale, color);
     }
   }
@@ -196,13 +203,13 @@ function drawLabelBottomRight(
   color: Rgba,
 ): void {
   const { scale, padding, raise } = getFieldConfig().labels;
-  const alongY = DIGIT_GLYPH_WIDTH * scale;
+  const alongY = LABEL_GLYPH_WIDTH * scale;
   const gap = scale;
   const startX = cellMinX + padding + raise;
-  let digitMinY = cellMinY + padding + (label.length - 1) * (alongY + gap);
+  let glyphMinY = cellMinY + padding + (label.length - 1) * (alongY + gap);
   for (const ch of label) {
-    drawDigit(data, width, startX, digitMinY, ch, scale, color);
-    digitMinY -= alongY + gap;
+    drawDigit(data, width, startX, glyphMinY, ch, scale, color);
+    glyphMinY -= alongY + gap;
   }
 }
 
