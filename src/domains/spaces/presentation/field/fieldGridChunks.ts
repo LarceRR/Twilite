@@ -102,7 +102,7 @@ export function createFieldGridChunkSpec(
     cols,
     rows: base.rows,
     cellSize: base.cellSize,
-    dividerWidth: base.dividerWidth,
+    ...(base.dividerWidth === undefined ? {} : { dividerWidth: base.dividerWidth }),
   };
 }
 
@@ -143,6 +143,6 @@ export function fieldChunkToGridConfig(spec: FieldGridChunkSpec): FieldGridConfi
     cols: spec.cols,
     rows: spec.rows,
     cellSize: spec.cellSize,
-    dividerWidth: spec.dividerWidth,
+    ...(spec.dividerWidth === undefined ? {} : { dividerWidth: spec.dividerWidth }),
   };
 }

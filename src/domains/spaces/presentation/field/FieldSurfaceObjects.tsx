@@ -18,7 +18,6 @@ import {
 import { useFieldConfig } from './useFieldConfig';
 
 const billboardCameraPosition = new Vector3();
-const billboardObjectPosition = new Vector3();
 
 type RuntimeObject = {
   readonly column: RefObject<Mesh | null>;
@@ -32,6 +31,7 @@ type RuntimeObject = {
   cursor: SpritePlaybackCursor;
   elapsedMs: number;
   frame: number | null;
+  billboardUpdated: boolean;
 };
 
 export function FieldSurfaceObjects({
@@ -46,6 +46,7 @@ export function FieldSurfaceObjects({
   const runtime = useRef(new Map<string, RuntimeObject>());
   const appearing = useAppearingObjects(objects);
   const platformColor = useFieldPlatformColor();
+  const lastBillboardCameraXY = useRef({ x: Number.NaN, y: Number.NaN });
 
   const register = useCallback((item: RuntimeObject): (() => void) => {
     runtime.current.set(item.object.id, item);
@@ -56,9 +57,22 @@ export function FieldSurfaceObjects({
 
   useFrame(({ camera }, delta) => {
     camera.getWorldPosition(billboardCameraPosition);
+    const cameraMoved =
+      billboardCameraPosition.x !== lastBillboardCameraXY.current.x ||
+      billboardCameraPosition.y !== lastBillboardCameraXY.current.y;
+    if (cameraMoved) {
+      lastBillboardCameraXY.current.x = billboardCameraPosition.x;
+      lastBillboardCameraXY.current.y = billboardCameraPosition.y;
+    }
+
     for (const item of runtime.current.values()) {
       advanceColumn(item, delta * 1000);
-      advanceArtwork(item, delta * 1000, billboardCameraPosition, billboardObjectPosition);
+      advanceArtwork(
+        item,
+        delta * 1000,
+        billboardCameraPosition,
+        cameraMoved,
+      );
     }
   });
 
@@ -123,6 +137,7 @@ function FieldSurfaceObjectColumn({
           ? SURFACE_OBJECT_ANIMATION_CONFIG.riseDurationMs
           : -appearanceDelayMs,
       frame: null,
+      billboardUpdated: false,
     }),
     [appearanceDelayMs, artHeight, object, platformHeight, platformSize],
   );
@@ -168,13 +183,31 @@ function FieldSurfaceObjectColumn({
 }
 
 function advanceColumn(item: RuntimeObject, deltaMs: number): void {
-  item.elapsedMs = Math.min(
-    SURFACE_OBJECT_ANIMATION_CONFIG.riseDurationMs,
-    item.elapsedMs + deltaMs,
-  );
-  const progress = easeOutCubic(
-    item.elapsedMs / SURFACE_OBJECT_ANIMATION_CONFIG.riseDurationMs,
-  );
+  const duration = SURFACE_OBJECT_ANIMATION_CONFIG.riseDurationMs;
+  if (item.elapsedMs >= duration) {
+    // Settled objects are static. Avoid redundant transform/material writes on
+    // every frame, while still applying their initial pose after mount.
+    if (item.column.current !== null) {
+      if (item.column.current.scale.z !== 1) item.column.current.scale.z = 1;
+      if (item.column.current.position.z !== item.platformHeight / 2) {
+        item.column.current.position.z = item.platformHeight / 2;
+      }
+    }
+    if (item.artworkMaterial !== null && item.artworkMaterial.opacity !== 1) {
+      item.artworkMaterial.opacity = 1;
+    }
+    if (item.artwork.current !== null) {
+      const finalZ =
+        item.platformHeight + item.artHeight / 2 + SURFACE_OBJECT_ANIMATION_CONFIG.artworkOffset;
+      if (item.artwork.current.position.z !== finalZ) {
+        item.artwork.current.position.z = finalZ;
+      }
+    }
+    return;
+  }
+
+  item.elapsedMs = Math.min(duration, item.elapsedMs + deltaMs);
+  const progress = easeOutCubic(item.elapsedMs / duration);
   const height = item.platformHeight * progress;
   if (item.column.current !== null) {
     // Scale only the explicit platform depth, keeping its bottom on the deck.
@@ -194,19 +227,26 @@ function advanceArtwork(
   item: RuntimeObject,
   deltaMs: number,
   cameraPosition: Vector3,
-  objectPosition: Vector3,
+  cameraMoved: boolean,
 ): void {
   const artwork = item.artwork.current;
-  if (artwork !== null) {
-    artwork.up.set(0, 0, 1);
-    artwork.getWorldPosition(objectPosition);
-    artwork.lookAt(cameraPosition.x, cameraPosition.y, objectPosition.z);
+  const hasSprite = item.object.pixelObject !== null;
+  if (artwork !== null && hasSprite && (!item.billboardUpdated || cameraMoved)) {
+    if (!item.billboardUpdated) artwork.up.set(0, 0, 1);
+
+    // The parent has translation only and its Z is zero, so the artwork's
+    // local Z is already its world Z. Avoid getWorldPosition()/matrix work for
+    // every sprite on every camera frame.
+    artwork.lookAt(cameraPosition.x, cameraPosition.y, artwork.position.z);
+    item.billboardUpdated = true;
   }
 
   const sprite = item.object.pixelObject;
   const texture = item.texture;
   if (sprite === null || texture === null) return;
   const frames = sprite.animations[0]?.frames ?? [];
+  if (frames.length === 0 || (frames.length === 1 && item.frame !== null)) return;
+
   const advanced = advanceSpritePlayback(item.cursor, frames, deltaMs);
   item.cursor = advanced.cursor;
   if (advanced.frame === null || advanced.frame === item.frame) return;

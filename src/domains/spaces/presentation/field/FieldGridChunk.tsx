@@ -1,5 +1,5 @@
 import { type ThreeEvent } from '@react-three/fiber/native';
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import type { ReactElement } from 'react';
 import { BufferGeometry, PlaneGeometry, type Group, type Mesh } from 'three';
 
@@ -50,7 +50,7 @@ function useChunkSlotResources(width: number, height: number) {
  * One recycled field-deck slot. Plane/material stay alive; only texture + lines
  * rebind when the streamed chunk index changes (avoids mount hitches).
  */
-export function FieldGridChunk({
+function FieldGridChunkComponent({
   chunkIndex,
   base,
   onMaterialReady,
@@ -151,3 +151,5 @@ export function FieldGridChunk({
     </group>
   );
 }
+
+export const FieldGridChunk = memo(FieldGridChunkComponent);
