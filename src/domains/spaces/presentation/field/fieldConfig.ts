@@ -367,7 +367,7 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
       fallbackIntensity: 2.1,
       fallbackDistance: 300,
       heightAbovePlatform: 44,
-      decay: 0.5,
+      decay: 2,
       minimumVisibleIntensity: 0.005,
       flicker: {
         minMultiplier: 0.62,

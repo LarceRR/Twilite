@@ -2,6 +2,20 @@ import { Frustum, Matrix4, Sphere, Vector3, type Camera } from 'three';
 
 import { DEFAULT_FIELD_CONFIG, type FieldConfig } from './fieldConfig';
 
+/**
+ * Field coordinates are logical pixels, with 100 world units representing 1 metre.
+ * Three.js evaluates inverse-square attenuation in its raw world-coordinate units,
+ * so point-light intensity must be scaled by 100^2 to preserve physical illuminance.
+ */
+export const FIELD_WORLD_UNITS_PER_METER = 100;
+export const FIELD_POINT_LIGHT_INTENSITY_SCALE = FIELD_WORLD_UNITS_PER_METER ** 2;
+
+/** Convert the scene's artist-facing intensity to the scale expected by Three.js lights. */
+export function resolveThreePointLightIntensity(intensity: number): number {
+  if (!Number.isFinite(intensity)) return 0;
+  return Math.max(0, intensity) * FIELD_POINT_LIGHT_INTENSITY_SCALE;
+}
+
 /** Light data accepted from the API or synthesized by the temporary test override. */
 export type SurfaceObjectLightConfig = {
   readonly color: string;

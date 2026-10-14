@@ -3,7 +3,6 @@ import type { ReactElement, RefObject } from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Color,
-  DoubleSide,
   Vector3,
   type Group,
   type Mesh,
@@ -35,6 +34,7 @@ import {
 import {
   candleFlickerMultiplier,
   resolveSurfaceObjectLightConfig,
+  resolveThreePointLightIntensity,
   surfaceObjectFlickerSeed,
   SurfaceObjectLightVisibility,
 } from './surfaceObjectLighting';
@@ -214,7 +214,8 @@ export function FieldSurfaceObjects({
           item.flickerSeed,
           item.flickerConfig,
         ) * progress;
-      if (light.intensity !== intensity) light.intensity = intensity;
+      const physicalIntensity = resolveThreePointLightIntensity(intensity);
+      if (light.intensity !== physicalIntensity) light.intensity = physicalIntensity;
       if (intensity <= item.minimumVisibleIntensity) {
         light.visible = false;
         setLocalShadowCasting(
@@ -441,7 +442,7 @@ function FieldSurfaceObjectColumn({
         scale={[1, 1, initialProgress]}
         geometry={platformGeometry}
       >
-        <meshLambertMaterial color={platformColor} side={DoubleSide} />
+        <meshStandardMaterial color={platformColor} roughness={1} metalness={0} flatShading />
       </mesh>
       <mesh
         ref={waveOverlay}
@@ -466,7 +467,7 @@ function FieldSurfaceObjectColumn({
           ref={light}
           position={[0, 0, platformHeight + objectGlowConfig.heightAbovePlatform]}
           color={lightConfig.color}
-          intensity={lightConfig.intensity}
+          intensity={resolveThreePointLightIntensity(lightConfig.intensity)}
           distance={lightConfig.distance}
           decay={objectGlowConfig.decay}
           castShadow={false}

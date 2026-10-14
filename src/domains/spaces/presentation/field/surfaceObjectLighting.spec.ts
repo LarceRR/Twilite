@@ -4,8 +4,10 @@ import { PerspectiveCamera } from 'three';
 import { DEFAULT_FIELD_CONFIG } from './fieldConfig';
 import {
   candleFlickerMultiplier,
+  FIELD_POINT_LIGHT_INTENSITY_SCALE,
   resolveSceneShadowIntensity,
   resolveSurfaceObjectLightConfig,
+  resolveThreePointLightIntensity,
   SurfaceObjectLightVisibility,
   surfaceObjectFlickerSeed,
 } from './surfaceObjectLighting';
@@ -42,8 +44,12 @@ describe('surfaceObjectLighting', () => {
     })).toBeNull();
   });
 
-  it('keeps point-light falloff low enough to illuminate platform sides', () => {
-    expect(DEFAULT_FIELD_CONFIG.lighting.objectGlow.decay).toBe(0.5);
+  it('uses inverse-square falloff and accounts for the logical world scale', () => {
+    expect(DEFAULT_FIELD_CONFIG.lighting.objectGlow.decay).toBe(2);
+    expect(FIELD_POINT_LIGHT_INTENSITY_SCALE).toBe(10_000);
+    expect(resolveThreePointLightIntensity(2.1)).toBe(21_000);
+    expect(resolveThreePointLightIntensity(-1)).toBe(0);
+    expect(resolveThreePointLightIntensity(Number.NaN)).toBe(0);
     expect(DEFAULT_FIELD_CONFIG.lighting.surfaceAmbientIntensity).toBeGreaterThan(0);
     expect(DEFAULT_FIELD_CONFIG.lighting.shadows.filterRadius).toBe(6);
     expect(DEFAULT_FIELD_CONFIG.lighting.shadows.localShadowIntensity).toBe(0.5);
