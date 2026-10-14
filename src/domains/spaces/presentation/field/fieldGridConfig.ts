@@ -31,6 +31,9 @@ export const FIELD_GRID_HEIGHT = fieldGridHeightFromConfig(DEFAULT_FIELD_CONFIG.
  */
 export const FIELD_WORLD_UP: readonly [number, number, number] = [0, 0, 1];
 
+/** Layer reserved for local point lights and the platform meshes they illuminate. */
+export const FIELD_LOCAL_LIGHT_LAYER = 1;
+
 export type FieldGridConfig = {
   readonly cols: number;
   readonly rows: number;
