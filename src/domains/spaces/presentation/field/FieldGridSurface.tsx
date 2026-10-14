@@ -304,7 +304,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
   // not once per chunk on every render frame.
   useEffect(() => {
     syncFieldGridWaveSceneConfig();
-  }, [fieldConfig.wave]);
+  }, [fieldConfig.wave, fieldConfig.lighting.objectGlow.pixelOverlay]);
 
   useFrame(({ clock, gl, camera }) => {
     timeRef.current = clock.elapsedTime;
