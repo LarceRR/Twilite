@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 
 import { useThemeColors } from '../../colors/themeStore';
-import { icons, type IconName } from '../../icons/icons';
+import type { IconName } from '../../icons/icons';
 import { radius } from '../../radius/radius';
 import { layout, spacing } from '../../spacing/spacing';
 import { typography } from '../../typography/typography';
@@ -43,7 +43,7 @@ function InputComponent(
   const leadingContent =
     leading ??
     (icon === undefined ? (
-      <Ionicons name={icons.search} size={18} color={theme.textTertiary} />
+      <Ionicons name="create-outline" size={18} color={theme.textTertiary} />
     ) : (
       <Ionicons name={icon} size={18} color={theme.textTertiary} />
     ));
@@ -52,7 +52,6 @@ function InputComponent(
     <GlassSurface
       cornerRadius={radius.md}
       interactive
-      tintColor={theme.surfaceSunken}
       style={[styles.surface, containerStyle]}
     >
       <View style={styles.row}>
