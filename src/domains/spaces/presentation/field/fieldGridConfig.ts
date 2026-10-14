@@ -34,6 +34,12 @@ export const FIELD_WORLD_UP: readonly [number, number, number] = [0, 0, 1];
 /** Layer reserved for local point lights and the platform meshes they illuminate. */
 export const FIELD_LOCAL_LIGHT_LAYER = 1;
 
+/** Render transparent grid/light effects before sprite artwork. */
+export const FIELD_GRID_OVERLAY_RENDER_ORDER = 0;
+
+/** Keep pixel-art sprites above grid and glow overlays. */
+export const FIELD_OBJECT_ARTWORK_RENDER_ORDER = 2;
+
 export type FieldGridConfig = {
   readonly cols: number;
   readonly rows: number;
