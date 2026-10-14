@@ -4,6 +4,7 @@ import {
   FIELD_ACTIVE_CENTER_RGBA,
   FIELD_ACTIVE_FILL_HEX,
   FIELD_ACTIVE_FILL_RGBA,
+  themeColorToRgbaTuple,
 } from './fieldGridActiveCells';
 import { createFieldGridConfig } from './fieldGridConfig';
 import {
@@ -139,9 +140,16 @@ describe('fieldGridLabelPixels', () => {
     expect(textPixels).toBeGreaterThan(5);
   });
 
+  it('converts all CSS color formats accepted for theme accents', () => {
+    expect(themeColorToRgbaTuple('#112233')).toEqual([17, 34, 51, 255]);
+    expect(themeColorToRgbaTuple('#11223380')).toEqual([17, 34, 51, 128]);
+    expect(themeColorToRgbaTuple('rgb(17, 34, 51)')).toEqual([17, 34, 51, 255]);
+    expect(themeColorToRgbaTuple('rgba(17, 34, 51, 0.5)')).toEqual([17, 34, 51, 128]);
+  });
+
   it('parses hex colors', () => {
     expect(hexToRgba('#112233')).toEqual([17, 34, 51, 255]);
     expect(hexToRgba('#abc', 128)).toEqual([170, 187, 204, 128]);
-    expect(hexToRgba(FIELD_ACTIVE_FILL_HEX)).toEqual(ACTIVE_FILL);
+    expect(themeColorToRgbaTuple(FIELD_ACTIVE_FILL_HEX)).toEqual(ACTIVE_FILL);
   });
 });

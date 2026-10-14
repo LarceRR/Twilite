@@ -8,6 +8,7 @@ import { useSettingsStore } from '@/domains/settings/presentation/stores/setting
 
 import {
   fieldActiveCenterRgba,
+  fieldActiveFillRgba,
   fieldLabelTextHex,
 } from './fieldGridActiveCells';
 import { useFieldCameraControlStore } from './fieldCameraControlStore';
@@ -240,7 +241,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
         fill: hexToRgba(scene.surfaceBase),
         line: hexToRgba(scene.surfaceDot),
         text: hexToRgba(fieldLabelTextHex()),
-        activeFill: hexToRgba(accent),
+        activeFill: fieldActiveFillRgba(),
         activeCenter: fieldActiveCenterRgba(),
       },
       layers: { showActiveCells, showActiveCenters, showCellLabels },
