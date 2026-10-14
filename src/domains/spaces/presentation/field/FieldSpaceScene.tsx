@@ -10,7 +10,6 @@ import type { SurfaceObject } from '@/domains/spaces/domain/entities/SurfaceObje
 import { FieldGridSurface } from './FieldGridSurface';
 import { FieldSurfaceObjects } from './FieldSurfaceObjects';
 import { FieldWorldAxes } from './FieldWorldAxes';
-import type { FieldGridConfig } from './fieldGridConfig';
 import { resetFieldGridWaveScene } from './fieldGridWaveMaterial';
 import { useFieldConfig, useFieldGridConfig } from './useFieldConfig';
 
@@ -29,7 +28,7 @@ export function FieldSpaceScene({
 
   return (
     <>
-      <FieldSceneLighting config={gridConfig} />
+      <FieldSceneLighting />
       <FieldGridSurface config={gridConfig} />
       <FieldSurfaceObjects config={gridConfig} headers={headers} objects={objects} />
       {showWorldAxes ? <FieldWorldAxes /> : null}
@@ -37,11 +36,7 @@ export function FieldSpaceScene({
   );
 }
 
-function FieldSceneLighting({
-  config,
-}: {
-  readonly config: FieldGridConfig;
-}): ReactElement {
+function FieldSceneLighting(): ReactElement {
   const { lighting } = useFieldConfig();
   const lightRef = useRef<DirectionalLight>(null);
   const target = useMemo(() => new Object3D(), []);
