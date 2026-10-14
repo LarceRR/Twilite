@@ -12,13 +12,10 @@ import { Text } from '@/design-system/components/Text/Text';
 import { radius } from '@/design-system/radius/radius';
 import { layout, spacing } from '@/design-system/spacing/spacing';
 import { typography } from '@/design-system/typography/typography';
-import {
-  useFieldConfigStore,
-} from '@/domains/spaces/presentation/field/fieldConfigStore';
-import {
-  type FieldConfig,
-} from '@/domains/spaces/presentation/field/fieldConfig';
-import { useFieldConfig } from '@/domains/spaces/presentation/field/useFieldConfig';
+import { useFieldCameraControlStore } from '@/domains/spaces/presentation/field/fieldCameraControlStore';
+import { useFieldConfigStore } from '@/domains/spaces/presentation/field/fieldConfigStore';
+import type { FieldConfig } from '@/domains/spaces/presentation/field/fieldConfig';
+import { getFieldConfig, useFieldConfig } from '@/domains/spaces/presentation/field/useFieldConfig';
 
 import {
   buildFieldConfigSettingPatch,
@@ -257,6 +254,41 @@ export function FieldConfigExplorer(): ReactElement {
 
   const onChangeSetting = (setting: FieldConfigSetting, value: unknown): void => {
     patchOverrides(buildFieldConfigSettingPatch(config, setting.path, value));
+
+    // Camera optics and pose are mirrored in a runtime store while the 3D scene
+    // is mounted, so update it too instead of waiting for the next scene mount.
+    if (!setting.path.startsWith('camera.')) return;
+    const cameraConfig = getFieldConfig().camera;
+    const cameraControls = useFieldCameraControlStore.getState();
+
+    if (setting.path.startsWith('camera.position.')) {
+      cameraControls.setPosition(cameraConfig.position);
+    } else if (setting.path.startsWith('camera.rotationDeg.')) {
+      cameraControls.setRotationDeg(cameraConfig.rotationDeg);
+    } else if (
+      setting.path === 'camera.fov' ||
+      setting.path === 'camera.near' ||
+      setting.path === 'camera.far'
+    ) {
+      cameraControls.setProjection({
+        fov: cameraConfig.fov,
+        near: cameraConfig.near,
+        far: cameraConfig.far,
+      });
+    }
+  };
+
+  const resetAll = (): void => {
+    reset();
+    const cameraConfig = getFieldConfig().camera;
+    const cameraControls = useFieldCameraControlStore.getState();
+    cameraControls.setPosition(cameraConfig.position);
+    cameraControls.setRotationDeg(cameraConfig.rotationDeg);
+    cameraControls.setProjection({
+      fov: cameraConfig.fov,
+      near: cameraConfig.near,
+      far: cameraConfig.far,
+    });
   };
 
   const toggleGroup = (id: string): void => {
@@ -305,7 +337,7 @@ export function FieldConfigExplorer(): ReactElement {
             ? `Найдено параметров: ${visibleSettingCount}`
             : `Все параметры конфигурации: ${FIELD_CONFIG_SETTING_GROUPS.reduce((sum, group) => sum + group.settings.length, 0)}`}
         </Text>
-        <Button label="Сбросить всё" variant="secondary" onPress={reset} />
+        <Button label="Сбросить всё" variant="secondary" onPress={resetAll} />
       </View>
 
       {visibleGroups.length === 0 ? (
