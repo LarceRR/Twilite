@@ -304,9 +304,8 @@ export function registerFieldGridWaveMaterial(
 export function syncFieldGridPixelLights(
   lights: readonly FieldGridPixelLight[],
 ): void {
-  const visibleLights = lights.slice(0, FIELD_GRID_MAX_PIXEL_LIGHTS);
   for (const material of sceneWaveMaterials) {
-    setPixelLightsOnMaterial(material, visibleLights);
+    setPixelLightsOnMaterial(material, lights);
   }
 }
 

@@ -1,5 +1,6 @@
 import { Frustum, Matrix4, Sphere, Vector3, type Camera } from 'three';
 
+/** Identity and optional source metadata used to modulate the shared shadow layer. */
 export type SurfaceObjectLightingIdentity = {
   readonly id: string;
   readonly light: { readonly intensity: number } | null;

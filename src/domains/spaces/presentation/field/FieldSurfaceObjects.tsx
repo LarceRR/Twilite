@@ -2,9 +2,6 @@ import { useFrame } from '@react-three/fiber/native';
 import type { ReactElement, RefObject } from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
-  Frustum,
-  Matrix4,
-  Sphere,
   Vector3,
   type Group,
   type Mesh,
@@ -65,6 +62,10 @@ type RuntimeObject = {
   frame: number | null;
   billboardUpdated: boolean;
 };
+
+function compareLightDistance(left: RuntimeObject, right: RuntimeObject): number {
+  return left.lightDistanceSquared - right.lightDistanceSquared;
+}
 
 export function FieldSurfaceObjects({
   objects,
@@ -140,7 +141,7 @@ export function FieldSurfaceObjects({
     }
 
     // Prioritize the nearest sources whose falloff spheres can affect this view.
-    candidates.sort((left, right) => left.lightDistanceSquared - right.lightDistanceSquared);
+    candidates.sort(compareLightDistance);
     for (let index = 0; index < candidates.length; index += 1) {
       const item = candidates[index]!;
       const light = item.light.current;
