@@ -26,6 +26,7 @@ export function useFieldGridConfig(): FieldGridConfig {
         config.grid.rows,
         config.grid.cellSizePx,
         config.grid.dividerWidthPx,
+        config.grid.showDividers,
       ),
     [config.grid],
   );
