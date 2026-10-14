@@ -106,12 +106,3 @@ export function parseFieldConfigJson(content: string): FieldConfig {
   return mergeFieldConfig(overrides);
 }
 
-/** Public type guard helper for callers that need to validate an untyped JSON payload. */
-export function isFieldConfig(value: unknown): value is FieldConfig {
-  try {
-    validateValue(value, DEFAULT_FIELD_CONFIG, '');
-    return true;
-  } catch {
-    return false;
-  }
-}
