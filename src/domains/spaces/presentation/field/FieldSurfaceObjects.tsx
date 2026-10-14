@@ -17,6 +17,7 @@ import { useThemeColors } from '@/design-system/colors/colors';
 
 import { FieldSurfaceObjectArtwork } from './FieldSurfaceObjectArtwork';
 import { cellCenterOnPlane } from './fieldGridCells';
+import type { FieldConfig } from './fieldConfig';
 import type { FieldGridConfig } from './fieldGridConfig';
 import {
   createFieldGridWaveMaterial,
@@ -28,6 +29,7 @@ import {
 } from './fieldGridWaveMaterial';
 import {
   candleFlickerMultiplier,
+  resolveSurfaceObjectLightConfig,
   surfaceObjectFlickerSeed,
   SurfaceObjectLightVisibility,
 } from './surfaceObjectLighting';
@@ -38,6 +40,7 @@ import {
   SURFACE_OBJECT_ANIMATION_CONFIG,
   staggerAppearanceDelays,
 } from './surfaceObjectAnimation';
+import { useFieldConfig } from './useFieldConfig';
 
 const billboardCameraPosition = new Vector3();
 
@@ -54,6 +57,7 @@ type RuntimeObject = {
   readonly platformSize: number;
   readonly artHeight: number;
   readonly lightConfig: PixelObjectLightDto | null;
+  readonly flickerConfig: FieldConfig['lighting']['objectGlow']['flicker'];
   readonly waveMaterial: FieldGridWaveMaterial;
   unregisterWaveMaterial: (() => void) | null;
   readonly pixelLight: FieldGridPixelLight | null;
@@ -82,6 +86,7 @@ export function FieldSurfaceObjects({
   const runtime = useRef(new Map<string, RuntimeObject>());
   const appearance = useAppearingObjects(objects);
   const { surfaceRaised } = useThemeColors();
+  const objectGlowConfig = useFieldConfig().lighting.objectGlow;
   const lastBillboardCameraXY = useRef({ x: Number.NaN, y: Number.NaN });
   const lightVisibility = useMemo(() => new SurfaceObjectLightVisibility(), []);
   const lightCandidates = useRef<RuntimeObject[]>([]);
@@ -133,8 +138,11 @@ export function FieldSurfaceObjects({
       const progress = surfaceObjectRiseProgress(item.elapsedMs);
       const intensity =
         lightConfig.intensity *
-        candleFlickerMultiplier(clock.elapsedTime * 1000, item.flickerSeed) *
-        progress;
+        candleFlickerMultiplier(
+          clock.elapsedTime * 1000,
+          item.flickerSeed,
+          item.flickerConfig,
+        ) * progress;
       if (light.intensity !== intensity) light.intensity = intensity;
       if (intensity <= 0.005) {
         light.visible = false;
@@ -177,6 +185,7 @@ export function FieldSurfaceObjects({
           appearanceDelayMs={resolveAppearanceDelay(appearance, object.id)}
           config={config}
           headers={headers}
+          objectGlowConfig={objectGlowConfig}
           platformColor={surfaceRaised}
           key={object.id}
           object={object}
@@ -192,12 +201,14 @@ function FieldSurfaceObjectColumn({
   config,
   headers,
   appearanceDelayMs,
+  objectGlowConfig,
   platformColor,
   register,
 }: {
   readonly object: SurfaceObject;
   readonly config: FieldGridConfig;
   readonly headers: AuthenticatedAssetHeaders;
+  readonly objectGlowConfig: FieldConfig['lighting']['objectGlow'];
   readonly appearanceDelayMs: number | null;
   readonly platformColor: string;
   readonly register: (item: RuntimeObject) => () => void;
@@ -213,7 +224,10 @@ function FieldSurfaceObjectColumn({
       ? 0
       : platformSize * (object.pixelObject.canvas.height / object.pixelObject.canvas.width);
   const center = cellCenterOnPlane(object.cell.x, object.cell.y, config);
-  const lightConfig = object.pixelObject?.light ?? null;
+  const lightConfig = resolveSurfaceObjectLightConfig(
+    object.pixelObject?.light ?? null,
+    objectGlowConfig,
+  );
   const waveMaterial = useMemo(() => createFieldGridWaveMaterial(), []);
   const initialElapsedMs =
     appearanceDelayMs === null
@@ -236,6 +250,7 @@ function FieldSurfaceObjectColumn({
       platformSize,
       artHeight,
       lightConfig,
+      flickerConfig: objectGlowConfig.flicker,
       pixelLight: lightConfig === null
         ? null
         : {
@@ -254,7 +269,18 @@ function FieldSurfaceObjectColumn({
       frame: null,
       billboardUpdated: false,
     }),
-    [initialElapsedMs, artHeight, center[0], center[1], object, platformHeight, platformSize, lightConfig, waveMaterial],
+    [
+      initialElapsedMs,
+      artHeight,
+      center[0],
+      center[1],
+      object,
+      platformHeight,
+      platformSize,
+      lightConfig,
+      objectGlowConfig,
+      waveMaterial,
+    ],
   );
 
   useEffect(() => {
@@ -318,7 +344,7 @@ function FieldSurfaceObjectColumn({
             color={lightConfig.color}
             intensity={lightConfig.intensity}
             distance={lightConfig.distance}
-            decay={2}
+            decay={objectGlowConfig.decay}
             castShadow={false}
           />
         )}
