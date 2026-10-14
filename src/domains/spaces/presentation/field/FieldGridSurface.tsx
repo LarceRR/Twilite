@@ -9,7 +9,6 @@ import { useSettingsStore } from '@/domains/settings/presentation/stores/setting
 import {
   fieldActiveCenterRgba,
   fieldLabelTextHex,
-  lightenThemeColor,
   themeColorToRgbaTuple,
 } from './fieldGridActiveCells';
 import { useFieldCameraControlStore } from './fieldCameraControlStore';
@@ -192,7 +191,7 @@ function warmChunkPrefetch(
 export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElement {
   const showToast = useUiStore((s) => s.showToast);
   const scene = useSceneColors();
-  const { accentSoft } = useThemeColors();
+  const { surface, surfaceRaised } = useThemeColors();
   const fieldConfig = useFieldConfig();
   const showActiveCells = useSettingsStore((s) => s.developerShowActiveCells);
   const showActiveCenters = useSettingsStore((s) => s.developerShowActiveCellCenters);
@@ -239,10 +238,10 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
         dividerWidth: config.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH,
       },
       colors: {
-        fill: hexToRgba(scene.surfaceBase),
+        fill: themeColorToRgbaTuple(surface),
         line: hexToRgba(scene.surfaceDot),
         text: hexToRgba(fieldLabelTextHex()),
-        activeFill: themeColorToRgbaTuple(lightenThemeColor(accentSoft)),
+        activeFill: themeColorToRgbaTuple(surfaceRaised),
         activeCenter: fieldActiveCenterRgba(),
       },
       layers: { showActiveCells, showActiveCenters, showCellLabels },
@@ -251,9 +250,9 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
       config.rows,
       config.cellSize,
       config.dividerWidth,
-      scene.surfaceBase,
+      surface,
+      surfaceRaised,
       scene.surfaceDot,
-      accentSoft,
       showActiveCells,
       showActiveCenters,
       showCellLabels,
