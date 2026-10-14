@@ -351,7 +351,7 @@ export function FieldConfigExplorer({ children }: { readonly children?: ReactNod
   }, [needle]);
 
   const onChangeSetting = (setting: FieldConfigSetting, value: unknown): void => {
-    patchOverrides(buildFieldConfigSettingPatch(config, setting.path, value));
+    patchOverrides(buildFieldConfigSettingPatch(getFieldConfig(), setting.path, value));
 
     if (!setting.path.startsWith('camera.')) return;
     const current = getFieldConfig();
