@@ -63,6 +63,18 @@ describe('fieldConfigJson', () => {
     ).toThrow(/HEX color/);
   });
 
+  it('rejects structurally valid JSON with unsafe runtime values', () => {
+    expect(() =>
+      parseFieldConfigJson(JSON.stringify({ grid: { cellSizePx: 0 } })),
+    ).toThrow(/grid.cellSizePx/);
+
+    expect(() =>
+      parseFieldConfigJson(
+        JSON.stringify({ camera: { near: 500, far: 100 } }),
+      ),
+    ).toThrow(/camera/);
+  });
+
   it('reports malformed JSON clearly', () => {
     expect(() => parseFieldConfigJson('{')).toThrow(/JSON/);
   });
