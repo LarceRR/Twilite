@@ -83,8 +83,6 @@ function FieldSceneLighting({
         );
         if (source === null) return [];
         const center = cellCenterOnPlane(object.cell.x, object.cell.y, config);
-        const artworkHeight =
-          sprite === null ? 0 : config.cellSize * (sprite.canvas.height / sprite.canvas.width);
         return [{
           id: object.id,
           light: source,
@@ -92,8 +90,7 @@ function FieldSceneLighting({
           y: center[1],
           z:
             SURFACE_OBJECT_ANIMATION_CONFIG.platformHeight +
-            artworkHeight / 2 +
-            SURFACE_OBJECT_ANIMATION_CONFIG.artworkOffset,
+            lighting.objectGlow.heightAbovePlatform,
           distance: source.distance,
           distanceSquared: Number.POSITIVE_INFINITY,
         }];
