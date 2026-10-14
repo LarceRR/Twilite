@@ -140,10 +140,10 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
     rotateStepDeg: 1,
     holdRampMs: 1500,
     holdMaxStep: 20,
-    // Keep release velocity continuous with direct 1:1 finger-to-world movement.
-    swipeInertiaSpeedScale: 1,
-    // Avoid clipping normal fast swipes; this remains a safety limit for extreme flicks.
-    swipeInertiaMaxSpeed: 1200,
+    // A modest boost lets fast flicks carry naturally past the first visible chunk.
+    swipeInertiaSpeedScale: 1.25,
+    // Let strong flicks travel across several chunks while keeping a safety limit.
+    swipeInertiaMaxSpeed: 3600,
     swipeInertiaDrag: 0.135,
     swipeInertiaStopSpeed: 0.5,
     swipeFrameDeltaMaxSec: 0.05,

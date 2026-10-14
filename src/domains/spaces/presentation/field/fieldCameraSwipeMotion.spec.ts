@@ -2,7 +2,7 @@ import { PerspectiveCamera } from 'three';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { useFieldCameraControlStore } from './fieldCameraControlStore';
-import { useFieldConfigStore } from './fieldConfigStore';
+import { getFieldConfig, useFieldConfigStore } from './fieldConfigStore';
 import {
   applyPendingCameraSwipeMovement,
   beginCameraSwipe,
@@ -105,7 +105,8 @@ describe('fieldCameraSwipeMotion', () => {
     applyPendingCameraSwipeMovement(camera, 1 / 60);
 
     const firstFrameDistance = camera.position.x - releaseX;
-    const distanceAtConstantSpeed = releaseVelocity / 60;
+    const distanceAtConstantSpeed =
+      (releaseVelocity * getFieldConfig().camera.swipeInertiaSpeedScale) / 60;
 
     // Friction starts immediately, but the first frame should remain close to
     // the finger's last velocity instead of dropping to a small fraction.
@@ -162,11 +163,14 @@ describe('fieldCameraSwipeMotion', () => {
     };
 
     const gentleFlickDistance = coastDistance(200);
-    const strongFlickDistance = coastDistance(400);
-    const cappedFlickDistance = coastDistance(2000);
-    const fasterCappedFlickDistance = coastDistance(4000);
+    const regularFlickDistance = coastDistance(1000);
+    const strongFlickDistance = coastDistance(2000);
+    const cappedFlickDistance = coastDistance(4000);
+    const fasterCappedFlickDistance = coastDistance(8000);
 
-    expect(strongFlickDistance).toBeGreaterThan(gentleFlickDistance);
+    expect(regularFlickDistance).toBeGreaterThan(gentleFlickDistance);
+    expect(strongFlickDistance).toBeGreaterThan(regularFlickDistance);
+    expect(cappedFlickDistance).toBeGreaterThan(strongFlickDistance);
     expect(cappedFlickDistance).toBeCloseTo(fasterCappedFlickDistance, 5);
   });
 });
