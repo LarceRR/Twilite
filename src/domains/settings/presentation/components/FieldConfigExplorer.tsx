@@ -17,7 +17,6 @@ import {
 } from '@/domains/spaces/presentation/field/fieldConfigStore';
 import {
   type FieldConfig,
-  DEFAULT_FIELD_CONFIG,
 } from '@/domains/spaces/presentation/field/fieldConfig';
 import { useFieldConfig } from '@/domains/spaces/presentation/field/useFieldConfig';
 
@@ -174,11 +173,15 @@ function SettingGroup({
   settings,
   expanded,
   onToggle,
+  config,
+  onChange,
 }: {
   readonly group: FieldConfigSettingGroup;
   readonly settings: readonly FieldConfigSetting[];
   readonly expanded: boolean;
   readonly onToggle: () => void;
+  readonly config: FieldConfig;
+  readonly onChange: (setting: FieldConfigSetting, value: unknown) => void;
 }): ReactElement {
   const theme = useThemeColors();
 
@@ -212,8 +215,8 @@ function SettingGroup({
             <SettingControl
               key={setting.path}
               setting={setting}
-              config={groupConfigRef.current}
-              onChange={groupUpdateRef.current}
+              config={config}
+              onChange={onChange}
             />
           ))}
         </View>
@@ -221,13 +224,6 @@ function SettingGroup({
     </BlurCard>
   );
 }
-
-// Group children read these values set by the parent immediately before render.
-// This keeps the pure group header component free of application-store hooks.
-const groupConfigRef: { current: FieldConfig } = { current: DEFAULT_FIELD_CONFIG };
-const groupUpdateRef: { current: (setting: FieldConfigSetting, value: unknown) => void } = {
-  current: () => undefined,
-};
 
 export function FieldConfigExplorer(): ReactElement {
   const theme = useThemeColors();
@@ -262,9 +258,6 @@ export function FieldConfigExplorer(): ReactElement {
   const onChangeSetting = (setting: FieldConfigSetting, value: unknown): void => {
     patchOverrides(buildFieldConfigSettingPatch(config, setting.path, value));
   };
-
-  groupConfigRef.current = config;
-  groupUpdateRef.current = onChangeSetting;
 
   const toggleGroup = (id: string): void => {
     setExpandedGroups((current) => {
@@ -330,6 +323,8 @@ export function FieldConfigExplorer(): ReactElement {
             settings={settings}
             expanded={needle.length > 0 || expandedGroups.has(group.id)}
             onToggle={() => toggleGroup(group.id)}
+            config={config}
+            onChange={onChangeSetting}
           />
         ))
       )}
