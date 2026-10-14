@@ -12,12 +12,14 @@ import {
   prepareFieldChunkTexture,
   pumpFieldChunkGpuUploads,
   pendingFieldChunkGpuUploads,
+  prioritizeFieldChunkGpuUploads,
   isFieldChunkGpuReady,
   resolveMountedChunkIds,
   syncMountedChunkWindow,
   evictFieldChunkBakes,
 } from './fieldGridChunkBake';
 import type { FieldGridLayerFlags, FieldGridTextureColors } from './fieldGridLabelPixels';
+import { useFieldConfigStore } from './fieldConfigStore';
 
 const COLORS: FieldGridTextureColors = {
   fill: [10, 20, 30, 255],
@@ -43,6 +45,7 @@ function request(chunkIndex: number) {
 describe('fieldGridChunkBake', () => {
   beforeEach(() => {
     clearFieldChunkBakeCache();
+    useFieldConfigStore.getState().reset();
   });
 
   it('builds prefetch targets beyond the visible window', () => {
@@ -55,10 +58,32 @@ describe('fieldGridChunkBake', () => {
     const first = bakeFieldChunk(req);
     const second = bakeFieldChunk(req);
     expect(second).toBe(first);
-    expect(first.width).toBe(600);
-    expect(first.height).toBe(900);
+    expect(first.width).toBe(610);
+    expect(first.height).toBe(916);
     expect(fieldChunkBakeCacheSize()).toBe(1);
     expect(fieldChunkBakeCacheKey(req)).toContain('1|');
+  });
+
+  it('includes active colors and label layout in the texture cache key', () => {
+    const original = request(1);
+    const originalKey = fieldChunkBakeCacheKey(original);
+    const customActiveFill = {
+      ...original,
+      colors: { ...COLORS, activeFill: [90, 80, 70, 255] as const },
+    };
+
+    expect(fieldChunkBakeCacheKey(customActiveFill)).not.toBe(originalKey);
+
+    useFieldConfigStore.getState().setSection('labels', { scale: 2 });
+    expect(fieldChunkBakeCacheKey(original)).not.toBe(originalKey);
+
+    useFieldConfigStore.getState().reset();
+    useFieldConfigStore.getState().setSection('activeCells', { sideSpan: 1 });
+    expect(fieldChunkBakeCacheKey(original)).not.toBe(originalKey);
+
+    useFieldConfigStore.getState().reset();
+    useFieldConfigStore.getState().setSection('chunks', { cols: 9 });
+    expect(fieldChunkBakeCacheKey(original)).not.toBe(originalKey);
   });
 
   it('evicts bakes outside the keep set', () => {
@@ -67,6 +92,24 @@ describe('fieldGridChunkBake', () => {
     evictFieldChunkBakes([3, 4]);
     expect(fieldChunkBakeCacheSize()).toBe(1);
     expect(peekFieldChunkBake(request(3))).not.toBeNull();
+  });
+
+  it('evicts stale visual variants even when the chunk index is retained', () => {
+    const previous = request(2);
+    const current = {
+      ...previous,
+      colors: { ...COLORS, fill: [30, 40, 50, 255] as const },
+    };
+
+    prepareFieldChunkTexture(previous);
+    prepareFieldChunkTexture(current);
+    expect(fieldChunkTexturePoolSize()).toBe(2);
+
+    evictFieldChunkBakes([2], [fieldChunkBakeCacheKey(current)]);
+
+    expect(fieldChunkTexturePoolSize()).toBe(1);
+    expect(peekFieldChunkBake(previous)).toBeNull();
+    expect(peekFieldChunkBake(current)).not.toBeNull();
   });
 
   it('pools DataTexture and marks GPU-ready only after initTexture pump', () => {
@@ -86,6 +129,18 @@ describe('fieldGridChunkBake', () => {
     expect(prepareFieldChunkTexture(req)).toBe(texture);
   });
 
+  it('uploads the chunk nearest the camera before older prefetch work', () => {
+    const behind = prepareFieldChunkTexture(request(1));
+    const focus = prepareFieldChunkTexture(request(3));
+    const initTexture = vi.fn();
+    const renderer = { initTexture } as unknown as WebGLRenderer;
+
+    prioritizeFieldChunkGpuUploads([3, 1]);
+    expect(pumpFieldChunkGpuUploads(renderer, 2)).toBe(2);
+    expect(initTexture.mock.calls[0]?.[0]).toBe(focus);
+    expect(initTexture.mock.calls[1]?.[0]).toBe(behind);
+  });
+
   it('resolveMountedChunkIds waits for GPU-ready after bootstrap', () => {
     const ready = new Set([1, 2, 3]);
     const isReady = (id: number) => ready.has(id);
@@ -94,6 +149,17 @@ describe('fieldGridChunkBake', () => {
     expect(resolveMountedChunkIds([1, 2, 3, 4], [0, 1, 2, 3], isReady, false)).toEqual([
       1, 2, 3,
     ]);
+
+    const readyWithoutIncomingEdge = new Set([0, 1, 2, 3]);
+    expect(
+      resolveMountedChunkIds(
+        [1, 2, 3, 4],
+        [0, 1, 2, 3],
+        (id) => readyWithoutIncomingEdge.has(id),
+        false,
+      ),
+    ).toEqual([0, 1, 2, 3]);
+
     expect(resolveMountedChunkIds([4, 5], [1, 2, 3], () => false, false)).toEqual([1, 2, 3]);
   });
 

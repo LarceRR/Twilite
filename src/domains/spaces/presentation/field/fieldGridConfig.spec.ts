@@ -22,20 +22,20 @@ describe('fieldGridConfig', () => {
     expect(FIELD_GRID_COLS).toBe(50);
     expect(FIELD_GRID_ROWS).toBe(15);
     expect(FIELD_CELL_SIZE_PX).toBe(60);
-    expect(FIELD_GRID_WIDTH).toBe(3000);
-    expect(FIELD_GRID_HEIGHT).toBe(900);
+    expect(FIELD_GRID_WIDTH).toBe(3050);
+    expect(FIELD_GRID_HEIGHT).toBe(916);
   });
 
   it('computes world size from config', () => {
     const config = createFieldGridConfig(4, 3, 60);
-    expect(fieldGridWorldSize(config)).toEqual({ width: 240, height: 180 });
+    expect(fieldGridWorldSize(config)).toEqual({ width: 244, height: 184 });
   });
 
   it('places mesh left-edge origin at world zero', () => {
     const config = createFieldGridConfig(50, 21, 60);
     expect(FIELD_MESH_ORIGIN).toEqual([0, 0, 0]);
-    expect(fieldMeshPlanePosition(config)).toEqual([1500, 0, 0]);
-    expect(fieldMeshCenter(config)).toEqual([1500, 0, 0]);
+    expect(fieldMeshPlanePosition(config)).toEqual([1525, 0, 0]);
+    expect(fieldMeshCenter(config)).toEqual([1525, 0, 0]);
   });
 
   it('rejects non-positive dimensions', () => {

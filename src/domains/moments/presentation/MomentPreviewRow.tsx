@@ -11,6 +11,8 @@ export type MomentPreviewRowProps = {
   readonly active: boolean;
   readonly allowMotion: boolean;
   readonly imageHeaders: ImageHeaders;
+  readonly disabled: boolean;
+  readonly onSelect: (moment: MomentPreview) => void;
 };
 
 function MomentPreviewRowComponent({
@@ -18,6 +20,8 @@ function MomentPreviewRowComponent({
   active,
   allowMotion,
   imageHeaders,
+  disabled,
+  onSelect,
 }: MomentPreviewRowProps): ReactElement {
   return (
     <View style={styles.row}>
@@ -26,8 +30,10 @@ function MomentPreviewRowComponent({
           active={active}
           allowMotion={allowMotion}
           imageHeaders={imageHeaders}
+          disabled={disabled}
           key={moment.id}
           moment={moment}
+          onSelect={onSelect}
         />
       ))}
     </View>

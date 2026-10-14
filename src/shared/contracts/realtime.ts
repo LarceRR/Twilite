@@ -18,6 +18,7 @@ export type RealtimeServerMessageDto =
       readonly object: SurfaceObjectDto;
     }
   | { readonly type: 'surfaceObject.deleted'; readonly spaceId: string; readonly objectId: string }
+  | { readonly type: 'surface.cleared'; readonly spaceId: string }
   | {
       readonly type: 'timeline.appended';
       readonly spaceId: string;

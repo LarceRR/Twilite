@@ -74,6 +74,7 @@ function RootNavigator(): ReactElement {
         <Stack.Screen name="theme-catalog" options={{ presentation: 'card' }} />
         <Stack.Screen name="devices" options={{ presentation: 'card' }} />
         <Stack.Screen name="billing" options={{ presentation: 'card' }} />
+        <Stack.Screen name="my-spaces" options={{ presentation: 'card' }} />
         <Stack.Screen name="admin" options={{ presentation: 'card' }} />
         <Stack.Screen name="qr-scan" options={{ presentation: 'card' }} />
         <Stack.Screen name="qr-confirm" options={{ animation: 'fade' }} />

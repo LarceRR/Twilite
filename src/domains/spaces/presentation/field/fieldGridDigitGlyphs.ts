@@ -1,5 +1,5 @@
-/** 5×7 on/off masks for digits 0–9 and `,` (rows top→bottom). */
-export const DIGIT_GLYPHS: Readonly<Record<string, readonly string[]>> = {
+/** 5×7 on/off masks for digits 0–9, X/Y, and `,` (rows top→bottom). */
+export const LABEL_GLYPHS: Readonly<Record<string, readonly string[]>> = {
   '0': ['01110', '10001', '10011', '10101', '11001', '10001', '01110'],
   '1': ['00100', '01100', '00100', '00100', '00100', '00100', '01110'],
   '2': ['01110', '10001', '00001', '00010', '00100', '01000', '11111'],
@@ -10,14 +10,16 @@ export const DIGIT_GLYPHS: Readonly<Record<string, readonly string[]>> = {
   '7': ['11111', '00001', '00010', '00100', '01000', '01000', '01000'],
   '8': ['01110', '10001', '10001', '01110', '10001', '10001', '01110'],
   '9': ['01110', '10001', '10001', '01111', '00001', '00010', '01100'],
+  X: ['10001', '01010', '00100', '00100', '00100', '01010', '10001'],
+  Y: ['10001', '01010', '00100', '00100', '00100', '00100', '00100'],
   ',': ['00000', '00000', '00000', '00000', '00100', '00100', '01000'],
 };
 
-export const DIGIT_GLYPH_WIDTH = 5;
-export const DIGIT_GLYPH_HEIGHT = 7;
+export const LABEL_GLYPH_WIDTH = 5;
+export const LABEL_GLYPH_HEIGHT = 7;
 
-export function isDigitGlyphPixelOn(digit: string, gx: number, gy: number): boolean {
-  const rows = DIGIT_GLYPHS[digit];
+export function isLabelGlyphPixelOn(glyph: string, gx: number, gy: number): boolean {
+  const rows = LABEL_GLYPHS[glyph];
   if (rows == null) return false;
   const row = rows[gy];
   if (row == null) return false;

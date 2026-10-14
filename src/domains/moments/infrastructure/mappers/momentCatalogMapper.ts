@@ -1,4 +1,5 @@
 import { ValidationError } from '@/shared/errors';
+import { catalogAssetUrl } from '@/shared/utils/catalogAssetUrl';
 
 import type {
   MomentCatalogPage,
@@ -8,7 +9,6 @@ import type {
   MomentPreview,
   MomentSprite,
 } from '../../domain/entities/MomentCatalog';
-import { catalogAssetUrl } from './catalogAssetUrl';
 
 const UUID_TEXT = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

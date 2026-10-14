@@ -1,5 +1,5 @@
 import { type ThreeEvent } from '@react-three/fiber/native';
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import type { ReactElement } from 'react';
 import { BufferGeometry, PlaneGeometry, type Group, type Mesh } from 'three';
 
@@ -7,7 +7,7 @@ import { useSceneColors } from '@/design-system/colors/colors';
 import { useSettingsStore } from '@/domains/settings/presentation/stores/settingsStore';
 
 import { bindFieldChunkSlot } from './fieldGridChunkBind';
-import type { FieldGridConfig } from './fieldGridConfig';
+import { fieldGridWorldSize, type FieldGridConfig } from './fieldGridConfig';
 import {
   createFieldGridWaveMaterial,
   type FieldGridWaveMaterial,
@@ -17,7 +17,7 @@ import { useFieldConfig } from './useFieldConfig';
 type FieldGridChunkProps = {
   /** Null hides this recycled slot without tearing down GPU resources. */
   readonly chunkIndex: number | null;
-  readonly base: Pick<FieldGridConfig, 'rows' | 'cellSize'>;
+  readonly base: Pick<FieldGridConfig, 'rows' | 'cellSize' | 'dividerWidth'>;
   readonly onMaterialReady: (chunkIndex: number, material: FieldGridWaveMaterial) => void;
   readonly onMaterialDispose: (chunkIndex: number, material: FieldGridWaveMaterial) => void;
   readonly onPointerDown: (event: ThreeEvent<PointerEvent>) => void;
@@ -50,7 +50,7 @@ function useChunkSlotResources(width: number, height: number) {
  * One recycled field-deck slot. Plane/material stay alive; only texture + lines
  * rebind when the streamed chunk index changes (avoids mount hitches).
  */
-export function FieldGridChunk({
+function FieldGridChunkComponent({
   chunkIndex,
   base,
   onMaterialReady,
@@ -71,8 +71,12 @@ export function FieldGridChunk({
   const meshRef = useRef<Mesh>(null);
   const boundChunkRef = useRef<number | null>(null);
 
-  const width = fieldConfig.chunks.cols * base.cellSize;
-  const height = base.rows * base.cellSize;
+  const { width, height } = fieldGridWorldSize({
+    cols: fieldConfig.chunks.cols,
+    rows: base.rows,
+    cellSize: base.cellSize,
+    dividerWidth: base.dividerWidth,
+  });
   const { planeGeometry, lineGeometry, material } = useChunkSlotResources(width, height);
 
   useLayoutEffect(() => {
@@ -147,3 +151,5 @@ export function FieldGridChunk({
     </group>
   );
 }
+
+export const FieldGridChunk = memo(FieldGridChunkComponent);

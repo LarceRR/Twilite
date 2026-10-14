@@ -1,3 +1,4 @@
+import { Euler, MathUtils, Vector3 } from 'three';
 import { DEFAULT_FIELD_CONFIG } from './fieldConfig';
 import { getFieldConfig } from './fieldConfigStore';
 
@@ -49,18 +50,10 @@ export function cameraNeedsProjectionUpdate(
   camera: { readonly fov: number; readonly near: number; readonly far: number },
   optics: { readonly fov: number; readonly near: number; readonly far: number },
 ): boolean {
-  return (
-    camera.fov !== optics.fov ||
-    camera.near !== optics.near ||
-    camera.far !== optics.far
-  );
+  return camera.fov !== optics.fov || camera.near !== optics.near || camera.far !== optics.far;
 }
 
-export function holdRepeatDelta(
-  elapsedMs: number,
-  rampMs?: number,
-  maxStep?: number,
-): number {
+export function holdRepeatDelta(elapsedMs: number, rampMs?: number, maxStep?: number): number {
   const camera = getFieldConfig().camera;
   const ramp = rampMs ?? camera.holdRampMs;
   const max = maxStep ?? camera.holdMaxStep;
@@ -74,11 +67,7 @@ export function nextRotateAxis(axis: CameraRotateAxis): CameraRotateAxis {
   return 'x';
 }
 
-export function moveCameraPosition(
-  position: Vec3,
-  axis: CameraMoveAxis,
-  delta: number,
-): Vec3 {
+export function moveCameraPosition(position: Vec3, axis: CameraMoveAxis, delta: number): Vec3 {
   switch (axis) {
     case 'left':
       return { x: position.x - delta, y: position.y, z: position.z };
@@ -95,6 +84,34 @@ export function moveCameraPosition(
   }
 }
 
+export function moveCameraAlongViewDirection(
+  position: Vec3,
+  rotationDeg: Vec3,
+  distance: number,
+): Vec3 {
+  const direction = cameraForwardDirection(rotationDeg);
+  return {
+    x: position.x + direction.x * distance,
+    y: position.y + direction.y * distance,
+    z: position.z + direction.z * distance,
+  };
+}
+
+export function cameraForwardDirection(rotationDeg: Vec3): Vec3 {
+  const rotation = new Euler(
+    MathUtils.degToRad(rotationDeg.x),
+    MathUtils.degToRad(rotationDeg.y),
+    MathUtils.degToRad(rotationDeg.z),
+    'ZXY',
+  );
+  const direction = new Vector3(0, 0, -1).applyEuler(rotation).normalize();
+  return {
+    x: direction.x,
+    y: direction.y,
+    z: direction.z,
+  };
+}
+
 export function rotateCameraEuler(
   rotationDeg: Vec3,
   axis: CameraRotateAxis,
@@ -105,11 +122,7 @@ export function rotateCameraEuler(
   return { ...rotationDeg, z: rotationDeg.z + deltaDeg };
 }
 
-export function formatCameraHudLine(
-  label: string,
-  value: number,
-  digits: number = 1,
-): string {
+export function formatCameraHudLine(label: string, value: number, digits: number = 1): string {
   return `${label} ${value.toFixed(digits)}`;
 }
 

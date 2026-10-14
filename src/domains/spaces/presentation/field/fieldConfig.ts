@@ -8,7 +8,9 @@ export type FieldVec3 = {
 
 export type FieldConfig = {
   readonly grid: {
+    /** Clear cell interior size; divider pixels are added to the grid pitch. */
     readonly cellSizePx: number;
+    readonly dividerWidthPx: number;
     readonly centerCols: number;
     readonly sideExtraCols: number;
     readonly rows: number;
@@ -42,6 +44,16 @@ export type FieldConfig = {
     readonly rotateStepDeg: number;
     readonly holdRampMs: number;
     readonly holdMaxStep: number;
+    /** Multiplier from finger release velocity to camera world velocity. */
+    readonly swipeInertiaSpeedScale: number;
+    /** Maximum camera velocity after a swipe release, in world units per second. */
+    readonly swipeInertiaMaxSpeed: number;
+    /** Unitless drag coefficient used by the analytic friction simulation. */
+    readonly swipeInertiaDrag: number;
+    /** Stop integrating inertia below this camera velocity, in world units per second. */
+    readonly swipeInertiaStopSpeed: number;
+    /** Maximum frame time used to integrate swipe inertia. */
+    readonly swipeFrameDeltaMaxSec: number;
     readonly hudPublishMs: number;
     readonly activeAxisHighlightMs: number;
   };
@@ -94,6 +106,7 @@ export type DeepPartial<T> = {
 export const DEFAULT_FIELD_CONFIG: FieldConfig = {
   grid: {
     cellSizePx: 60,
+    dividerWidthPx: 1,
     centerCols: 10,
     sideExtraCols: 20,
     rows: 15,
@@ -127,6 +140,13 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
     rotateStepDeg: 1,
     holdRampMs: 1500,
     holdMaxStep: 20,
+    // A modest boost lets fast flicks carry naturally past the first visible chunk.
+    swipeInertiaSpeedScale: 1.25,
+    // Let strong flicks travel across several chunks while keeping a safety limit.
+    swipeInertiaMaxSpeed: 3600,
+    swipeInertiaDrag: 0.135,
+    swipeInertiaStopSpeed: 0.5,
+    swipeFrameDeltaMaxSec: 0.05,
     hudPublishMs: 100,
     activeAxisHighlightMs: 280,
   },
@@ -171,11 +191,11 @@ export function fieldGridColsFromConfig(grid: FieldConfig['grid']): number {
 }
 
 export function fieldGridWidthFromConfig(grid: FieldConfig['grid']): number {
-  return fieldGridColsFromConfig(grid) * grid.cellSizePx;
+  return fieldGridColsFromConfig(grid) * (grid.cellSizePx + grid.dividerWidthPx);
 }
 
 export function fieldGridHeightFromConfig(grid: FieldConfig['grid']): number {
-  return grid.rows * grid.cellSizePx;
+  return grid.rows * (grid.cellSizePx + grid.dividerWidthPx) + grid.dividerWidthPx;
 }
 
 export function fieldWaveMaxRadiusPx(wave: FieldConfig['wave']): number {

@@ -1,14 +1,14 @@
 import { useFrame, useThree } from '@react-three/fiber/native';
-import { useLayoutEffect } from 'react';
 import type { ReactElement } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import { MathUtils, PerspectiveCamera, Vector3 } from 'three';
-
-import {
-  FIELD_CAMERA_DEFAULT_POSE,
-  fieldCameraOpticsFromConfig,
-} from './fieldCameraFraming';
 import { useFieldCameraControlStore } from './fieldCameraControlStore';
+import { FIELD_CAMERA_DEFAULT_POSE, fieldCameraOpticsFromConfig } from './fieldCameraFraming';
 import { cameraNeedsProjectionUpdate } from './fieldCameraMotion';
+import {
+  applyPendingCameraSwipeMovement,
+  cancelCameraSwipeMotion,
+} from './fieldCameraSwipeMotion';
 import { FIELD_WORLD_UP } from './fieldGridConfig';
 
 const FIELD_CAMERA_FOV = FIELD_CAMERA_DEFAULT_POSE.fov;
@@ -54,6 +54,7 @@ function applyLockedDefault(camera: PerspectiveCamera): void {
 /** Applies the locked default pose, then follows the developer camera control store. */
 export function FieldSpaceCamera(): ReactElement | null {
   const { camera } = useThree();
+  const appliedRevision = useRef(-1);
 
   useLayoutEffect(() => {
     if (!(camera instanceof PerspectiveCamera)) return;
@@ -62,14 +63,27 @@ export function FieldSpaceCamera(): ReactElement | null {
     const userAdjusted = useFieldCameraControlStore.getState().userAdjusted;
     if (userAdjusted) {
       applyStoreToCamera(camera);
-      return;
+    } else {
+      applyLockedDefault(camera);
     }
-    applyLockedDefault(camera);
+    appliedRevision.current = useFieldCameraControlStore.getState().revision;
+
+    return () => {
+      if (camera instanceof PerspectiveCamera) {
+        cancelCameraSwipeMotion(camera.position);
+      }
+    };
   }, [camera]);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     if (!(camera instanceof PerspectiveCamera)) return;
-    applyStoreToCamera(camera);
+    const state = useFieldCameraControlStore.getState();
+    if (!state.ready) return;
+    if (state.revision !== appliedRevision.current) {
+      applyStoreToCamera(camera);
+      appliedRevision.current = state.revision;
+    }
+    applyPendingCameraSwipeMovement(camera, delta);
   });
 
   return null;

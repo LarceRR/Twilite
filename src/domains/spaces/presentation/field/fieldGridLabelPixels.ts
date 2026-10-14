@@ -1,16 +1,17 @@
-import {
-  fieldActiveCenterRgba,
-  fieldActiveFillRgba,
-  isActiveFieldGridCell,
-} from './fieldGridActiveCells';
+import { isActiveFieldGridCell } from './fieldGridActiveCells';
+import { hexToRgbaTuple, type FieldConfig } from './fieldConfig';
 import { getFieldConfig } from './fieldConfigStore';
-import { createFieldGridCells } from './fieldGridCells';
+import { cellLabelFromColRow } from './fieldGridCells';
 import type { FieldGridConfig } from './fieldGridConfig';
-import { fieldGridWorldSize } from './fieldGridConfig';
 import {
-  DIGIT_GLYPH_HEIGHT,
-  DIGIT_GLYPH_WIDTH,
-  isDigitGlyphPixelOn,
+  FIELD_GRID_DIVIDER_WIDTH,
+  fieldGridCellPitch,
+  fieldGridWorldSize,
+} from './fieldGridConfig';
+import {
+  LABEL_GLYPH_HEIGHT,
+  LABEL_GLYPH_WIDTH,
+  isLabelGlyphPixelOn,
 } from './fieldGridDigitGlyphs';
 
 export type Rgba = readonly [number, number, number, number];
@@ -35,7 +36,10 @@ export const DEFAULT_FIELD_GRID_LAYER_FLAGS: FieldGridLayerFlags = {
   showCellLabels: true,
 };
 
-function resolveColors(colors: FieldGridTextureColors): {
+function resolveColors(
+  colors: FieldGridTextureColors,
+  activeCells: FieldConfig['activeCells'],
+): {
   readonly fill: Rgba;
   readonly line: Rgba;
   readonly text: Rgba;
@@ -46,8 +50,8 @@ function resolveColors(colors: FieldGridTextureColors): {
     fill: colors.fill,
     line: colors.line,
     text: colors.text,
-    activeFill: colors.activeFill ?? fieldActiveFillRgba(),
-    activeCenter: colors.activeCenter ?? fieldActiveCenterRgba(),
+    activeFill: colors.activeFill ?? hexToRgbaTuple(activeCells.fillHex),
+    activeCenter: colors.activeCenter ?? hexToRgbaTuple(activeCells.centerHex),
   };
 }
 
@@ -62,28 +66,33 @@ function resolveLayerFlags(flags?: Partial<FieldGridLayerFlags>): FieldGridLayer
 
 /** Solid fill without per-pixel bounds checks (hot path for chunk bake). */
 function fillBuffer(data: Uint8Array, color: Rgba): void {
-  const r = color[0];
-  const g = color[1];
-  const b = color[2];
-  const a = color[3];
-  for (let i = 0; i < data.length; i += 4) {
-    data[i] = r;
-    data[i + 1] = g;
-    data[i + 2] = b;
-    data[i + 3] = a;
+  if (data.length === 0) return;
+
+  data[0] = color[0];
+  data[1] = color[1];
+  data[2] = color[2];
+  data[3] = color[3];
+
+  // Typed-array bulk copies are substantially faster than assigning every
+  // channel of every pixel in JavaScript. Double the filled prefix each pass.
+  let filledBytes = 4;
+  while (filledBytes < data.length) {
+    const copyBytes = Math.min(filledBytes, data.length - filledBytes);
+    data.copyWithin(filledBytes, 0, copyBytes);
+    filledBytes += copyBytes;
   }
 }
 
 function fillRect(
   data: Uint8Array,
   width: number,
+  height: number,
   x0: number,
   y0: number,
   w: number,
   h: number,
   color: Rgba,
 ): void {
-  const height = data.length / (width * 4);
   const xStart = Math.max(0, x0);
   const yStart = Math.max(0, y0);
   const xEnd = Math.min(width, x0 + w);
@@ -113,10 +122,33 @@ function cellDataOrigin(
   config: FieldGridConfig,
   colStart: number,
 ): { readonly minX: number; readonly minY: number } {
+  const pitch = fieldGridCellPitch(config);
+  const inset = config.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH;
   return {
-    minX: (col - colStart) * config.cellSize,
-    minY: (config.rows - 1 - row) * config.cellSize,
+    minX: (col - colStart) * pitch + inset,
+    minY: (config.rows - 1 - row) * pitch + inset,
   };
+}
+
+type FieldGridPixelCell = {
+  readonly col: number;
+  readonly row: number;
+  readonly label: string;
+};
+
+/** Pixel baking needs labels and coordinates only, not 3D centers/index objects. */
+function createFieldGridPixelCells(
+  config: FieldGridConfig,
+  colStart: number,
+): readonly FieldGridPixelCell[] {
+  const cells: FieldGridPixelCell[] = [];
+  for (let localCol = 0; localCol < config.cols; localCol += 1) {
+    const col = colStart + localCol;
+    for (let row = 0; row < config.rows; row += 1) {
+      cells.push({ col, row, label: cellLabelFromColRow(col, row) });
+    }
+  }
+  return cells;
 }
 
 function drawActiveFills(
@@ -124,12 +156,14 @@ function drawActiveFills(
   config: FieldGridConfig,
   colStart: number,
   color: Rgba,
+  sideSpan: number,
+  cells: readonly FieldGridPixelCell[],
 ): void {
-  const { width } = fieldGridWorldSize(config);
-  for (const cell of createFieldGridCells(config, colStart)) {
-    if (!isActiveFieldGridCell(cell.row, config.rows)) continue;
+  const { width, height } = fieldGridWorldSize(config);
+  for (const cell of cells) {
+    if (!isActiveFieldGridCell(cell.row, config.rows, sideSpan)) continue;
     const { minX, minY } = cellDataOrigin(cell.col, cell.row, config, colStart);
-    fillRect(data, width, minX, minY, config.cellSize, config.cellSize, color);
+    fillRect(data, width, height, minX, minY, config.cellSize, config.cellSize, color);
   }
 }
 
@@ -139,13 +173,32 @@ function drawGridLines(
   line: Rgba,
 ): void {
   const { width, height } = fieldGridWorldSize(config);
-  for (let c = 0; c <= config.cols; c += 1) {
-    const x = Math.min(c * config.cellSize, width - 1);
-    fillRect(data, width, x, 0, 1, height, line);
+  const pitch = fieldGridCellPitch(config);
+  for (let c = 0; c < config.cols; c += 1) {
+    const x = Math.min(c * pitch, width - 1);
+    fillRect(
+      data,
+      width,
+      height,
+      x,
+      0,
+      config.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH,
+      height,
+      line,
+    );
   }
   for (let r = 0; r <= config.rows; r += 1) {
-    const y = Math.min(r * config.cellSize, height - 1);
-    fillRect(data, width, 0, y, width, 1, line);
+    const y = Math.min(r * pitch, height - 1);
+    fillRect(
+      data,
+      width,
+      height,
+      0,
+      y,
+      width,
+      config.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH,
+      line,
+    );
   }
 }
 
@@ -154,55 +207,73 @@ function drawActiveBorders(
   config: FieldGridConfig,
   colStart: number,
   color: Rgba,
+  border: number,
+  sideSpan: number,
+  cells: readonly FieldGridPixelCell[],
 ): void {
-  const { width } = fieldGridWorldSize(config);
-  const border = getFieldConfig().labels.activeBorder;
+  const { width, height } = fieldGridWorldSize(config);
   const s = config.cellSize;
-  for (const cell of createFieldGridCells(config, colStart)) {
-    if (!isActiveFieldGridCell(cell.row, config.rows)) continue;
+  for (const cell of cells) {
+    if (!isActiveFieldGridCell(cell.row, config.rows, sideSpan)) continue;
     const { minX, minY } = cellDataOrigin(cell.col, cell.row, config, colStart);
-    fillRect(data, width, minX, minY, s, border, color);
-    fillRect(data, width, minX, minY + s - border, s, border, color);
-    fillRect(data, width, minX, minY, border, s, color);
-    fillRect(data, width, minX + s - border, minY, border, s, color);
+    fillRect(data, width, height, minX, minY, s, border, color);
+    fillRect(data, width, height, minX, minY + s - border, s, border, color);
+    fillRect(data, width, height, minX, minY, border, s, color);
+    fillRect(data, width, height, minX + s - border, minY, border, s, color);
   }
 }
 
 function drawDigit(
   data: Uint8Array,
   width: number,
+  height: number,
   minDataX: number,
   minDataY: number,
-  digit: string,
+  glyph: string,
   scale: number,
   color: Rgba,
 ): void {
-  for (let gy = 0; gy < DIGIT_GLYPH_HEIGHT; gy += 1) {
-    for (let gx = 0; gx < DIGIT_GLYPH_WIDTH; gx += 1) {
-      if (!isDigitGlyphPixelOn(digit, gx, gy)) continue;
-      const dx = minDataX + (DIGIT_GLYPH_HEIGHT - 1 - gy) * scale;
-      const dy = minDataY + (DIGIT_GLYPH_WIDTH - 1 - gx) * scale;
-      fillRect(data, width, dx, dy, scale, scale, color);
+  const [r, g, b, a] = color;
+  for (let gy = 0; gy < LABEL_GLYPH_HEIGHT; gy += 1) {
+    for (let gx = 0; gx < LABEL_GLYPH_WIDTH; gx += 1) {
+      if (!isLabelGlyphPixelOn(glyph, gx, gy)) continue;
+      const dx = minDataX + (LABEL_GLYPH_HEIGHT - 1 - gy) * scale;
+      const dy = minDataY + (LABEL_GLYPH_WIDTH - 1 - gx) * scale;
+
+      if (scale === 1) {
+        if (dx < 0 || dx >= width || dy < 0 || dy >= height) continue;
+        const offset = (dy * width + dx) * 4;
+        data[offset] = r;
+        data[offset + 1] = g;
+        data[offset + 2] = b;
+        data[offset + 3] = a;
+      } else {
+        fillRect(data, width, height, dx, dy, scale, scale, color);
+      }
     }
   }
 }
 
+type FieldLabelLayout = Pick<FieldConfig['labels'], 'scale' | 'padding' | 'raise'>;
+
 function drawLabelBottomRight(
   data: Uint8Array,
   width: number,
+  height: number,
   cellMinX: number,
   cellMinY: number,
   label: string,
   color: Rgba,
+  layout: FieldLabelLayout,
 ): void {
-  const { scale, padding, raise } = getFieldConfig().labels;
-  const alongY = DIGIT_GLYPH_WIDTH * scale;
+  const { scale, padding, raise } = layout;
+  const alongY = LABEL_GLYPH_WIDTH * scale;
   const gap = scale;
   const startX = cellMinX + padding + raise;
-  let digitMinY = cellMinY + padding + (label.length - 1) * (alongY + gap);
+  let glyphMinY = cellMinY + padding + (label.length - 1) * (alongY + gap);
   for (const ch of label) {
-    drawDigit(data, width, startX, digitMinY, ch, scale, color);
-    digitMinY -= alongY + gap;
+    drawDigit(data, width, height, startX, glyphMinY, ch, scale, color);
+    glyphMinY -= alongY + gap;
   }
 }
 
@@ -211,16 +282,18 @@ function drawActiveCenters(
   config: FieldGridConfig,
   colStart: number,
   color: Rgba,
+  size: number,
+  sideSpan: number,
+  cells: readonly FieldGridPixelCell[],
 ): void {
-  const { width } = fieldGridWorldSize(config);
-  const size = getFieldConfig().labels.activeCenterSize;
+  const { width, height } = fieldGridWorldSize(config);
   const half = Math.floor(size / 2);
-  for (const cell of createFieldGridCells(config, colStart)) {
-    if (!isActiveFieldGridCell(cell.row, config.rows)) continue;
+  for (const cell of cells) {
+    if (!isActiveFieldGridCell(cell.row, config.rows, sideSpan)) continue;
     const { minX, minY } = cellDataOrigin(cell.col, cell.row, config, colStart);
     const cx = minX + Math.floor(config.cellSize / 2) - half;
     const cy = minY + Math.floor(config.cellSize / 2) - half;
-    fillRect(data, width, cx, cy, size, size, color);
+    fillRect(data, width, height, cx, cy, size, size, color);
   }
 }
 
@@ -229,11 +302,13 @@ function drawCellLabels(
   config: FieldGridConfig,
   colStart: number,
   text: Rgba,
+  layout: FieldLabelLayout,
+  cells: readonly FieldGridPixelCell[],
 ): void {
-  const { width } = fieldGridWorldSize(config);
-  for (const cell of createFieldGridCells(config, colStart)) {
+  const { width, height } = fieldGridWorldSize(config);
+  for (const cell of cells) {
     const { minX, minY } = cellDataOrigin(cell.col, cell.row, config, colStart);
-    drawLabelBottomRight(data, width, minX, minY, cell.label, text);
+    drawLabelBottomRight(data, width, height, minX, minY, cell.label, text, layout);
   }
 }
 
@@ -243,24 +318,43 @@ export function buildFieldGridLabelPixels(
   colors: FieldGridTextureColors,
   layerFlags?: Partial<FieldGridLayerFlags>,
   colStart: number = 0,
+  runtimeConfig: FieldConfig = getFieldConfig(),
 ): { readonly data: Uint8Array; readonly width: number; readonly height: number } {
-  const resolved = resolveColors(colors);
+  const resolved = resolveColors(colors, runtimeConfig.activeCells);
   const layers = resolveLayerFlags(layerFlags);
   const { width, height } = fieldGridWorldSize(config);
   const data = new Uint8Array(width * height * 4);
+  const cells = createFieldGridPixelCells(config, colStart);
+  const { labels, activeCells } = runtimeConfig;
   fillBuffer(data, resolved.fill);
   if (layers.showActiveCells) {
-    drawActiveFills(data, config, colStart, resolved.activeFill);
+    drawActiveFills(data, config, colStart, resolved.activeFill, activeCells.sideSpan, cells);
   }
   drawGridLines(data, config, resolved.line);
   if (layers.showActiveCells) {
-    drawActiveBorders(data, config, colStart, resolved.line);
+    drawActiveBorders(
+      data,
+      config,
+      colStart,
+      resolved.line,
+      labels.activeBorder,
+      activeCells.sideSpan,
+      cells,
+    );
   }
   if (layers.showActiveCenters) {
-    drawActiveCenters(data, config, colStart, resolved.activeCenter);
+    drawActiveCenters(
+      data,
+      config,
+      colStart,
+      resolved.activeCenter,
+      labels.activeCenterSize,
+      activeCells.sideSpan,
+      cells,
+    );
   }
   if (layers.showCellLabels) {
-    drawCellLabels(data, config, colStart, resolved.text);
+    drawCellLabels(data, config, colStart, resolved.text, labels, cells);
   }
   return { data, width, height };
 }

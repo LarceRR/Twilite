@@ -1,6 +1,6 @@
 import { memo, type ReactElement } from 'react';
 
-import type { MomentPack } from '../domain/entities/MomentCatalog';
+import type { MomentPack, MomentPreview } from '../domain/entities/MomentCatalog';
 import { CatalogSectionCard } from './CatalogSectionCard';
 import { MomentPackHeader } from './MomentPackHeader';
 import { MomentPreviewRow } from './MomentPreviewRow';
@@ -11,6 +11,8 @@ export type MomentPackSectionProps = {
   readonly active: boolean;
   readonly allowMotion: boolean;
   readonly imageHeaders: ImageHeaders;
+  readonly disabled: boolean;
+  readonly onSelect: (moment: MomentPreview) => void;
 };
 
 function MomentPackSectionComponent({
@@ -18,6 +20,8 @@ function MomentPackSectionComponent({
   active,
   allowMotion,
   imageHeaders,
+  disabled,
+  onSelect,
 }: MomentPackSectionProps): ReactElement {
   return (
     <CatalogSectionCard>
@@ -27,6 +31,8 @@ function MomentPackSectionComponent({
         allowMotion={allowMotion}
         imageHeaders={imageHeaders}
         moments={pack.moments}
+        disabled={disabled}
+        onSelect={onSelect}
       />
     </CatalogSectionCard>
   );

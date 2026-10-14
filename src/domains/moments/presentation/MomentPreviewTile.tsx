@@ -1,5 +1,5 @@
 import { memo, type ReactElement, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useThemeColors } from '@/design-system/colors/colors';
 import { Text } from '@/design-system/components/Text/Text';
@@ -14,6 +14,8 @@ export type MomentPreviewTileProps = {
   readonly active: boolean;
   readonly allowMotion: boolean;
   readonly imageHeaders: ImageHeaders;
+  readonly disabled: boolean;
+  readonly onSelect: (moment: MomentPreview) => void;
 };
 
 function MomentPreviewTileComponent({
@@ -21,12 +23,20 @@ function MomentPreviewTileComponent({
   active,
   allowMotion,
   imageHeaders,
+  disabled,
+  onSelect,
 }: MomentPreviewTileProps): ReactElement {
   const theme = useThemeColors();
   const [width, setWidth] = useState<number>(layout.tileWidth);
 
   return (
-    <View accessibilityLabel={moment.name} style={styles.tile}>
+    <Pressable
+      accessibilityLabel={`Добавить ${moment.name}`}
+      accessibilityRole="button"
+      disabled={disabled}
+      onPress={() => onSelect(moment)}
+      style={({ pressed }) => [styles.tile, pressed && styles.pressed]}
+    >
       <View
         style={styles.art}
         onLayout={(event) => {
@@ -47,7 +57,7 @@ function MomentPreviewTileComponent({
           {moment.name}
         </Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -82,6 +92,9 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     flexBasis: 0,
     maxWidth: layout.tileWidth,
+  },
+  pressed: {
+    opacity: 0.72,
   },
   art: {
     height: layout.tileArtHeight,

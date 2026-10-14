@@ -1,4 +1,3 @@
-import { InteractionManager } from 'react-native';
 import {
   DataTexture,
   LinearFilter,
@@ -8,6 +7,9 @@ import {
   type WebGLRenderer,
 } from 'three';
 
+import { hexToRgbaTuple, type FieldConfig } from './fieldConfig';
+import { getFieldConfig } from './fieldConfigStore';
+import { FIELD_GRID_DIVIDER_WIDTH } from './fieldGridConfig';
 import {
   createFieldGridChunkSpec,
   fieldChunkConfigsEqual,
@@ -25,7 +27,7 @@ import {
 
 export type FieldChunkBakeRequest = {
   readonly chunkIndex: number;
-  readonly base: Pick<FieldGridConfig, 'rows' | 'cellSize'>;
+  readonly base: Pick<FieldGridConfig, 'rows' | 'cellSize' | 'dividerWidth'>;
   readonly colors: FieldGridTextureColors;
   readonly layers: FieldGridLayerFlags;
 };
@@ -47,24 +49,49 @@ const bakeCache = new Map<string, FieldChunkBakeResult>();
 const texturePool = new Map<string, PooledTexture>();
 const inflight = new Set<string>();
 const uploadQueue: string[] = [];
-let bakeQueue: Promise<void> = Promise.resolve();
+
+type PendingBake = {
+  readonly key: string;
+  readonly request: FieldChunkBakeRequest;
+  readonly runtimeConfig: FieldConfig;
+  readonly sequence: number;
+  priority: number;
+};
+
+const pendingBakes = new Map<string, PendingBake>();
+let bakePumpScheduled = false;
+let bakeSequence = 0;
 
 function rgbaKey(c: Rgba): string {
   return `${c[0]},${c[1]},${c[2]},${c[3]}`;
 }
 
-export function fieldChunkBakeCacheKey(request: FieldChunkBakeRequest): string {
+export function fieldChunkBakeCacheKey(
+  request: FieldChunkBakeRequest,
+  runtimeConfig: FieldConfig = getFieldConfig(),
+): string {
   const { chunkIndex, base, colors, layers } = request;
+  const { labels, activeCells } = runtimeConfig;
   return [
     chunkIndex,
     base.rows,
     base.cellSize,
+    base.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH,
     layers.showActiveCells ? 1 : 0,
     layers.showActiveCenters ? 1 : 0,
     layers.showCellLabels ? 1 : 0,
     rgbaKey(colors.fill),
     rgbaKey(colors.line),
     rgbaKey(colors.text),
+    rgbaKey(colors.activeFill ?? hexToRgbaTuple(activeCells.fillHex)),
+    rgbaKey(colors.activeCenter ?? hexToRgbaTuple(activeCells.centerHex)),
+    labels.scale,
+    labels.padding,
+    labels.raise,
+    labels.activeCenterSize,
+    labels.activeBorder,
+    activeCells.sideSpan,
+    runtimeConfig.chunks.cols,
   ].join('|');
 }
 
@@ -94,9 +121,21 @@ export function resolveMountedChunkIds(
   allowUnready: boolean,
 ): readonly number[] {
   if (allowUnready) return desired;
+  if (desired.length === 0) return [];
+
   const ready = desired.filter((id) => isGpuReady(id));
-  if (ready.length > 0) return ready;
-  return previous;
+  if (ready.length === 0) return previous;
+  if (ready.length === desired.length) return ready;
+
+  // Keep the immediately preceding ready chunk until the incoming edge chunk
+  // is ready. It fills the same recycled slot and avoids a visible gap while
+  // the new texture is still being prepared/uploaded.
+  const previousEdge = desired[0]! - 1;
+  if (previousEdge >= 0 && previous.includes(previousEdge) && isGpuReady(previousEdge)) {
+    return [previousEdge, ...ready];
+  }
+
+  return ready;
 }
 
 /** Pure window sync for useFrame (no React). Returns null mounted when unchanged. */
@@ -131,24 +170,30 @@ export function pendingFieldChunkGpuUploads(): number {
 
 export function peekFieldChunkBake(
   request: FieldChunkBakeRequest,
+  runtimeConfig: FieldConfig = getFieldConfig(),
 ): FieldChunkBakeResult | null {
-  return bakeCache.get(fieldChunkBakeCacheKey(request)) ?? null;
+  return bakeCache.get(fieldChunkBakeCacheKey(request, runtimeConfig)) ?? null;
 }
 
-export function bakeFieldChunk(request: FieldChunkBakeRequest): FieldChunkBakeResult {
-  const key = fieldChunkBakeCacheKey(request);
+export function bakeFieldChunk(
+  request: FieldChunkBakeRequest,
+  runtimeConfig: FieldConfig = getFieldConfig(),
+): FieldChunkBakeResult {
+  const key = fieldChunkBakeCacheKey(request, runtimeConfig);
   const hit = bakeCache.get(key);
   if (hit != null) return hit;
 
   const spec: FieldGridChunkSpec = createFieldGridChunkSpec(
     request.chunkIndex,
     request.base,
+    runtimeConfig.chunks.cols,
   );
   const baked = buildFieldGridLabelPixels(
     fieldChunkToGridConfig(spec),
     request.colors,
     request.layers,
     spec.colStart,
+    runtimeConfig,
   );
   const result: FieldChunkBakeResult = {
     data: baked.data,
@@ -178,16 +223,22 @@ function createPooledTexture(
 }
 
 /** CPU bake + DataTexture alloc; GPU upload is deferred via pumpFieldChunkGpuUploads. */
-export function prepareFieldChunkTexture(request: FieldChunkBakeRequest): DataTexture {
-  const key = fieldChunkBakeCacheKey(request);
+export function prepareFieldChunkTexture(
+  request: FieldChunkBakeRequest,
+  runtimeConfig: FieldConfig = getFieldConfig(),
+): DataTexture {
+  const key = fieldChunkBakeCacheKey(request, runtimeConfig);
   const existing = texturePool.get(key);
   if (existing != null) return existing.texture;
-  const baked = bakeFieldChunk(request);
+  const baked = bakeFieldChunk(request, runtimeConfig);
   return createPooledTexture(key, request.chunkIndex, baked).texture;
 }
 
-export function isFieldChunkGpuReady(request: FieldChunkBakeRequest): boolean {
-  const entry = texturePool.get(fieldChunkBakeCacheKey(request));
+export function isFieldChunkGpuReady(
+  request: FieldChunkBakeRequest,
+  runtimeConfig: FieldConfig = getFieldConfig(),
+): boolean {
+  const entry = texturePool.get(fieldChunkBakeCacheKey(request, runtimeConfig));
   return entry?.gpuReady === true;
 }
 
@@ -196,8 +247,9 @@ export function isFieldChunkIndexGpuReady(
   base: FieldChunkBakeRequest['base'],
   colors: FieldGridTextureColors,
   layers: FieldGridLayerFlags,
+  runtimeConfig: FieldConfig = getFieldConfig(),
 ): boolean {
-  return isFieldChunkGpuReady({ chunkIndex, base, colors, layers });
+  return isFieldChunkGpuReady({ chunkIndex, base, colors, layers }, runtimeConfig);
 }
 
 /**
@@ -221,51 +273,132 @@ export function pumpFieldChunkGpuUploads(
   return uploaded;
 }
 
-function scheduleBakeTask(task: () => void): void {
-  bakeQueue = bakeQueue.then(
-    () =>
-      new Promise<void>((resolve) => {
-        InteractionManager.runAfterInteractions(() => {
-          requestAnimationFrame(() => {
-            setTimeout(() => {
-              try {
-                task();
-              } finally {
-                resolve();
-              }
-            }, 0);
-          });
-        });
-      }),
-  );
-}
+function scheduleBakePump(): void {
+  if (bakePumpScheduled || pendingBakes.size === 0) return;
+  bakePumpScheduled = true;
 
-/** Background: bake pixels + allocate texture; GPU upload happens later via pump. */
-export function prefetchFieldChunk(request: FieldChunkBakeRequest): void {
-  const key = fieldChunkBakeCacheKey(request);
-  if (texturePool.has(key) || inflight.has(key)) return;
-  if (bakeCache.has(key) && !texturePool.has(key)) {
-    createPooledTexture(key, request.chunkIndex, bakeCache.get(key)!);
-    return;
-  }
-  inflight.add(key);
-  scheduleBakeTask(() => {
-    try {
-      prepareFieldChunkTexture(request);
-    } finally {
-      inflight.delete(key);
-    }
+  // Yield between bakes, but do not wait for interactions to finish: chunk
+  // preparation must progress while a native gesture is still moving.
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      bakePumpScheduled = false;
+      let next: PendingBake | undefined;
+      for (const candidate of pendingBakes.values()) {
+        if (
+          next === undefined ||
+          candidate.priority > next.priority ||
+          (candidate.priority === next.priority && candidate.sequence < next.sequence)
+        ) {
+          next = candidate;
+        }
+      }
+
+      try {
+        if (next !== undefined) {
+          pendingBakes.delete(next.key);
+          try {
+            // Eviction can cancel pending work while the callback is waiting.
+            // A texture may also have been prepared synchronously by a mounted
+            // slot; in either case the in-flight marker must always be cleared.
+            if (inflight.has(next.key) && !texturePool.has(next.key)) {
+              prepareFieldChunkTexture(next.request, next.runtimeConfig);
+            }
+          } finally {
+            inflight.delete(next.key);
+          }
+        }
+      } catch (error) {
+        // A bad chunk must not permanently stall the queue for all later chunks.
+        console.error('Failed to prepare a field chunk texture', error);
+      } finally {
+        scheduleBakePump();
+      }
+    }, 0);
   });
 }
 
-export function evictFieldChunkBakes(keepChunkIndices: readonly number[]): void {
+/** Deferred CPU bake and texture allocation; GPU upload is deferred to a frame pump. */
+export function prefetchFieldChunk(
+  request: FieldChunkBakeRequest,
+  priority: number = 0,
+  runtimeConfig: FieldConfig = getFieldConfig(),
+): void {
+  const key = fieldChunkBakeCacheKey(request, runtimeConfig);
+  if (texturePool.has(key)) return;
+
+  const existing = pendingBakes.get(key);
+  if (existing !== undefined) {
+    existing.priority = Number.isFinite(priority) ? priority : 0;
+    return;
+  }
+  // A request already selected by the scheduler is running synchronously.
+  if (inflight.has(key)) return;
+
+  inflight.add(key);
+  pendingBakes.set(key, {
+    key,
+    request,
+    runtimeConfig,
+    priority: Number.isFinite(priority) ? priority : 0,
+    sequence: bakeSequence++,
+  });
+  scheduleBakePump();
+}
+
+/** Reorder queued uploads so chunks closest to the camera are uploaded first. */
+export function prioritizeFieldChunkGpuUploads(
+  priorityChunkIndices: readonly number[],
+): void {
+  if (uploadQueue.length < 2 || priorityChunkIndices.length === 0) return;
+
+  const priority = new Map<number, number>();
+  priorityChunkIndices.forEach((chunkIndex, index) => {
+    if (!priority.has(chunkIndex)) priority.set(chunkIndex, index);
+  });
+  const originalOrder = new Map(uploadQueue.map((key, index) => [key, index] as const));
+
+  uploadQueue.sort((left, right) => {
+    const leftChunk = texturePool.get(left)?.chunkIndex;
+    const rightChunk = texturePool.get(right)?.chunkIndex;
+    const leftRank =
+      leftChunk === undefined
+        ? Number.MAX_SAFE_INTEGER
+        : (priority.get(leftChunk) ?? Number.MAX_SAFE_INTEGER);
+    const rightRank =
+      rightChunk === undefined
+        ? Number.MAX_SAFE_INTEGER
+        : (priority.get(rightChunk) ?? Number.MAX_SAFE_INTEGER);
+    if (leftRank !== rightRank) return leftRank - rightRank;
+    return (originalOrder.get(left) ?? 0) - (originalOrder.get(right) ?? 0);
+  });
+}
+
+export function evictFieldChunkBakes(
+  keepChunkIndices: readonly number[],
+  keepCacheKeys?: readonly string[],
+): void {
   const keep = new Set(keepChunkIndices);
+  const keepKeys = keepCacheKeys == null ? null : new Set(keepCacheKeys);
+
+  // Remove obsolete queued bakes, not just their eventual cache entries. A
+  // fast swipe can otherwise leave a backlog of chunks the camera has passed.
+  for (const [key, pending] of pendingBakes) {
+    if (
+      !keep.has(pending.request.chunkIndex) ||
+      (keepKeys !== null && !keepKeys.has(key))
+    ) {
+      pendingBakes.delete(key);
+      inflight.delete(key);
+    }
+  }
   for (const key of [...bakeCache.keys()]) {
     const chunkIndex = Number(key.split('|')[0]);
-    if (!keep.has(chunkIndex)) bakeCache.delete(key);
+    if (!keep.has(chunkIndex) || (keepKeys !== null && !keepKeys.has(key))) {
+      bakeCache.delete(key);
+    }
   }
   for (const [key, entry] of [...texturePool.entries()]) {
-    if (!keep.has(entry.chunkIndex)) {
+    if (!keep.has(entry.chunkIndex) || (keepKeys !== null && !keepKeys.has(key))) {
       entry.texture.dispose();
       texturePool.delete(key);
     }
@@ -283,8 +416,8 @@ export function clearFieldChunkBakeCache(): void {
   bakeCache.clear();
   texturePool.clear();
   inflight.clear();
+  pendingBakes.clear();
   uploadQueue.length = 0;
-  bakeQueue = Promise.resolve();
 }
 
 export function fieldChunkBakeCacheSize(): number {

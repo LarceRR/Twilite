@@ -1,20 +1,24 @@
 import type { FieldGridConfig } from './fieldGridConfig';
-import { fieldGridWorldSize } from './fieldGridConfig';
+import {
+  FIELD_GRID_DIVIDER_WIDTH,
+  fieldGridCellPitch,
+  fieldGridWorldSize,
+} from './fieldGridConfig';
 
 export type FieldGridCell = {
   readonly col: number;
   readonly row: number;
   /** Zero-based index: along Y within each X strip (camera LTR rows). */
   readonly index: number;
-  /** Human-readable 1-based XY label (`x,y`). */
+  /** Human-readable 1-based XY label (`X1,Y1`). */
   readonly label: string;
   /** World-space center on the XY ground plane (z = 0). */
   readonly center: readonly [number, number, number];
 };
 
-/** 1-based world XY label: col→X, row→Y → `"1,1"`, `"1,2"`, `"2,3"`, … */
+/** 1-based world XY label: col→X, row→Y → `"X1,Y1"`, `"X1,Y2"`, … */
 export function cellLabelFromColRow(col: number, row: number): string {
-  return `${col + 1},${row + 1}`;
+  return `X${col + 1},Y${row + 1}`;
 }
 
 /**
@@ -26,7 +30,7 @@ export function cellIndex(col: number, row: number, rows: number): number {
 }
 
 /**
- * Left-edge origin at world (0,0,0): col 0 at x≈0 (near camera).
+ * Returns the interior center: the divider occupies the first pixel of each pitch.
  * Row 0 is the +Y edge (screen-left from the default camera).
  */
 export function cellCenterOnPlane(
@@ -35,8 +39,10 @@ export function cellCenterOnPlane(
   config: FieldGridConfig,
 ): readonly [number, number, number] {
   const { height } = fieldGridWorldSize(config);
-  const x = (col + 0.5) * config.cellSize;
-  const y = height / 2 - (row + 0.5) * config.cellSize;
+  const pitch = fieldGridCellPitch(config);
+  const inset = config.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH;
+  const x = col * pitch + inset + config.cellSize / 2;
+  const y = height / 2 - (row * pitch + inset + config.cellSize / 2);
   return [x, y, 0];
 }
 
