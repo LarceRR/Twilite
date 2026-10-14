@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { memo, type ReactElement } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   type PressableProps,
   type StyleProp,
@@ -16,7 +17,10 @@ import type { IconName } from '../../icons/icons';
 import { radius } from '../../radius/radius';
 import { layout, spacing } from '../../spacing/spacing';
 import { usePressFeedback } from '../Pressable/usePressFeedback';
-import { GlassSurface } from '../GlassSurface/GlassSurface';
+import {
+  GlassSurface,
+  LIQUID_GLASS_AVAILABLE,
+} from '../GlassSurface/GlassSurface';
 import { Text } from '../Text/Text';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -60,6 +64,11 @@ function tintFor(variant: ButtonVariant, theme: ReturnType<typeof useThemeColors
 }
 
 function labelColorFor(variant: ButtonVariant, theme: ReturnType<typeof useThemeColors>): string {
+  if (Platform.OS === 'ios' && !LIQUID_GLASS_AVAILABLE) {
+    if (variant === 'danger') return theme.negative;
+    return theme.textPrimary;
+  }
+
   switch (variant) {
     case 'primary':
     case 'danger':
