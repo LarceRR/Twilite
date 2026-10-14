@@ -75,7 +75,9 @@ describe('fieldConfig', () => {
 
   it('configures platform height independently of its footprint', () => {
     expect(DEFAULT_FIELD_CONFIG.platform.height).toBe(6);
+    expect(DEFAULT_FIELD_CONFIG.platform.pixelResolution).toBe(48);
     expect(mergeFieldConfig({ platform: { height: 16 } }).platform.height).toBe(16);
+    expect(mergeFieldConfig({ platform: { pixelResolution: 96 } }).platform.pixelResolution).toBe(96);
     expect(mergeFieldConfig({ platform: { height: 16 } }).grid.cellSizePx).toBe(
       DEFAULT_FIELD_CONFIG.grid.cellSizePx,
     );
