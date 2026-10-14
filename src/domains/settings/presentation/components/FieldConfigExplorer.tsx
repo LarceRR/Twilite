@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { useThemeColors } from '@/design-system/colors/colors';
 import { BlurCard } from '@/design-system/components/BlurCard/BlurCard';
 import { Button } from '@/design-system/components/Button/Button';
+import { Input } from '@/design-system/components/Input/Input';
 import { ListRow } from '@/design-system/components/ListRow/ListRow';
 import { Slider } from '@/design-system/components/Slider/Slider';
 import { Switch } from '@/design-system/components/Switch/Switch';
@@ -18,6 +19,10 @@ import type { FieldConfig } from '@/domains/spaces/presentation/field/fieldConfi
 import { getFieldConfig, useFieldConfig } from '@/domains/spaces/presentation/field/useFieldConfig';
 
 import {
+  exportFieldConfigFile,
+  importFieldConfigFile,
+} from './FieldConfigFileTransfer';
+import {
   buildFieldConfigSettingPatch,
   FIELD_CONFIG_SETTING_GROUPS,
   fieldConfigSettingValue,
@@ -29,13 +34,10 @@ function isHexColor(value: string): boolean {
   return /^#[0-9a-fA-F]{6}$/.test(value);
 }
 
-function parameterCountLabel(count: number): string {
-  const finalTwoDigits = count % 100;
-  if (finalTwoDigits >= 11 && finalTwoDigits <= 14) return `${count} параметров`;
-  const finalDigit = count % 10;
-  if (finalDigit === 1) return `${count} параметр`;
-  if (finalDigit >= 2 && finalDigit <= 4) return `${count} параметра`;
-  return `${count} параметров`;
+function inferDigits(step: number): number {
+  if (Number.isInteger(step)) return 0;
+  const text = step.toString();
+  return text.includes('.') ? Math.min(4, text.split('.')[1]?.length ?? 0) : 0;
 }
 
 function SettingControl({
@@ -76,21 +78,60 @@ function SettingControl({
     );
   }
 
-  const numberValue = typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  const numberValue = typeof value === 'number' && Number.isFinite(value) ? value : setting.min;
   const boundedValue = Math.max(setting.min, Math.min(setting.max, numberValue));
   const digits = setting.digits ?? inferDigits(setting.step);
+  const [draft, setDraft] = useState(numberValue.toFixed(digits));
+
+  useEffect(() => {
+    setDraft(numberValue.toFixed(digits));
+  }, [numberValue, digits]);
+
+  const commitDraft = (): void => {
+    const normalized = draft.trim().replace(',', '.');
+    if (normalized.length === 0) {
+      setDraft(numberValue.toFixed(digits));
+      return;
+    }
+
+    const parsed = Number(normalized);
+    if (!Number.isFinite(parsed)) {
+      setDraft(numberValue.toFixed(digits));
+      return;
+    }
+
+    const clamped = Math.max(setting.min, Math.min(setting.max, parsed));
+    const stepCount = Math.round((clamped - setting.min) / setting.step);
+    const stepped = Math.max(
+      setting.min,
+      Math.min(setting.max, setting.min + stepCount * setting.step),
+    );
+    const committed = Number(stepped.toFixed(Math.max(digits, 0)));
+    onChange(setting, committed);
+    setDraft(committed.toFixed(digits));
+  };
 
   return (
     <View style={styles.settingWrap}>
       <View style={styles.settingHeader}>
         <Text variant="bodyStrong">{setting.label}</Text>
-        <Text variant="caption" color={theme.textSecondary}>
-          {numberValue.toFixed(digits)}
-        </Text>
       </View>
       <Text variant="caption" color={theme.textSecondary}>
         {setting.description}
       </Text>
+      <Input
+        icon="calculator-outline"
+        value={draft}
+        onChangeText={setDraft}
+        onEndEditing={commitDraft}
+        onSubmitEditing={commitDraft}
+        keyboardType="numbers-and-punctuation"
+        returnKeyType="done"
+        selectTextOnFocus
+        accessibilityLabel={`Значение параметра: ${setting.label}`}
+        containerStyle={styles.valueInputShell}
+        style={styles.valueInput}
+      />
       <Slider
         accessibilityLabel={setting.label}
         value={boundedValue}
@@ -101,17 +142,11 @@ function SettingControl({
       />
       {(numberValue < setting.min || numberValue > setting.max) ? (
         <Text variant="caption" color={theme.textTertiary}>
-          Значение находится вне диапазона ползунка. Передвиньте его, чтобы применить допустимое значение.
+          Значение выше или ниже диапазона ползунка. Введите значение в допустимом диапазоне.
         </Text>
       ) : null}
     </View>
   );
-}
-
-function inferDigits(step: number): number {
-  if (Number.isInteger(step)) return 0;
-  const text = step.toString();
-  return text.includes('.') ? Math.min(4, text.split('.')[1]?.length ?? 0) : 0;
 }
 
 function ColorSettingControl({
@@ -149,7 +184,8 @@ function ColorSettingControl({
           ]}
         />
       </View>
-      <TextInput
+      <Input
+        icon="color-palette-outline"
         value={draft}
         onChangeText={(next) => {
           setDraft(next);
@@ -159,19 +195,12 @@ function ColorSettingControl({
           if (!isHexColor(draft)) setDraft(value);
         }}
         placeholder="#FFAE00"
-        placeholderTextColor={theme.textTertiary}
         accessibilityLabel={setting.label}
         autoCapitalize="characters"
         autoCorrect={false}
         maxLength={7}
-        style={[
-          styles.colorInput,
-          {
-            backgroundColor: theme.surfaceSunken,
-            borderColor: theme.surfaceDivider,
-            color: theme.textPrimary,
-          },
-        ]}
+        containerStyle={styles.valueInputShell}
+        style={styles.valueInput}
       />
       {!isHexColor(draft) ? (
         <Text variant="caption" color={theme.textTertiary}>
@@ -213,9 +242,6 @@ function SettingGroup({
           <Text variant="caption" color={theme.textSecondary}>
             {group.description}
           </Text>
-          <Text variant="caption" color={theme.textTertiary}>
-            {parameterCountLabel(settings.length)}
-          </Text>
         </View>
         <Ionicons
           name={expanded ? 'chevron-down' : 'chevron-forward'}
@@ -239,10 +265,22 @@ function SettingGroup({
   );
 }
 
+function applyCameraConfig(config: FieldConfig): void {
+  const cameraControls = useFieldCameraControlStore.getState();
+  cameraControls.setPosition(config.camera.position);
+  cameraControls.setRotationDeg(config.camera.rotationDeg);
+  cameraControls.setProjection({
+    fov: config.camera.fov,
+    near: config.camera.near,
+    far: config.camera.far,
+  });
+}
+
 export function FieldConfigExplorer(): ReactElement {
   const theme = useThemeColors();
   const config = useFieldConfig();
   const patchOverrides = useFieldConfigStore((state) => state.patchOverrides);
+  const hydrate = useFieldConfigStore((state) => state.hydrate);
   const reset = useFieldConfigStore((state) => state.reset);
   const [query, setQuery] = useState('');
   const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<string>>(
@@ -251,12 +289,14 @@ export function FieldConfigExplorer(): ReactElement {
   const [collapsedSearchGroups, setCollapsedSearchGroups] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+  const [transferBusy, setTransferBusy] = useState(false);
 
   const needle = query.trim().toLocaleLowerCase();
 
   useEffect(() => {
     setCollapsedSearchGroups(new Set());
   }, [needle]);
+
   const visibleGroups = useMemo(() => {
     return FIELD_CONFIG_SETTING_GROUPS.flatMap((group) => {
       if (needle.length === 0) return [{ group, settings: group.settings }];
@@ -274,45 +314,64 @@ export function FieldConfigExplorer(): ReactElement {
     });
   }, [needle]);
 
-  const visibleSettingCount = visibleGroups.reduce((sum, item) => sum + item.settings.length, 0);
-
   const onChangeSetting = (setting: FieldConfigSetting, value: unknown): void => {
     patchOverrides(buildFieldConfigSettingPatch(config, setting.path, value));
 
-    // Camera optics and pose are mirrored in a runtime store while the 3D scene
-    // is mounted, so update it too instead of waiting for the next scene mount.
     if (!setting.path.startsWith('camera.')) return;
-    const cameraConfig = getFieldConfig().camera;
+    const current = getFieldConfig();
     const cameraControls = useFieldCameraControlStore.getState();
-
     if (setting.path.startsWith('camera.position.')) {
-      cameraControls.setPosition(cameraConfig.position);
+      cameraControls.setPosition(current.camera.position);
     } else if (setting.path.startsWith('camera.rotationDeg.')) {
-      cameraControls.setRotationDeg(cameraConfig.rotationDeg);
+      cameraControls.setRotationDeg(current.camera.rotationDeg);
     } else if (
       setting.path === 'camera.fov' ||
       setting.path === 'camera.near' ||
       setting.path === 'camera.far'
     ) {
       cameraControls.setProjection({
-        fov: cameraConfig.fov,
-        near: cameraConfig.near,
-        far: cameraConfig.far,
+        fov: current.camera.fov,
+        near: current.camera.near,
+        far: current.camera.far,
       });
     }
   };
 
   const resetAll = (): void => {
     reset();
-    const cameraConfig = getFieldConfig().camera;
-    const cameraControls = useFieldCameraControlStore.getState();
-    cameraControls.setPosition(cameraConfig.position);
-    cameraControls.setRotationDeg(cameraConfig.rotationDeg);
-    cameraControls.setProjection({
-      fov: cameraConfig.fov,
-      near: cameraConfig.near,
-      far: cameraConfig.far,
-    });
+    applyCameraConfig(getFieldConfig());
+  };
+
+  const onExport = async (): Promise<void> => {
+    setTransferBusy(true);
+    try {
+      await exportFieldConfigFile(config);
+    } catch (error) {
+      Alert.alert(
+        'Не удалось экспортировать',
+        error instanceof Error ? error.message : 'Не получилось создать JSON-файл конфигурации.',
+      );
+    } finally {
+      setTransferBusy(false);
+    }
+  };
+
+  const onImport = async (): Promise<void> => {
+    setTransferBusy(true);
+    try {
+      const imported = await importFieldConfigFile();
+      if (imported === null) return;
+      hydrate(imported);
+      applyCameraConfig(imported);
+      Alert.alert('Конфигурация импортирована', 'Настройки поля обновлены.');
+    } catch (error) {
+      Alert.alert(
+        'Не удалось импортировать',
+        error instanceof Error ? error.message : 'Проверьте, что файл содержит корректный JSON конфигурации Twilite.',
+      );
+    } finally {
+      setTransferBusy(false);
+    }
   };
 
   const toggleGroup = (id: string): void => {
@@ -332,22 +391,17 @@ export function FieldConfigExplorer(): ReactElement {
 
   return (
     <View style={styles.explorer}>
-      <View
-        style={[
-          styles.search,
-          { backgroundColor: theme.surfaceSunken, borderColor: theme.surfaceDivider },
-        ]}
-      >
-        <Ionicons name="search" size={18} color={theme.textTertiary} />
-        <TextInput
+      <View style={styles.searchRow}>
+        <Input
+          icon="search-outline"
           value={query}
           onChangeText={setQuery}
-          placeholder="Поиск параметров по названию или описанию"
-          placeholderTextColor={theme.textTertiary}
+          placeholder="Поиск параметров"
           accessibilityLabel="Поиск параметров конфигурации поля"
           autoCapitalize="none"
           autoCorrect={false}
-          style={[styles.searchInput, { color: theme.textPrimary }]}
+          returnKeyType="search"
+          containerStyle={styles.searchInputShell}
         />
         {query.length > 0 ? (
           <Pressable
@@ -355,19 +409,11 @@ export function FieldConfigExplorer(): ReactElement {
             accessibilityLabel="Очистить поиск параметров"
             hitSlop={layout.hitSlop}
             onPress={() => setQuery('')}
+            style={styles.clearSearch}
           >
-            <Ionicons name="close" size={18} color={theme.textSecondary} />
+            <Ionicons name="close-circle" size={22} color={theme.textSecondary} />
           </Pressable>
         ) : null}
-      </View>
-
-      <View style={styles.resultHeader}>
-        <Text variant="caption" color={theme.textSecondary}>
-          {needle.length > 0
-            ? `Найдено параметров: ${visibleSettingCount}`
-            : `Все параметры конфигурации: ${FIELD_CONFIG_SETTING_GROUPS.reduce((sum, group) => sum + group.settings.length, 0)}`}
-        </Text>
-        <Button label="Сбросить конфиг" variant="secondary" onPress={resetAll} />
       </View>
 
       {visibleGroups.length === 0 ? (
@@ -394,6 +440,42 @@ export function FieldConfigExplorer(): ReactElement {
           />
         ))
       )}
+
+      <BlurCard title="Файл конфигурации">
+        <View style={styles.transferButtons}>
+          <Button
+            block
+            compact
+            icon="download-outline"
+            label="Экспорт JSON"
+            variant="secondary"
+            loading={transferBusy}
+            disabled={transferBusy}
+            onPress={() => void onExport()}
+          />
+          <Button
+            block
+            compact
+            icon="folder-open-outline"
+            label="Импорт JSON"
+            variant="secondary"
+            loading={transferBusy}
+            disabled={transferBusy}
+            onPress={() => void onImport()}
+          />
+        </View>
+        <Text variant="caption" color={theme.textSecondary}>
+          Экспортируйте все текущие значения в JSON или загрузите ранее сохранённый файл.
+        </Text>
+      </BlurCard>
+
+      <Button
+        block
+        icon="trash-outline"
+        label="Сбросить конфигурацию"
+        variant="danger"
+        onPress={resetAll}
+      />
     </View>
   );
 }
@@ -402,25 +484,16 @@ const styles = StyleSheet.create({
   explorer: {
     gap: spacing.md,
   },
-  search: {
+  searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    minHeight: layout.controlHeightCompact,
-    borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: spacing.md,
   },
-  searchInput: {
-    ...typography.body,
+  searchInputShell: {
     flex: 1,
-    paddingVertical: spacing.sm,
   },
-  resultHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
+  clearSearch: {
+    padding: spacing.xs,
   },
   groupHeader: {
     flexDirection: 'row',
@@ -445,6 +518,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
+  valueInputShell: {
+    minHeight: layout.controlHeightCompact,
+  },
+  valueInput: {
+    fontVariant: ['tabular-nums'],
+  },
   colorSetting: {
     gap: spacing.sm,
     paddingVertical: spacing.sm,
@@ -465,12 +544,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     borderWidth: StyleSheet.hairlineWidth,
   },
-  colorInput: {
-    ...typography.body,
-    minHeight: layout.controlHeightCompact,
-    borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+  transferButtons: {
+    gap: spacing.sm,
   },
 });
