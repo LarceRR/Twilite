@@ -27,7 +27,7 @@ import {
 
 export type FieldChunkBakeRequest = {
   readonly chunkIndex: number;
-  readonly base: Pick<FieldGridConfig, 'rows' | 'cellSize' | 'dividerWidth'>;
+  readonly base: Pick<FieldGridConfig, 'rows' | 'cellSize' | 'dividerWidth' | 'showDividers'>;
   readonly colors: FieldGridTextureColors;
   readonly layers: FieldGridLayerFlags;
 };
@@ -77,6 +77,7 @@ export function fieldChunkBakeCacheKey(
     base.rows,
     base.cellSize,
     base.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH,
+    base.showDividers === false ? 0 : 1,
     layers.showActiveCells ? 1 : 0,
     layers.showActiveCenters ? 1 : 0,
     layers.showCellLabels ? 1 : 0,
