@@ -83,6 +83,8 @@ describe('fieldGridLabelPixels', () => {
     const { data, width } = buildFieldGridLabelPixels(hidden, COLORS);
     expect(sample(data, width, 0, 30)).toEqual(TRANSPARENT);
     expect(sample(data, width, 61, 30)).toEqual(TRANSPARENT);
+    // Even highlighted active cells must not retain divider-colored borders.
+    expect(sample(data, width, 30, 611)).toEqual(ACTIVE_FILL);
     // Disabling visual lines does not change the logical cell pitch.
     expect(width).toBe(3050);
   });
