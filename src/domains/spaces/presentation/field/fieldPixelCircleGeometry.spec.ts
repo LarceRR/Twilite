@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createPixelCircleMask,
   createPixelCirclePlatformGeometry,
+  createPixelCircleSideGeometry,
   createPixelCircleTopGeometry,
 } from './fieldPixelCircleGeometry';
 
@@ -46,6 +47,21 @@ describe('field pixel circle geometry', () => {
     expect(geometry.boundingBox?.min.z).toBe(-8);
     expect(geometry.boundingBox?.max.z).toBe(8);
     expect(geometry.getAttribute('position').count).toBeLessThan(1_000);
+
+    geometry.dispose();
+  });
+
+  it('creates side faces over the configured height for the same pixel circle', () => {
+    const geometry = createPixelCircleSideGeometry(80, 12, 48);
+    geometry.computeBoundingBox();
+
+    expect(geometry.boundingBox?.min.x).toBe(-40);
+    expect(geometry.boundingBox?.max.x).toBe(40);
+    expect(geometry.boundingBox?.min.y).toBe(-40);
+    expect(geometry.boundingBox?.max.y).toBe(40);
+    expect(geometry.boundingBox?.min.z).toBe(-6);
+    expect(geometry.boundingBox?.max.z).toBe(6);
+    expect(geometry.getAttribute('position').count).toBeGreaterThan(0);
 
     geometry.dispose();
   });
