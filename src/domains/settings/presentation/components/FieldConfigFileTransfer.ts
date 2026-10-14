@@ -11,7 +11,7 @@ export async function exportFieldConfigFile(config: FieldConfig): Promise<void> 
   const fileName = `twilite-field-config-${Date.now()}.json`;
   const file = new File(Paths.cache, fileName);
   file.create();
-  file.write(serializeFieldConfigJson(config));
+  await file.write(serializeFieldConfigJson(config));
 
   if (!(await Sharing.isAvailableAsync())) {
     throw new Error('Системное меню передачи файлов недоступно на этом устройстве.');
