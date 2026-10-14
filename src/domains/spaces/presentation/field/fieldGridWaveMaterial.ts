@@ -189,12 +189,12 @@ transparentPixelTexture.generateMipmaps = false;
 transparentPixelTexture.needsUpdate = true;
 
 export type FieldGridPixelLight = {
-  readonly x: number;
-  readonly y: number;
-  readonly z: number;
-  readonly color: string;
-  readonly intensity: number;
-  readonly distance: number;
+  x: number;
+  y: number;
+  z: number;
+  color: string;
+  intensity: number;
+  distance: number;
 };
 
 export type FieldGridWaveMaterial = ShaderMaterial & {

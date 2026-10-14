@@ -1,3 +1,5 @@
+import { Frustum, Matrix4, Sphere, Vector3, type Camera } from 'three';
+
 export type SurfaceObjectLightingIdentity = {
   readonly id: string;
   readonly light: { readonly intensity: number } | null;
@@ -11,6 +13,30 @@ export function surfaceObjectFlickerSeed(id: string): number {
     hash = Math.imul(hash, 16777619);
   }
   return hash >>> 0;
+}
+
+/** Reusable camera-frustum query for light-source culling without per-frame allocations. */
+export class SurfaceObjectLightVisibility {
+  private readonly frustum = new Frustum();
+  private readonly projectionView = new Matrix4();
+  private readonly bounds = new Sphere(new Vector3(), 0);
+
+  updateCamera(camera: Camera): void {
+    camera.updateMatrixWorld();
+    this.projectionView.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+    this.frustum.setFromProjectionMatrix(this.projectionView);
+  }
+
+  intersects(
+    x: number,
+    y: number,
+    z: number,
+    radius: number,
+  ): boolean {
+    this.bounds.center.set(x, y, z);
+    this.bounds.radius = Math.max(0, radius);
+    return this.frustum.intersectsSphere(this.bounds);
+  }
 }
 
 function noise(seed: number, bucket: number, salt: number): number {
@@ -41,13 +67,15 @@ export function resolveSceneShadowIntensity(
   lights: readonly SurfaceObjectLightingIdentity[],
   elapsedMs: number,
 ): number {
-  const emitting = lights.filter((item) => item.light !== null);
-  if (emitting.length === 0) return 0.42;
+  let intensitySum = 0;
+  let lightCount = 0;
+  for (const item of lights) {
+    if (item.light === null) continue;
+    intensitySum += candleFlickerMultiplier(elapsedMs, surfaceObjectFlickerSeed(item.id));
+    lightCount += 1;
+  }
+  if (lightCount === 0) return 0.42;
 
-  const average = emitting.reduce(
-    (sum, item) => sum + candleFlickerMultiplier(elapsedMs, surfaceObjectFlickerSeed(item.id)),
-    0,
-  ) / emitting.length;
-
+  const average = intensitySum / lightCount;
   return Math.max(0.2, Math.min(0.82, 0.2 + average * 0.55));
 }

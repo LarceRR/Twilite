@@ -10,8 +10,15 @@ import type { SurfaceObject } from '@/domains/spaces/domain/entities/SurfaceObje
 import { FieldGridSurface } from './FieldGridSurface';
 import { FieldSurfaceObjects } from './FieldSurfaceObjects';
 import { FieldWorldAxes } from './FieldWorldAxes';
+import { cellCenterOnPlane } from './fieldGridCells';
+import type { FieldGridConfig } from './fieldGridConfig';
+import { SURFACE_OBJECT_ANIMATION_CONFIG } from './surfaceObjectAnimation';
 import { resetFieldGridWaveScene } from './fieldGridWaveMaterial';
-import { resolveSceneShadowIntensity } from './surfaceObjectLighting';
+import {
+  resolveSceneShadowIntensity,
+  SurfaceObjectLightVisibility,
+  type SurfaceObjectLightingIdentity,
+} from './surfaceObjectLighting';
 import { useFieldConfig, useFieldGridConfig } from './useFieldConfig';
 
 /** One low-resolution directional shadow map follows the currently visible field. */
@@ -29,7 +36,7 @@ export function FieldSpaceScene({
 
   return (
     <>
-      <FieldSceneLighting objects={objects} />
+      <FieldSceneLighting objects={objects} config={gridConfig} />
       <FieldGridSurface config={gridConfig} />
       <FieldSurfaceObjects config={gridConfig} headers={headers} objects={objects} />
       {showWorldAxes ? <FieldWorldAxes /> : null}
@@ -37,21 +44,47 @@ export function FieldSpaceScene({
   );
 }
 
+type PositionedShadowLight = SurfaceObjectLightingIdentity & {
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+  readonly distance: number;
+};
+
 function FieldSceneLighting({
   objects,
+  config,
 }: {
   readonly objects: readonly SurfaceObject[];
+  readonly config: FieldGridConfig;
 }): ReactElement {
   const { lighting } = useFieldConfig();
   const lightRef = useRef<DirectionalLight>(null);
   const target = useMemo(() => new Object3D(), []);
-  const lightIdentities = useMemo(
-    () => objects.map((object) => ({
-      id: object.id,
-      light: object.pixelObject?.light ?? null,
-    })),
-    [objects],
+  const lightSources = useMemo<readonly PositionedShadowLight[]>(
+    () =>
+      objects.flatMap((object) => {
+        const sprite = object.pixelObject;
+        const source = sprite?.light;
+        if (sprite === null || sprite === undefined || source == null) return [];
+        const center = cellCenterOnPlane(object.cell.x, object.cell.y, config);
+        const artworkHeight = config.cellSize * (sprite.canvas.height / sprite.canvas.width);
+        return [{
+          id: object.id,
+          light: source,
+          x: center[0],
+          y: center[1],
+          z:
+            SURFACE_OBJECT_ANIMATION_CONFIG.platformHeight +
+            artworkHeight / 2 +
+            SURFACE_OBJECT_ANIMATION_CONFIG.artworkOffset,
+          distance: source.distance,
+        }];
+      }),
+    [objects, config],
   );
+  const lightVisibility = useMemo(() => new SurfaceObjectLightVisibility(), []);
+  const visibleLightIdentities = useRef<SurfaceObjectLightingIdentity[]>([]);
 
   useLayoutEffect(() => {
     const light = lightRef.current;
@@ -63,6 +96,14 @@ function FieldSceneLighting({
   useFrame(({ camera, clock }) => {
     const light = lightRef.current;
     if (light === null) return;
+    lightVisibility.updateCamera(camera);
+    const visible = visibleLightIdentities.current;
+    visible.length = 0;
+    for (const source of lightSources) {
+      if (lightVisibility.intersects(source.x, source.y, source.z, source.distance)) {
+        visible.push(source);
+      }
+    }
     target.position.set(camera.position.x, 0, 0);
     light.position.set(
       camera.position.x + lighting.directionalPosition[0],
@@ -72,7 +113,7 @@ function FieldSceneLighting({
     target.updateMatrixWorld();
     light.target.updateMatrixWorld();
     light.shadow.intensity = resolveSceneShadowIntensity(
-      lightIdentities,
+      visible,
       clock.elapsedTime * 1000,
     );
   });

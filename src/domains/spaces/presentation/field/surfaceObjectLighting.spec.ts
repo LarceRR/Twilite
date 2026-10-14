@@ -1,12 +1,25 @@
 import { describe, expect, it } from 'vitest';
+import { PerspectiveCamera } from 'three';
 
 import {
   candleFlickerMultiplier,
   resolveSceneShadowIntensity,
+  SurfaceObjectLightVisibility,
   surfaceObjectFlickerSeed,
 } from './surfaceObjectLighting';
 
 describe('surfaceObjectLighting', () => {
+  it('culls a source outside the camera frustum while retaining sources inside it', () => {
+    const camera = new PerspectiveCamera(60, 1, 0.1, 100);
+    camera.position.set(0, 0, 10);
+    camera.lookAt(0, 0, 0);
+    const visibility = new SurfaceObjectLightVisibility();
+    visibility.updateCamera(camera);
+
+    expect(visibility.intersects(0, 0, 0, 1)).toBe(true);
+    expect(visibility.intersects(1000, 0, 0, 1)).toBe(false);
+  });
+
   it('creates stable seeds for object identities', () => {
     expect(surfaceObjectFlickerSeed('torch-1')).toBe(surfaceObjectFlickerSeed('torch-1'));
     expect(surfaceObjectFlickerSeed('torch-1')).not.toBe(surfaceObjectFlickerSeed('torch-2'));

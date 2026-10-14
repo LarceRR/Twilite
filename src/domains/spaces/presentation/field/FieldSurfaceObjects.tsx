@@ -1,7 +1,17 @@
 import { useFrame } from '@react-three/fiber/native';
 import type { ReactElement, RefObject } from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { type Group, type Mesh, type MeshBasicMaterial, type PointLight, type Texture, Vector3 } from 'three';
+import {
+  Frustum,
+  Matrix4,
+  Sphere,
+  Vector3,
+  type Group,
+  type Mesh,
+  type MeshBasicMaterial,
+  type PointLight,
+  type Texture,
+} from 'three';
 
 import type { AuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAssetHeaders';
 import type { SurfaceObject } from '@/domains/spaces/domain/entities/SurfaceObject';
@@ -14,12 +24,14 @@ import type { FieldGridConfig } from './fieldGridConfig';
 import {
   createFieldGridWaveMaterial,
   registerFieldGridWaveMaterial,
+  FIELD_GRID_MAX_PIXEL_LIGHTS,
   syncFieldGridPixelLights,
   type FieldGridPixelLight,
 } from './fieldGridWaveMaterial';
 import {
   candleFlickerMultiplier,
   surfaceObjectFlickerSeed,
+  SurfaceObjectLightVisibility,
 } from './surfaceObjectLighting';
 import {
   advanceSpritePlayback,
@@ -44,6 +56,8 @@ type RuntimeObject = {
   readonly platformSize: number;
   readonly artHeight: number;
   readonly lightConfig: PixelObjectLightDto | null;
+  readonly pixelLight: FieldGridPixelLight | null;
+  lightDistanceSquared: number;
   artworkMaterial: MeshBasicMaterial | null;
   texture: Texture | null;
   cursor: SpritePlaybackCursor;
@@ -65,6 +79,9 @@ export function FieldSurfaceObjects({
   const appearance = useAppearingObjects(objects);
   const { surfaceRaised } = useThemeColors();
   const lastBillboardCameraXY = useRef({ x: Number.NaN, y: Number.NaN });
+  const lightVisibility = useMemo(() => new SurfaceObjectLightVisibility(), []);
+  const lightCandidates = useRef<RuntimeObject[]>([]);
+  const activePixelLights = useRef<FieldGridPixelLight[]>([]);
 
   const register = useCallback((item: RuntimeObject): (() => void) => {
     runtime.current.set(item.object.id, item);
@@ -74,6 +91,7 @@ export function FieldSurfaceObjects({
   }, []);
 
   useFrame(({ camera, clock }, delta) => {
+    lightVisibility.updateCamera(camera);
     camera.getWorldPosition(billboardCameraPosition);
     const cameraMoved =
       billboardCameraPosition.x !== lastBillboardCameraXY.current.x ||
@@ -83,14 +101,17 @@ export function FieldSurfaceObjects({
       lastBillboardCameraXY.current.y = billboardCameraPosition.y;
     }
 
-    const pixelLights: FieldGridPixelLight[] = [];
+    const candidates = lightCandidates.current;
+    candidates.length = 0;
+    const pixelLights = activePixelLights.current;
+    pixelLights.length = 0;
     for (const item of runtime.current.values()) {
       advanceColumn(item, delta * 1000);
       advanceArtwork(item, delta * 1000, billboardCameraPosition, cameraMoved);
 
       const lightConfig = item.lightConfig;
       const light = item.light.current;
-      if (lightConfig === null || light === null) continue;
+      if (lightConfig === null || light === null || item.pixelLight === null) continue;
 
       const progress = surfaceObjectRiseProgress(item.elapsedMs);
       const intensity =
@@ -98,16 +119,34 @@ export function FieldSurfaceObjects({
         candleFlickerMultiplier(clock.elapsedTime * 1000, item.flickerSeed) *
         progress;
       if (light.intensity !== intensity) light.intensity = intensity;
-      if (intensity <= 0.005) continue;
+      if (intensity <= 0.005) {
+        light.visible = false;
+        continue;
+      }
 
-      pixelLights.push({
-        x: item.centerX,
-        y: item.centerY,
-        z: item.artwork.current?.position.z ?? item.platformHeight,
-        color: lightConfig.color,
-        intensity,
-        distance: lightConfig.distance,
-      });
+      const z = item.artwork.current?.position.z ?? item.platformHeight;
+      if (!lightVisibility.intersects(item.centerX, item.centerY, z, lightConfig.distance)) {
+        light.visible = false;
+        continue;
+      }
+
+      item.lightDistanceSquared =
+        (camera.position.x - item.centerX) ** 2 +
+        (camera.position.y - item.centerY) ** 2 +
+        (camera.position.z - z) ** 2;
+      item.pixelLight.z = z;
+      item.pixelLight.intensity = intensity;
+      candidates.push(item);
+    }
+
+    // Prioritize the nearest sources whose falloff spheres can affect this view.
+    candidates.sort((left, right) => left.lightDistanceSquared - right.lightDistanceSquared);
+    for (let index = 0; index < candidates.length; index += 1) {
+      const item = candidates[index]!;
+      const light = item.light.current;
+      const isActive = index < FIELD_GRID_MAX_PIXEL_LIGHTS;
+      if (light !== null) light.visible = isActive;
+      if (isActive && item.pixelLight !== null) pixelLights.push(item.pixelLight);
     }
 
     // One bounded uniform array updates all visible field and platform overlays.
@@ -178,6 +217,17 @@ function FieldSurfaceObjectColumn({
       platformSize,
       artHeight,
       lightConfig,
+      pixelLight: lightConfig === null
+        ? null
+        : {
+            x: center[0],
+            y: center[1],
+            z: 0,
+            color: lightConfig.color,
+            intensity: 0,
+            distance: lightConfig.distance,
+          },
+      lightDistanceSquared: Number.POSITIVE_INFINITY,
       artworkMaterial: null,
       texture: null,
       cursor: { index: 0, elapsedMs: 0 },
