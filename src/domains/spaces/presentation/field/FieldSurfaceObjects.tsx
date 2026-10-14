@@ -22,7 +22,6 @@ import { cellCenterOnPlane } from './fieldGridCells';
 import type { FieldConfig } from './fieldConfig';
 import {
   FIELD_GRID_OVERLAY_RENDER_ORDER,
-  FIELD_LOCAL_LIGHT_LAYER,
   type FieldGridConfig,
 } from './fieldGridConfig';
 import {
@@ -346,11 +345,6 @@ function FieldSurfaceObjectColumn({
       : -appearanceDelayMs;
   const initialProgress = surfaceObjectRiseProgress(initialElapsedMs);
 
-  useLayoutEffect(() => {
-    column.current?.layers.enable(FIELD_LOCAL_LIGHT_LAYER);
-    light.current?.layers.set(FIELD_LOCAL_LIGHT_LAYER);
-  }, [lightConfig]);
-
   const item = useMemo<RuntimeObject>(
     () => ({
       column,
@@ -431,9 +425,6 @@ function FieldSurfaceObjectColumn({
       item.artworkMaterial = material;
       if (material !== null) {
         material.opacity = surfaceObjectRiseProgress(item.elapsedMs);
-        // Local point-light shadow cameras use layer 1; preserve layer 0 so the
-        // sprite remains visible to the main camera and shared directional light.
-        item.artwork.current?.traverse((child) => child.layers.enable(FIELD_LOCAL_LIGHT_LAYER));
       }
     },
     [item],
