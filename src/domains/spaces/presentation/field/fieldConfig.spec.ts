@@ -73,6 +73,14 @@ describe('fieldConfig', () => {
     expect(DEFAULT_FIELD_CONFIG.lighting.objectGlow.heightAbovePlatform).toBe(44);
   });
 
+  it('configures platform height independently of its footprint', () => {
+    expect(DEFAULT_FIELD_CONFIG.platform.height).toBe(6);
+    expect(mergeFieldConfig({ platform: { height: 16 } }).platform.height).toBe(16);
+    expect(mergeFieldConfig({ platform: { height: 16 } }).grid.cellSizePx).toBe(
+      DEFAULT_FIELD_CONFIG.grid.cellSizePx,
+    );
+  });
+
   it('derives grid cols and wave radius steps', () => {
     expect(fieldGridColsFromConfig(DEFAULT_FIELD_CONFIG.grid)).toBe(50);
     expect(fieldWaveMaxRadiusSteps(DEFAULT_FIELD_CONFIG.wave)).toBe(12);

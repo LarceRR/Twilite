@@ -30,6 +30,11 @@ export type FieldConfig = {
     /** Number of rows in the field grid along the depth axis. */
     readonly rows: number;
   };
+  /** Shape and physical thickness of the raised pixel-art platforms. */
+  readonly platform: {
+    /** Vertical extrusion of each platform, in world units. */
+    readonly height: number;
+  };
   /** Controls streamed chunks and how much field geometry is kept around the camera. */
   readonly chunks: {
     /** Number of columns contained in one streamed/rendered chunk. */
@@ -276,6 +281,9 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
     sideExtraCols: 20,
     rows: 15,
   },
+  platform: {
+    height: 6,
+  },
   chunks: {
     cols: 10,
     behind: 1,
@@ -378,7 +386,8 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
     },
     shadows: {
       mapSizePx: 512,
-      localShadowLights: 3,
+      // Local point-light cube maps are expensive on mobile; pixel-space occlusion handles platform shadows.
+      localShadowLights: 0,
       localShadowMapSizePx: 128,
       localShadowIntensity: 0.5,
       filterRadius: 6,
@@ -458,6 +467,7 @@ export function mergeFieldConfig(overrides: FieldConfigOverrides = {}): FieldCon
     axes: mergeSection(DEFAULT_FIELD_CONFIG.axes, overrides.axes),
     press: mergeSection(DEFAULT_FIELD_CONFIG.press, overrides.press),
     holdRepeat: mergeSection(DEFAULT_FIELD_CONFIG.holdRepeat, overrides.holdRepeat),
+    platform: mergeSection(DEFAULT_FIELD_CONFIG.platform, overrides.platform),
     lighting: mergeSection(
       DEFAULT_FIELD_CONFIG.lighting as unknown as Record<string, unknown>,
       overrides.lighting as DeepPartial<Record<string, unknown>> | undefined,

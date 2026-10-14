@@ -45,6 +45,10 @@ import {
   SURFACE_OBJECT_ANIMATION_CONFIG,
   staggerAppearanceDelays,
 } from './surfaceObjectAnimation';
+import {
+  createPixelCirclePlatformGeometry,
+  createPixelCircleTopGeometry,
+} from './fieldPixelCircleGeometry';
 import { useFieldConfig } from './useFieldConfig';
 
 const billboardCameraPosition = new Vector3();
@@ -127,7 +131,8 @@ export function FieldSurfaceObjects({
   const runtime = useRef(new Map<string, RuntimeObject>());
   const appearance = useAppearingObjects(objects);
   const { surfaceRaised } = useThemeColors();
-  const lightingConfig = useFieldConfig().lighting;
+  const fieldConfig = useFieldConfig();
+  const lightingConfig = fieldConfig.lighting;
   const platformColor = useMemo(
     () =>
       new Color(surfaceRaised).lerp(
@@ -275,6 +280,7 @@ export function FieldSurfaceObjects({
           appearanceDelayMs={resolveAppearanceDelay(appearance, object.id)}
           config={config}
           headers={headers}
+          platformHeight={fieldConfig.platform.height}
           objectGlowConfig={objectGlowConfig}
           platformColor={platformColor}
           key={object.id}
@@ -293,11 +299,13 @@ function FieldSurfaceObjectColumn({
   appearanceDelayMs,
   objectGlowConfig,
   platformColor,
+  platformHeight,
   register,
 }: {
   readonly object: SurfaceObject;
   readonly config: FieldGridConfig;
   readonly headers: AuthenticatedAssetHeaders;
+  readonly platformHeight: number;
   readonly objectGlowConfig: FieldConfig['lighting']['objectGlow'];
   readonly appearanceDelayMs: number | null;
   readonly platformColor: Color;
@@ -307,8 +315,15 @@ function FieldSurfaceObjectColumn({
   const artwork = useRef<Group>(null);
   const light = useRef<PointLight>(null);
   const waveOverlay = useRef<Mesh>(null);
-  const platformHeight = SURFACE_OBJECT_ANIMATION_CONFIG.platformHeight;
   const platformSize = config.cellSize;
+  const platformGeometry = useMemo(
+    () => createPixelCirclePlatformGeometry(platformSize, platformHeight),
+    [platformSize, platformHeight],
+  );
+  const platformTopGeometry = useMemo(
+    () => createPixelCircleTopGeometry(platformSize),
+    [platformSize],
+  );
   const artHeight =
     object.pixelObject === null
       ? 0
@@ -394,6 +409,14 @@ function FieldSurfaceObjectColumn({
     };
   }, [item, register]);
 
+  useEffect(
+    () => () => {
+      platformGeometry.dispose();
+      platformTopGeometry.dispose();
+    },
+    [platformGeometry, platformTopGeometry],
+  );
+
   useEffect(() => () => waveMaterial.dispose(), [waveMaterial]);
 
   const onTextureReady = useCallback(
@@ -425,17 +448,17 @@ function FieldSurfaceObjectColumn({
         visible={initialProgress > 0}
         position={[0, 0, (platformHeight * initialProgress) / 2]}
         scale={[1, 1, initialProgress]}
+      geometry={platformGeometry}
       >
-        <boxGeometry args={[platformSize, platformSize, platformHeight]} />
         <meshLambertMaterial color={platformColor} />
       </mesh>
       <mesh
         ref={waveOverlay}
+        geometry={platformTopGeometry}
         visible={initialProgress > 0}
         position={[0, 0, platformHeight * initialProgress + 0.2]}
         renderOrder={FIELD_GRID_OVERLAY_RENDER_ORDER}
       >
-        <planeGeometry args={[platformSize, platformSize]} />
         <primitive object={waveMaterial} attach="material" />
       </mesh>
       <group ref={artwork} rotation={[0, 0, 0]}>
