@@ -100,6 +100,13 @@ function GlassSurfaceComponent({
       />
       <View
         pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: glassTint },
+        ]}
+      />
+      <View
+        pointerEvents="none"
         style={[styles.rim, { borderRadius: cornerRadius, borderColor: theme.glassRim }]}
       />
       <View style={styles.content}>{children}</View>
