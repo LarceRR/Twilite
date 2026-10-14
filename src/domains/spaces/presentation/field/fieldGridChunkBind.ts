@@ -67,7 +67,7 @@ export function writeFieldChunkLineGeometry(
 
 export function placeFieldChunkMesh(
   chunkIndex: number,
-  base: Pick<FieldGridConfig, 'rows' | 'cellSize' | 'dividerWidth'>,
+  base: Pick<FieldGridConfig, 'rows' | 'cellSize' | 'dividerWidth' | 'showDividers'>,
   mesh: Mesh | null,
 ): void {
   if (mesh == null) return;
