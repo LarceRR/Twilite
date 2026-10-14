@@ -42,7 +42,7 @@ const fragmentShader = /* glsl */ `
 precision highp float;
 
 #define WAVE_COUNT 4
-#define LIGHT_COUNT 12
+#define LIGHT_COUNT ${FIELD_GRID_MAX_PIXEL_LIGHTS}
 
 uniform sampler2D uMap;
 uniform vec2 uOrigins[WAVE_COUNT];
