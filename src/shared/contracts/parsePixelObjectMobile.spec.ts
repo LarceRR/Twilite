@@ -38,4 +38,29 @@ describe('parsePixelObjectMobileDto', () => {
   it('rejects missing sheetUrl', () => {
     expect(parsePixelObjectMobileDto({ ...valid, sheetUrl: '' })).toBeNull();
   });
+
+  it('parses backend-provided sprite light settings', () => {
+    const parsed = parsePixelObjectMobileDto({
+      ...valid,
+      light: { color: '#FFAE00', intensity: 1.4, distance: 240 },
+    });
+    expect(parsed?.light).toEqual({
+      color: '#FFAE00',
+      intensity: 1.4,
+      distance: 240,
+    });
+  });
+
+  it('keeps backward compatibility when the backend omits lighting', () => {
+    expect(parsePixelObjectMobileDto(valid)?.light).toBeNull();
+  });
+
+  it('ignores malformed optional lighting without discarding the sprite', () => {
+    const parsed = parsePixelObjectMobileDto({
+      ...valid,
+      light: { color: 'orange', intensity: -1, distance: 0 },
+    });
+    expect(parsed?.id).toBe(valid.id);
+    expect(parsed?.light).toBeNull();
+  });
 });
