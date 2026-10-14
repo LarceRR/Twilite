@@ -3,7 +3,7 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import type { ReactElement } from 'react';
 import { BufferGeometry, PlaneGeometry, type Group, type Mesh } from 'three';
 
-import { useSceneColors } from '@/design-system/colors/colors';
+import { useSceneColors, useThemeColors } from '@/design-system/colors/colors';
 import { useSettingsStore } from '@/domains/settings/presentation/stores/settingsStore';
 
 import { bindFieldChunkSlot } from './fieldGridChunkBind';
@@ -62,6 +62,7 @@ function FieldGridChunkComponent({
   onPointerLeave,
 }: FieldGridChunkProps): ReactElement {
   const scene = useSceneColors();
+  const { surface, surfaceRaised } = useThemeColors();
   const fieldConfig = useFieldConfig();
   const showActiveCells = useSettingsStore((s) => s.developerShowActiveCells);
   const showActiveCenters = useSettingsStore((s) => s.developerShowActiveCellCenters);
@@ -97,7 +98,8 @@ function FieldGridChunkComponent({
         chunkIndex,
         base,
         layers: { showActiveCells, showActiveCenters, showCellLabels },
-        surfaceBase: scene.surfaceBase,
+        surface,
+        surfaceRaised,
         surfaceDot: scene.surfaceDot,
       },
       material,
@@ -117,7 +119,8 @@ function FieldGridChunkComponent({
     showActiveCells,
     showActiveCenters,
     showCellLabels,
-    scene.surfaceBase,
+    surface,
+    surfaceRaised,
     scene.surfaceDot,
     material,
     lineGeometry,
