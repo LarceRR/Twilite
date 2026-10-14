@@ -6,6 +6,7 @@ import {
   FIELD_ACTIVE_CENTER_RGBA,
   FIELD_ACTIVE_FILL_HEX,
   FIELD_ACTIVE_FILL_RGBA,
+  compositeThemeColorOver,
   themeColorToRgbaTuple,
 } from './fieldGridActiveCells';
 import { createFieldGridConfig } from './fieldGridConfig';
@@ -147,6 +148,11 @@ describe('fieldGridLabelPixels', () => {
     expect(FIELD_ACTIVE_FILL_RGBA).toEqual(
       themeColorToRgbaTuple(currentThemeColors().surfaceRaised),
     );
+  });
+
+  it('composites translucent surfaceDivider over the surface for texture rendering', () => {
+    expect(compositeThemeColorOver('rgba(0, 0, 0, 0.1)', '#ffffff')).toBe('#e5e5e5');
+    expect(compositeThemeColorOver('#112233', '#ffffff')).toBe('#112233');
   });
 
   it('converts all CSS color formats accepted for theme colors', () => {

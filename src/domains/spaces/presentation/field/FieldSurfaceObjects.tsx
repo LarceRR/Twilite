@@ -170,7 +170,7 @@ function FieldSurfaceObjectColumn({
         scale={[1, 1, initialProgress]}
       >
         <boxGeometry args={[platformSize, platformSize, platformHeight]} />
-        <meshStandardMaterial color={platformColor} roughness={0.82} />
+        <meshBasicMaterial color={platformColor} toneMapped={false} />
       </mesh>
       <group ref={artwork} rotation={[0, 0, 0]}>
         <FieldSurfaceObjectArtwork

@@ -3,10 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 
 import { useUiStore } from '@/app/stores/uiStore';
-import { useSceneColors, useThemeColors } from '@/design-system/colors/colors';
+import { useThemeColors } from '@/design-system/colors/colors';
 import { useSettingsStore } from '@/domains/settings/presentation/stores/settingsStore';
 
 import {
+  compositeThemeColorOver,
   fieldActiveCenterRgba,
   fieldLabelTextHex,
   themeColorToRgbaTuple,
@@ -51,7 +52,6 @@ import {
 import type { FieldGridCellCoord } from './fieldGridHitTest';
 import { FieldGridChunk } from './FieldGridChunk';
 import {
-  hexToRgba,
   type FieldGridLayerFlags,
   type FieldGridTextureColors,
 } from './fieldGridLabelPixels';
@@ -190,8 +190,7 @@ function warmChunkPrefetch(
 /** Streams field chunks along +X; camera pose is polled in useFrame (no React bind). */
 export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElement {
   const showToast = useUiStore((s) => s.showToast);
-  const scene = useSceneColors();
-  const { surface, surfaceRaised } = useThemeColors();
+  const { surface, surfaceRaised, surfaceDivider } = useThemeColors();
   const fieldConfig = useFieldConfig();
   const showActiveCells = useSettingsStore((s) => s.developerShowActiveCells);
   const showActiveCenters = useSettingsStore((s) => s.developerShowActiveCellCenters);
@@ -239,7 +238,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
       },
       colors: {
         fill: themeColorToRgbaTuple(surface),
-        line: hexToRgba(scene.surfaceDot),
+        line: themeColorToRgbaTuple(compositeThemeColorOver(surfaceDivider, surface)),
         text: hexToRgba(fieldLabelTextHex()),
         activeFill: themeColorToRgbaTuple(surfaceRaised),
         activeCenter: fieldActiveCenterRgba(),
@@ -252,7 +251,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
       config.dividerWidth,
       surface,
       surfaceRaised,
-      scene.surfaceDot,
+      surfaceDivider,
       showActiveCells,
       showActiveCenters,
       showCellLabels,

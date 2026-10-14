@@ -48,6 +48,29 @@ export function fieldActiveFillRgba(): readonly [number, number, number, number]
   return themeColorToRgbaTuple(currentThemeColors().surfaceRaised);
 }
 
+/** Composite a translucent theme color over an opaque surface for texture rendering. */
+export function compositeThemeColorOver(foreground: string, background: string): string {
+  const [foregroundRed, foregroundGreen, foregroundBlue, foregroundAlphaValue] =
+    themeColorToRgbaTuple(foreground);
+  const [backgroundRed, backgroundGreen, backgroundBlue, backgroundAlphaValue] =
+    themeColorToRgbaTuple(background);
+  const foregroundAlpha = foregroundAlphaValue / 255;
+  const backgroundAlpha = backgroundAlphaValue / 255;
+  const outputAlpha = foregroundAlpha + backgroundAlpha * (1 - foregroundAlpha);
+
+  const toHex = (foregroundChannel: number, backgroundChannel: number): string => {
+    const channel =
+      outputAlpha === 0
+        ? 0
+        : (foregroundChannel * foregroundAlpha +
+            backgroundChannel * backgroundAlpha * (1 - foregroundAlpha)) /
+          outputAlpha;
+    return Math.round(channel).toString(16).padStart(2, '0');
+  };
+
+  return `#${toHex(foregroundRed, backgroundRed)}${toHex(foregroundGreen, backgroundGreen)}${toHex(foregroundBlue, backgroundBlue)}`;
+}
+
 /** Converts the CSS color formats allowed by theme packs to a pixel RGBA tuple. */
 export function themeColorToRgbaTuple(
   color: string,

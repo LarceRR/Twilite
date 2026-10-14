@@ -6,6 +6,7 @@ import {
 } from 'three';
 
 import {
+  compositeThemeColorOver,
   fieldActiveCenterRgba,
   fieldLabelTextHex,
   themeColorToRgbaTuple,
@@ -31,7 +32,7 @@ export type FieldChunkBindInput = {
   readonly layers: FieldGridLayerFlags;
   readonly surface: string;
   readonly surfaceRaised: string;
-  readonly surfaceDot: string;
+  readonly surfaceDivider: string;
 };
 
 export function resolveFieldChunkTexture(input: FieldChunkBindInput): Texture {
@@ -40,7 +41,7 @@ export function resolveFieldChunkTexture(input: FieldChunkBindInput): Texture {
     base: input.base,
     colors: {
       fill: themeColorToRgbaTuple(input.surface),
-      line: hexToRgba(input.surfaceDot),
+      line: themeColorToRgbaTuple(compositeThemeColorOver(input.surfaceDivider, input.surface)),
       text: hexToRgba(fieldLabelTextHex()),
       activeFill: themeColorToRgbaTuple(input.surfaceRaised),
       activeCenter: fieldActiveCenterRgba(),

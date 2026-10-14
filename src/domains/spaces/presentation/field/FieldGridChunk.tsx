@@ -3,9 +3,10 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import type { ReactElement } from 'react';
 import { BufferGeometry, PlaneGeometry, type Group, type Mesh } from 'three';
 
-import { useSceneColors, useThemeColors } from '@/design-system/colors/colors';
+import { useThemeColors } from '@/design-system/colors/colors';
 import { useSettingsStore } from '@/domains/settings/presentation/stores/settingsStore';
 
+import { compositeThemeColorOver } from './fieldGridActiveCells';
 import { bindFieldChunkSlot } from './fieldGridChunkBind';
 import { fieldGridWorldSize, type FieldGridConfig } from './fieldGridConfig';
 import {
@@ -61,8 +62,8 @@ function FieldGridChunkComponent({
   onPointerCancel,
   onPointerLeave,
 }: FieldGridChunkProps): ReactElement {
-  const scene = useSceneColors();
-  const { surface, surfaceRaised } = useThemeColors();
+  const { surface, surfaceRaised, surfaceDivider } = useThemeColors();
+  const gridLineColor = compositeThemeColorOver(surfaceDivider, surface);
   const fieldConfig = useFieldConfig();
   const showActiveCells = useSettingsStore((s) => s.developerShowActiveCells);
   const showActiveCenters = useSettingsStore((s) => s.developerShowActiveCellCenters);
@@ -100,7 +101,7 @@ function FieldGridChunkComponent({
         layers: { showActiveCells, showActiveCenters, showCellLabels },
         surface,
         surfaceRaised,
-        surfaceDot: scene.surfaceDot,
+        surfaceDivider,
       },
       material,
       lineGeometry,
@@ -121,7 +122,7 @@ function FieldGridChunkComponent({
     showCellLabels,
     surface,
     surfaceRaised,
-    scene.surfaceDot,
+    surfaceDivider,
     material,
     lineGeometry,
     onMaterialReady,
@@ -149,7 +150,7 @@ function FieldGridChunkComponent({
         onPointerLeave={onPointerLeave}
       />
       <lineSegments geometry={lineGeometry}>
-        <lineBasicMaterial color={scene.surfaceDot} toneMapped={false} />
+        <lineBasicMaterial color={gridLineColor} toneMapped={false} />
       </lineSegments>
     </group>
   );

@@ -43,7 +43,7 @@ describe('fieldGridChunkBind', () => {
         },
         surface: '#101010',
         surfaceRaised: '#303030',
-        surfaceDot: '#ffffff',
+        surfaceDivider: 'rgba(0, 0, 0, 0.1)',
       },
       material,
       lines,
