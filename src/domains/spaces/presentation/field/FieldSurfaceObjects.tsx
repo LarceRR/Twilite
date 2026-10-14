@@ -65,7 +65,6 @@ type RuntimeObject = {
   readonly flickerSeed: number;
   readonly platformHeight: number;
   readonly platformSize: number;
-  readonly platformPixelResolution: number;
   readonly lightHeightAbovePlatform: number;
   readonly artHeight: number;
   readonly lightConfig: PixelObjectLightDto | null;
@@ -366,7 +365,6 @@ function FieldSurfaceObjectColumn({
       flickerSeed: surfaceObjectFlickerSeed(object.id),
       platformHeight,
       platformSize,
-      platformPixelResolution,
       lightHeightAbovePlatform: objectGlowConfig.heightAbovePlatform,
       artHeight,
       lightConfig,
@@ -401,7 +399,6 @@ function FieldSurfaceObjectColumn({
       object,
       platformHeight,
       platformSize,
-      platformPixelResolution,
       lightConfig,
       objectGlowConfig,
       waveMaterial,
