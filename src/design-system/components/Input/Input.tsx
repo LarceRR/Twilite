@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { forwardRef, memo, type ReactElement, type ReactNode } from 'react';
+import { forwardRef, memo, type ForwardedRef, type ReactElement, type ReactNode } from 'react';
 import {
   TextInput as NativeTextInput,
   type TextInputProps as NativeTextInputProps,
@@ -37,7 +37,7 @@ function InputComponent(
     placeholderTextColor,
     ...textInputProps
   }: InputProps,
-  ref: React.ForwardedRef<NativeTextInput>,
+  ref: ForwardedRef<NativeTextInput>,
 ): ReactElement {
   const theme = useThemeColors();
   const leadingContent =
