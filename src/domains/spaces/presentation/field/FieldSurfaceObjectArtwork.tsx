@@ -14,6 +14,8 @@ import type { AuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAsse
 import { cachedImageFile } from '@/infrastructure/assets/cachedImageFile';
 import type { PixelObjectMobileDto } from '@/shared/contracts';
 
+import { FIELD_OBJECT_ARTWORK_RENDER_ORDER } from './fieldGridConfig';
+
 export function FieldSurfaceObjectArtwork({
   sprite,
   headers,
@@ -117,7 +119,7 @@ function LoadedArtwork({
   if (texture === null) return null;
 
   return (
-    <mesh castShadow renderOrder={2}>
+    <mesh castShadow renderOrder={FIELD_OBJECT_ARTWORK_RENDER_ORDER}>
       <planeGeometry args={[width, height]} />
       <meshBasicMaterial
         ref={onMaterialReady}
