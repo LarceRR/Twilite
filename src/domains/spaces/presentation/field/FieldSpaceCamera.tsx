@@ -9,7 +9,7 @@ import {
   applyPendingCameraSwipeMovement,
   cancelCameraSwipeMotion,
 } from './fieldCameraSwipeMotion';
-import { FIELD_WORLD_UP } from './fieldGridConfig';
+import { FIELD_LOCAL_LIGHT_LAYER, FIELD_WORLD_UP } from './fieldGridConfig';
 
 const FIELD_CAMERA_FOV = FIELD_CAMERA_DEFAULT_POSE.fov;
 const ROTATION_ORDER = 'ZXY' as const;
@@ -59,6 +59,7 @@ export function FieldSpaceCamera(): ReactElement | null {
   useLayoutEffect(() => {
     if (!(camera instanceof PerspectiveCamera)) return;
     camera.up.copy(WORLD_UP);
+    camera.layers.enable(FIELD_LOCAL_LIGHT_LAYER);
 
     const userAdjusted = useFieldCameraControlStore.getState().userAdjusted;
     if (userAdjusted) {
