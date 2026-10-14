@@ -1,6 +1,6 @@
 import { useFrame } from '@react-three/fiber/native';
 import type { ReactElement, RefObject } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type Group, type Mesh, type MeshBasicMaterial, type Texture, Vector3 } from 'three';
 
 import type { AuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAssetHeaders';
@@ -282,7 +282,7 @@ function useAppearingObjects(objects: readonly SurfaceObject[]): AppearanceState
     Date.now() + objects.length * SURFACE_OBJECT_ANIMATION_CONFIG.staggerDelayMs,
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const newIds = collectNewObjectIds(objects, known.current);
     for (const object of objects) known.current.add(object.id);
     if (newIds.length > 0) {
