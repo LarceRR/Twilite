@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PerspectiveCamera } from 'three';
 
+import { DEFAULT_FIELD_CONFIG } from './fieldConfig';
 import {
   candleFlickerMultiplier,
   resolveSceneShadowIntensity,
@@ -8,7 +9,6 @@ import {
   SurfaceObjectLightVisibility,
   surfaceObjectFlickerSeed,
 } from './surfaceObjectLighting';
-import { DEFAULT_FIELD_CONFIG } from './fieldConfig';
 
 describe('surfaceObjectLighting', () => {
   it('culls a source outside the camera frustum while retaining sources inside it', () => {
