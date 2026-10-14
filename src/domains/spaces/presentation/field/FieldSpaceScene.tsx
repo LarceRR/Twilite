@@ -13,7 +13,10 @@ import { FieldWorldAxes } from './FieldWorldAxes';
 import { cellCenterOnPlane } from './fieldGridCells';
 import type { FieldGridConfig } from './fieldGridConfig';
 import { SURFACE_OBJECT_ANIMATION_CONFIG } from './surfaceObjectAnimation';
-import { resetFieldGridWaveScene } from './fieldGridWaveMaterial';
+import {
+  FIELD_GRID_MAX_PIXEL_LIGHTS,
+  resetFieldGridWaveScene,
+} from './fieldGridWaveMaterial';
 import {
   resolveSceneShadowIntensity,
   SurfaceObjectLightVisibility,
@@ -49,7 +52,15 @@ type PositionedShadowLight = SurfaceObjectLightingIdentity & {
   readonly y: number;
   readonly z: number;
   readonly distance: number;
+  distanceSquared: number;
 };
+
+function compareShadowLightDistance(
+  left: PositionedShadowLight,
+  right: PositionedShadowLight,
+): number {
+  return left.distanceSquared - right.distanceSquared;
+}
 
 function FieldSceneLighting({
   objects,
@@ -79,11 +90,13 @@ function FieldSceneLighting({
             artworkHeight / 2 +
             SURFACE_OBJECT_ANIMATION_CONFIG.artworkOffset,
           distance: source.distance,
+          distanceSquared: Number.POSITIVE_INFINITY,
         }];
       }),
     [objects, config],
   );
   const lightVisibility = useMemo(() => new SurfaceObjectLightVisibility(), []);
+  const candidateLightSources = useRef<PositionedShadowLight[]>([]);
   const visibleLightIdentities = useRef<SurfaceObjectLightingIdentity[]>([]);
 
   useLayoutEffect(() => {
@@ -97,12 +110,22 @@ function FieldSceneLighting({
     const light = lightRef.current;
     if (light === null) return;
     lightVisibility.updateCamera(camera);
+    const candidates = candidateLightSources.current;
+    candidates.length = 0;
+    for (const source of lightSources) {
+      if (!lightVisibility.intersects(source.x, source.y, source.z, source.distance)) continue;
+      source.distanceSquared =
+        (camera.position.x - source.x) ** 2 +
+        (camera.position.y - source.y) ** 2 +
+        (camera.position.z - source.z) ** 2;
+      candidates.push(source);
+    }
+    candidates.sort(compareShadowLightDistance);
+
     const visible = visibleLightIdentities.current;
     visible.length = 0;
-    for (const source of lightSources) {
-      if (lightVisibility.intersects(source.x, source.y, source.z, source.distance)) {
-        visible.push(source);
-      }
+    for (let index = 0; index < Math.min(candidates.length, FIELD_GRID_MAX_PIXEL_LIGHTS); index += 1) {
+      visible.push(candidates[index]!);
     }
     target.position.set(camera.position.x, 0, 0);
     light.position.set(

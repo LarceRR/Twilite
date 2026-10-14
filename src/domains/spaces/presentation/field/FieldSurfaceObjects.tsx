@@ -24,6 +24,7 @@ import {
   FIELD_GRID_MAX_PIXEL_LIGHTS,
   syncFieldGridPixelLights,
   type FieldGridPixelLight,
+  type FieldGridWaveMaterial,
 } from './fieldGridWaveMaterial';
 import {
   candleFlickerMultiplier,
@@ -53,6 +54,8 @@ type RuntimeObject = {
   readonly platformSize: number;
   readonly artHeight: number;
   readonly lightConfig: PixelObjectLightDto | null;
+  readonly waveMaterial: FieldGridWaveMaterial;
+  unregisterWaveMaterial: (() => void) | null;
   readonly pixelLight: FieldGridPixelLight | null;
   lightDistanceSquared: number;
   artworkMaterial: MeshBasicMaterial | null;
@@ -109,6 +112,19 @@ export function FieldSurfaceObjects({
     for (const item of runtime.current.values()) {
       advanceColumn(item, delta * 1000);
       advanceArtwork(item, delta * 1000, billboardCameraPosition, cameraMoved);
+
+      const platformInView = lightVisibility.intersects(
+        item.centerX,
+        item.centerY,
+        item.platformHeight / 2 + item.artHeight / 2,
+        item.platformSize * 1.25,
+      );
+      if (platformInView && item.unregisterWaveMaterial === null) {
+        item.unregisterWaveMaterial = registerFieldGridWaveMaterial(item.waveMaterial);
+      } else if (!platformInView && item.unregisterWaveMaterial !== null) {
+        item.unregisterWaveMaterial();
+        item.unregisterWaveMaterial = null;
+      }
 
       const lightConfig = item.lightConfig;
       const light = item.light.current;
@@ -211,6 +227,8 @@ function FieldSurfaceObjectColumn({
       light,
       waveOverlay,
       object,
+      waveMaterial,
+      unregisterWaveMaterial: null,
       centerX: center[0],
       centerY: center[1],
       flickerSeed: surfaceObjectFlickerSeed(object.id),
@@ -236,18 +254,19 @@ function FieldSurfaceObjectColumn({
       frame: null,
       billboardUpdated: false,
     }),
-    [initialElapsedMs, artHeight, center[0], center[1], object, platformHeight, platformSize, lightConfig],
+    [initialElapsedMs, artHeight, center[0], center[1], object, platformHeight, platformSize, lightConfig, waveMaterial],
   );
 
-  useEffect(() => register(item), [item, register]);
-
   useEffect(() => {
-    const unregister = registerFieldGridWaveMaterial(waveMaterial);
+    const unregisterRuntime = register(item);
     return () => {
-      unregister();
-      waveMaterial.dispose();
+      item.unregisterWaveMaterial?.();
+      item.unregisterWaveMaterial = null;
+      unregisterRuntime();
     };
-  }, [waveMaterial]);
+  }, [item, register]);
+
+  useEffect(() => () => waveMaterial.dispose(), [waveMaterial]);
 
   const onTextureReady = useCallback(
     (texture: Texture | null): void => {
