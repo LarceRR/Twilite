@@ -162,6 +162,10 @@ export type FieldConfig = {
     readonly directionalIntensity: number;
     /** Directional-light position offset from the camera focus, in world units [X, Y, Z]. */
     readonly directionalPosition: readonly [number, number, number];
+    /** Subtle warm fill added by the field shader so black surfaces remain gently readable. */
+    readonly surfaceAmbientColor: string;
+    /** Strength of the shader-level ambient fill, separate from Three.js ambient light. */
+    readonly surfaceAmbientIntensity: number;
     /** Per-object glow configuration, including the temporary API-independent testing mode. */
     readonly objectGlow: {
       /** Forces every object to use the fallback light settings until the backend supplies per-object light metadata. */
@@ -215,6 +219,10 @@ export type FieldConfig = {
     readonly shadows: {
       /** Width and height of the square directional shadow map, in texels. */
       readonly mapSizePx: number;
+      /** Number of nearest local point lights allowed to cast dynamic shadows. */
+      readonly localShadowLights: number;
+      /** Per-light cube shadow-map face size for point lights. */
+      readonly localShadowMapSizePx: number;
       /** Left clipping boundary of the directional shadow camera, in world units. */
       readonly cameraLeft: number;
       /** Right clipping boundary of the directional shadow camera, in world units. */
@@ -336,19 +344,21 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
     ambientIntensity: 0.85,
     directionalIntensity: 0.55,
     directionalPosition: [240, 420, 180],
+    surfaceAmbientColor: '#FFAE00',
+    surfaceAmbientIntensity: 0.035,
     objectGlow: {
       forceAllObjectsForTesting: true,
       fallbackColor: '#FFAE00',
-      fallbackIntensity: 1.4,
-      fallbackDistance: 240,
-      heightAbovePlatform: 1.5,
+      fallbackIntensity: 2.1,
+      fallbackDistance: 300,
+      heightAbovePlatform: 44,
       decay: 2,
       minimumVisibleIntensity: 0.005,
       flicker: {
-        minMultiplier: 0.58,
-        slowAmplitude: 0.22,
-        mediumAmplitude: 0.18,
-        fastAmplitude: 0.13,
+        minMultiplier: 0.62,
+        slowAmplitude: 0.16,
+        mediumAmplitude: 0.1,
+        fastAmplitude: 0.06,
         slowIntervalMs: 113,
         mediumIntervalMs: 47,
         fastIntervalMs: 23,
@@ -356,27 +366,29 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
       },
       pixelOverlay: {
         pixelSizePx: 8,
-        intensityScale: 0.42,
-        alphaScale: 0.48,
-        maxAlpha: 0.56,
-        surfaceColorMix: 0.68,
+        intensityScale: 0.5,
+        alphaScale: 0.55,
+        maxAlpha: 0.48,
+        surfaceColorMix: 0.65,
       },
     },
     shadows: {
-      mapSizePx: 256,
-      cameraLeft: -1200,
-      cameraRight: 1200,
-      cameraTop: 700,
-      cameraBottom: -700,
+      mapSizePx: 512,
+      localShadowLights: 3,
+      localShadowMapSizePx: 128,
+      cameraLeft: -800,
+      cameraRight: 800,
+      cameraTop: 500,
+      cameraBottom: -500,
       cameraNear: 0.1,
       cameraFar: 4000,
       bias: -0.0005,
       normalBias: 0.02,
-      baselineIntensity: 0.42,
-      minIntensity: 0.2,
-      maxIntensity: 0.82,
-      emitterSaturationIntensity: 2.5,
-      contrastScale: 0.38,
+      baselineIntensity: 0.25,
+      minIntensity: 0.18,
+      maxIntensity: 0.48,
+      emitterSaturationIntensity: 2.0,
+      contrastScale: 0.35,
     },
   },
 };

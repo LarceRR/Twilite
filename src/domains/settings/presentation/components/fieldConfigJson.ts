@@ -131,6 +131,9 @@ function validateConfigConstraints(config: FieldConfig): void {
   const shadows = config.lighting.shadows;
   assertConfigConstraint(
     Number.isInteger(shadows.mapSizePx) && shadows.mapSizePx > 0 &&
+      Number.isInteger(shadows.localShadowMapSizePx) && shadows.localShadowMapSizePx > 0 &&
+      Number.isInteger(shadows.localShadowLights) && shadows.localShadowLights >= 0 &&
+      shadows.localShadowLights <= 4 &&
       shadows.cameraLeft < shadows.cameraRight &&
       shadows.cameraTop > shadows.cameraBottom &&
       shadows.cameraNear > 0 && shadows.cameraFar > shadows.cameraNear,

@@ -72,8 +72,9 @@ describe('surfaceObjectLighting', () => {
       [{ id: 'same-light', light: { intensity: 4 } }],
       800,
     );
-    expect(withoutLights).toBe(0.42);
-    expect(oneLight).toBeGreaterThan(0.42);
+    const baseline = DEFAULT_FIELD_CONFIG.lighting.shadows.baselineIntensity;
+    expect(withoutLights).toBe(baseline);
+    expect(oneLight).toBeGreaterThan(baseline);
     expect(oneLight).toBeLessThanOrEqual(0.82);
     expect(dimLight).toBeLessThan(brightLight);
   });

@@ -64,6 +64,7 @@ type RuntimeObject = {
   readonly lightConfig: PixelObjectLightDto | null;
   readonly flickerConfig: FieldConfig['lighting']['objectGlow']['flicker'];
   readonly minimumVisibleIntensity: number;
+  castsLocalShadow: boolean;
   readonly waveMaterial: FieldGridWaveMaterial;
   unregisterWaveMaterial: (() => void) | null;
   readonly pixelLight: FieldGridPixelLight | null;
@@ -80,6 +81,36 @@ function compareLightDistance(left: RuntimeObject, right: RuntimeObject): number
   return left.lightDistanceSquared - right.lightDistanceSquared;
 }
 
+function setLocalShadowCasting(
+  item: RuntimeObject,
+  enabled: boolean,
+  mapSizePx: number,
+): void {
+  const light = item.light.current;
+  if (light === null) {
+    item.castsLocalShadow = false;
+    return;
+  }
+
+  const shadow = light.shadow;
+  if (shadow.mapSize.width !== mapSizePx || shadow.mapSize.height !== mapSizePx) {
+    shadow.mapSize.set(mapSizePx, mapSizePx);
+  }
+  if (shadow.camera.near !== 1 || shadow.camera.far !== light.distance) {
+    shadow.camera.near = 1;
+    shadow.camera.far = Math.max(2, light.distance);
+    shadow.camera.updateProjectionMatrix();
+  }
+  shadow.bias = -0.0008;
+  shadow.normalBias = 0.025;
+  shadow.radius = 2;
+
+  if (item.castsLocalShadow !== enabled) {
+    item.castsLocalShadow = enabled;
+    light.castShadow = enabled;
+  }
+}
+
 export function FieldSurfaceObjects({
   objects,
   config,
@@ -92,7 +123,9 @@ export function FieldSurfaceObjects({
   const runtime = useRef(new Map<string, RuntimeObject>());
   const appearance = useAppearingObjects(objects);
   const { surfaceRaised } = useThemeColors();
-  const objectGlowConfig = useFieldConfig().lighting.objectGlow;
+  const lightingConfig = useFieldConfig().lighting;
+  const objectGlowConfig = lightingConfig.objectGlow;
+  const shadowConfig = lightingConfig.shadows;
   const lastBillboardCameraXY = useRef({ x: Number.NaN, y: Number.NaN });
   const lightVisibility = useMemo(() => new SurfaceObjectLightVisibility(), []);
   const lightCandidates = useRef<RuntimeObject[]>([]);
@@ -139,7 +172,11 @@ export function FieldSurfaceObjects({
 
       const lightConfig = item.lightConfig;
       const light = item.light.current;
-      if (lightConfig === null || light === null || item.pixelLight === null) continue;
+      if (lightConfig === null || light === null || item.pixelLight === null) {
+        setLocalShadowCasting(item, false, shadowConfig.localShadowMapSizePx);
+        if (light !== null) light.visible = false;
+        continue;
+      }
 
       const progress = surfaceObjectRiseProgress(item.elapsedMs);
       const intensity =
@@ -152,6 +189,7 @@ export function FieldSurfaceObjects({
       if (light.intensity !== intensity) light.intensity = intensity;
       if (intensity <= item.minimumVisibleIntensity) {
         light.visible = false;
+        setLocalShadowCasting(item, false, shadowConfig.localShadowMapSizePx);
         continue;
       }
 
@@ -160,6 +198,7 @@ export function FieldSurfaceObjects({
       if (light.position.z !== z) light.position.z = z;
       if (!lightVisibility.intersects(item.centerX, item.centerY, z, lightConfig.distance)) {
         light.visible = false;
+        setLocalShadowCasting(item, false, shadowConfig.localShadowMapSizePx);
         continue;
       }
 
@@ -181,6 +220,11 @@ export function FieldSurfaceObjects({
       const light = item.light.current;
       const isActive = index < FIELD_GRID_MAX_PIXEL_LIGHTS;
       if (light !== null) light.visible = isActive;
+      setLocalShadowCasting(
+        item,
+        isActive && index < shadowConfig.localShadowLights,
+        shadowConfig.localShadowMapSizePx,
+      );
       if (isActive && item.pixelLight !== null) pixelLights.push(item.pixelLight);
     }
 
@@ -270,6 +314,7 @@ function FieldSurfaceObjectColumn({
       lightConfig,
       flickerConfig: objectGlowConfig.flicker,
       minimumVisibleIntensity: objectGlowConfig.minimumVisibleIntensity,
+      castsLocalShadow: false,
       pixelLight: lightConfig === null
         ? null
         : {
@@ -325,7 +370,12 @@ function FieldSurfaceObjectColumn({
   const onArtworkMaterialReady = useCallback(
     (material: MeshBasicMaterial | null): void => {
       item.artworkMaterial = material;
-      if (material !== null) material.opacity = surfaceObjectRiseProgress(item.elapsedMs);
+      if (material !== null) {
+        material.opacity = surfaceObjectRiseProgress(item.elapsedMs);
+        // Local point-light shadow cameras use layer 1; preserve layer 0 so the
+        // sprite remains visible to the main camera and shared directional light.
+        item.artwork.current?.traverse((child) => child.layers.enable(FIELD_LOCAL_LIGHT_LAYER));
+      }
     },
     [item],
   );
@@ -334,7 +384,6 @@ function FieldSurfaceObjectColumn({
     <group position={[center[0], center[1], 0]}>
       <mesh
         ref={column}
-        castShadow
         receiveShadow
         visible={initialProgress > 0}
         position={[0, 0, (platformHeight * initialProgress) / 2]}

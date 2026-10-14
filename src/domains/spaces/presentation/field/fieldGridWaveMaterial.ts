@@ -63,6 +63,8 @@ uniform float uLightIntensityScale;
 uniform float uLightAlphaScale;
 uniform float uLightMaxAlpha;
 uniform float uLightSurfaceColorMix;
+uniform vec3 uAmbientColor;
+uniform float uAmbientIntensity;
 
 varying vec2 vUv;
 varying vec2 vWorldXY;
@@ -133,12 +135,10 @@ vec4 samplePixelLight() {
       float fractionAtPlatformTop = (sourceZ - platformTopZ) / verticalSpan;
       vec2 crossing = mix(uLightPositions[i].xy, pixelWorld, fractionAtPlatformTop);
       vec2 crossingOffset = abs(crossing - uLightPositions[i].xy);
-      if (
-        crossingOffset.x <= platformHalfSize &&
-        crossingOffset.y <= platformHalfSize
-      ) {
-        continue;
-      }
+      float edgeDistance = max(crossingOffset.x, crossingOffset.y) - platformHalfSize;
+      float softness = max(uLightPixelSize * 2.0, 10.0);
+      // Fade the occlusion at the platform edge instead of cutting the light off abruptly.
+      attenuation *= smoothstep(-softness, softness, edgeDistance);
     }
 
     accumulated += uLightColors[i] * intensity * attenuation * uLightIntensityScale;
@@ -154,6 +154,14 @@ void main() {
   vec4 base = texture2D(uMap, vUv);
   vec3 color = base.rgb;
   float alpha = base.a;
+
+  // The baked surface texture bypasses Three.js lighting, so give dark pixels a
+  // low, warm ambient floor without washing out brighter grid lines or highlights.
+  if (alpha > 0.001 && uAmbientIntensity > 0.0) {
+    float baseBrightness = max(max(color.r, color.g), color.b);
+    float ambientRoom = 1.0 - clamp(baseBrightness, 0.0, 1.0);
+    color = min(vec3(1.0), color + uAmbientColor * (uAmbientIntensity * ambientRoom));
+  }
 
   vec4 light = samplePixelLight();
   if (light.a > 0.001) {
@@ -252,6 +260,8 @@ export type FieldGridWaveMaterial = ShaderMaterial & {
     uLightAlphaScale: { value: number };
     uLightMaxAlpha: { value: number };
     uLightSurfaceColorMix: { value: number };
+    uAmbientColor: { value: Color };
+    uAmbientIntensity: { value: number };
   };
 };
 
@@ -332,6 +342,8 @@ export function createFieldGridWaveMaterial(
       uLightAlphaScale: { value: pixelGlow.alphaScale },
       uLightMaxAlpha: { value: pixelGlow.maxAlpha },
       uLightSurfaceColorMix: { value: pixelGlow.surfaceColorMix },
+      uAmbientColor: { value: new Color(fieldConfig.lighting.surfaceAmbientColor) },
+      uAmbientIntensity: { value: fieldConfig.lighting.surfaceAmbientIntensity },
     },
     vertexShader,
     fragmentShader,
@@ -429,7 +441,10 @@ export function syncFieldGridWaveConfig(material: FieldGridWaveMaterial): void {
   material.uniforms.uFadeInEnd.value = wave.fadeInEnd;
   material.uniforms.uFadeOutStart.value = wave.fadeOutStart;
 
-  const pixelGlow = getFieldConfig().lighting.objectGlow.pixelOverlay;
+  const lighting = getFieldConfig().lighting;
+  const pixelGlow = lighting.objectGlow.pixelOverlay;
+  material.uniforms.uAmbientColor.value.set(lighting.surfaceAmbientColor);
+  material.uniforms.uAmbientIntensity.value = lighting.surfaceAmbientIntensity;
   material.uniforms.uLightPixelSize.value = pixelGlow.pixelSizePx;
   material.uniforms.uLightIntensityScale.value = pixelGlow.intensityScale;
   material.uniforms.uLightAlphaScale.value = pixelGlow.alphaScale;

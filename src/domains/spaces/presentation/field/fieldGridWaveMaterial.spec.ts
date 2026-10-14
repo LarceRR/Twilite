@@ -18,9 +18,13 @@ describe('fieldGridWaveMaterial', () => {
     try {
       useFieldConfigStore.getState().setSection('lighting', {
         objectGlow: { pixelOverlay: { pixelSizePx: 13 } },
+        surfaceAmbientColor: '#FF5911',
+        surfaceAmbientIntensity: 0.12,
       });
       syncFieldGridWaveSceneConfig();
       expect(material.uniforms.uLightPixelSize.value).toBe(13);
+      expect(material.uniforms.uAmbientColor.value.getHex()).toBe(0xff5911);
+      expect(material.uniforms.uAmbientIntensity.value).toBe(0.12);
     } finally {
       useFieldConfigStore.getState().reset();
       syncFieldGridWaveSceneConfig();
