@@ -19,6 +19,7 @@ import {
 import { isLabelGlyphPixelOn } from './fieldGridDigitGlyphs';
 
 const FILL: Rgba = [10, 20, 30, 255];
+const TRANSPARENT: Rgba = [0, 0, 0, 0];
 const LINE: Rgba = [200, 200, 200, 255];
 const TEXT: Rgba = [1, 2, 3, 255];
 const ACTIVE_FILL: Rgba = FIELD_ACTIVE_FILL_RGBA;
@@ -66,13 +67,13 @@ function countColorInRect(
 describe('fieldGridLabelPixels', () => {
   const config = createFieldGridConfig(50, 21, 60);
 
-  it('builds a pitch-sized RGBA buffer with fill, grid lines, and text ink', () => {
+  it('builds a pitch-sized transparent RGBA buffer with grid lines and text ink', () => {
     const { data, width, height } = buildFieldGridLabelPixels(config, COLORS);
     expect(width).toBe(3050);
     expect(height).toBe(1282);
     expect(data.length).toBe(3050 * 1282 * 4);
     // Avoid bottom-right label ink; sample near cell center of an inactive corner cell.
-    expect(sample(data, width, 30, 30)).toEqual(FILL);
+    expect(sample(data, width, 30, 30)).toEqual(TRANSPARENT);
     expect(sample(data, width, 0, 30)).toEqual(LINE);
     expect(sample(data, width, 61, 30)).toEqual(LINE);
   });
@@ -91,7 +92,7 @@ describe('fieldGridLabelPixels', () => {
     expect(sample(data, width, 20, 620)).toEqual(ACTIVE_FILL);
     expect(sample(data, width, 30, 640)).toEqual(ACTIVE_CENTER);
     // Outside the active band stays base fill.
-    expect(sample(data, width, 20, 50)).toEqual(FILL);
+    expect(sample(data, width, 20, 50)).toEqual(TRANSPARENT);
   });
 
   it('defaults active colors when omitted', () => {
@@ -108,7 +109,7 @@ describe('fieldGridLabelPixels', () => {
     const { data, width } = buildFieldGridLabelPixels(config, COLORS, {
       showActiveCells: false,
     });
-    expect(sample(data, width, 20, 620)).toEqual(FILL);
+    expect(sample(data, width, 20, 620)).toEqual(TRANSPARENT);
     expect(sample(data, width, 30, 630)).toEqual(ACTIVE_CENTER);
   });
 
