@@ -7,7 +7,6 @@ import type { AuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAsse
 import type { SurfaceObject } from '@/domains/spaces/domain/entities/SurfaceObject';
 import { useThemeColors } from '@/design-system/colors/colors';
 
-import { lightenThemeColor } from './fieldGridActiveCells';
 import { FieldSurfaceObjectArtwork } from './FieldSurfaceObjectArtwork';
 import { cellCenterOnPlane } from './fieldGridCells';
 import type { FieldGridConfig } from './fieldGridConfig';
@@ -47,8 +46,8 @@ export function FieldSurfaceObjects({
 }): ReactElement {
   const runtime = useRef(new Map<string, RuntimeObject>());
   const appearance = useAppearingObjects(objects);
-  const { accentSoft } = useThemeColors();
-  const platformColor = lightenThemeColor(accentSoft);
+  const { surfaceRaised } = useThemeColors();
+  const platformColor = surfaceRaised;
   const lastBillboardCameraXY = useRef({ x: Number.NaN, y: Number.NaN });
 
   const register = useCallback((item: RuntimeObject): (() => void) => {
