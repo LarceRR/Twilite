@@ -1,20 +1,18 @@
-import { currentThemeColors } from '@/design-system/colors/colors';
-
 import { DEFAULT_FIELD_CONFIG, hexToRgbaTuple } from './fieldConfig';
 import { getFieldConfig } from './fieldConfigStore';
 
 /** How many cells on each side of the center row are active. */
 export const FIELD_ACTIVE_SIDE_SPAN = DEFAULT_FIELD_CONFIG.activeCells.sideSpan;
 
-/** Initial active-cell fill, matching the current theme's raised surface. */
-export const FIELD_ACTIVE_FILL_HEX = currentThemeColors().surfaceRaised;
+/** Default active-cell fill color; the developer config can override it at runtime. */
+export const FIELD_ACTIVE_FILL_HEX = DEFAULT_FIELD_CONFIG.activeCells.fillHex;
 export const FIELD_ACTIVE_FILL_RGBA = themeColorToRgbaTuple(FIELD_ACTIVE_FILL_HEX);
 
-/** Bright pink mark at the center of each active cell (#ff1493). */
+/** Default color for the center mark of each active cell. */
 export const FIELD_ACTIVE_CENTER_HEX = DEFAULT_FIELD_CONFIG.activeCells.centerHex;
 export const FIELD_ACTIVE_CENTER_RGBA = hexToRgbaTuple(FIELD_ACTIVE_CENTER_HEX);
 
-/** Near-black ink for XY labels on base and active fills. */
+/** Default color for grid labels on base and active fills. */
 export const FIELD_LABEL_TEXT_HEX = DEFAULT_FIELD_CONFIG.activeCells.labelTextHex;
 
 /** Zero-based center row along Y (screen LTR axis). For 15 rows → 7. */
@@ -45,7 +43,7 @@ export function isActiveFieldGridCell(
 }
 
 export function fieldActiveFillRgba(): readonly [number, number, number, number] {
-  return themeColorToRgbaTuple(currentThemeColors().surfaceRaised);
+  return hexToRgbaTuple(getFieldConfig().activeCells.fillHex);
 }
 
 /** Composite a translucent theme color over an opaque surface for texture rendering. */
