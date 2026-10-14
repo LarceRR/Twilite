@@ -4,6 +4,7 @@ import { BlurCard } from '@/design-system/components/BlurCard/BlurCard';
 import { ListRow } from '@/design-system/components/ListRow/ListRow';
 import { Screen } from '@/design-system/components/Screen/Screen';
 import { Switch } from '@/design-system/components/Switch/Switch';
+
 import { FieldConfigExplorer } from '../components/FieldConfigExplorer';
 import { useSettingsStore } from '../stores/settingsStore';
 
