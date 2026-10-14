@@ -55,6 +55,95 @@ function validateValue(value: unknown, schema: unknown, path: string): unknown {
   return value;
 }
 
+function assertConfigConstraint(condition: boolean, message: string): void {
+  if (!condition) throw new Error(`Некорректная конфигурация: ${message}`);
+}
+
+function validateConfigConstraints(config: FieldConfig): void {
+  assertConfigConstraint(
+    Number.isInteger(config.grid.cellSizePx) && config.grid.cellSizePx > 0,
+    'grid.cellSizePx должен быть положительным целым числом.',
+  );
+  assertConfigConstraint(
+    Number.isInteger(config.grid.dividerWidthPx) && config.grid.dividerWidthPx >= 0,
+    'grid.dividerWidthPx должен быть целым числом не меньше нуля.',
+  );
+  assertConfigConstraint(
+    Number.isInteger(config.grid.rows) && config.grid.rows > 0 &&
+      Number.isInteger(config.grid.centerCols) && config.grid.centerCols > 0 &&
+      Number.isInteger(config.grid.sideExtraCols) && config.grid.sideExtraCols >= 0,
+    'размеры сетки должны быть целыми числами в допустимом диапазоне.',
+  );
+  assertConfigConstraint(
+    Number.isInteger(config.chunks.cols) && config.chunks.cols > 0 &&
+      Number.isInteger(config.chunks.behind) && config.chunks.behind >= 0 &&
+      Number.isInteger(config.chunks.ahead) && config.chunks.ahead > 0 &&
+      Number.isInteger(config.chunks.gpuUploadSteady) && config.chunks.gpuUploadSteady > 0,
+    'параметры чанков должны сохранять положительный размер и хотя бы одну GPU-загрузку за кадр.',
+  );
+  assertConfigConstraint(
+    config.wave.sizePx > 0 && config.wave.pixelSizePx > 0 && config.wave.durationSec > 0,
+    'размер пикселя, размер волны и её длительность должны быть больше нуля.',
+  );
+  assertConfigConstraint(
+    config.wave.fadeInEnd >= 0 && config.wave.fadeInEnd <= 1 &&
+      config.wave.fadeOutStart >= 0 && config.wave.fadeOutStart <= 1,
+    'границы появления и исчезновения волны должны быть от 0 до 1.',
+  );
+  assertConfigConstraint(
+    config.camera.fov > 0 && config.camera.fov < 180 &&
+      config.camera.near > 0 && config.camera.far > config.camera.near,
+    'камера должна иметь FOV от 0 до 180 градусов и корректные near/far.',
+  );
+  assertConfigConstraint(
+    config.camera.framingMargin >= 1 &&
+      config.camera.swipeInertiaDrag > 0 && config.camera.swipeInertiaDrag < 1 &&
+      config.camera.swipeFrameDeltaMaxSec > 0,
+    'параметры кадрирования и инерции камеры должны быть положительными; drag должен быть меньше 1.',
+  );
+  assertConfigConstraint(
+    config.labels.scale > 0 && config.labels.padding >= 0 && config.labels.raise >= 0,
+    'масштаб и отступы подписей не должны быть отрицательными или нулевыми для масштаба.',
+  );
+  assertConfigConstraint(
+    config.holdRepeat.tickMs > 0 && config.holdRepeat.startDelayMs >= 0,
+    'повтор движения должен иметь положительный интервал.',
+  );
+  const glow = config.lighting.objectGlow;
+  assertConfigConstraint(
+    glow.fallbackIntensity >= 0 && glow.fallbackDistance > 0 &&
+      glow.heightAbovePlatform > 0 && glow.decay >= 0 &&
+      glow.minimumVisibleIntensity >= 0 && glow.minimumVisibleIntensity <= 1,
+    'параметры свечения объекта должны быть неотрицательными, а радиус и высота — положительными.',
+  );
+  assertConfigConstraint(
+    glow.flicker.slowIntervalMs > 0 &&
+      glow.flicker.mediumIntervalMs > 0 &&
+      glow.flicker.fastIntervalMs > 0 &&
+      glow.flicker.roundingScale > 0,
+    'интервалы мерцания и масштаб округления должны быть больше нуля.',
+  );
+  assertConfigConstraint(
+    glow.pixelOverlay.pixelSizePx > 0 &&
+      glow.pixelOverlay.maxAlpha >= 0 && glow.pixelOverlay.maxAlpha <= 1,
+    'пиксельное свечение должно иметь положительный размер, а maxAlpha — значение от 0 до 1.',
+  );
+  const shadows = config.lighting.shadows;
+  assertConfigConstraint(
+    Number.isInteger(shadows.mapSizePx) && shadows.mapSizePx > 0 &&
+      shadows.cameraLeft < shadows.cameraRight &&
+      shadows.cameraTop > shadows.cameraBottom &&
+      shadows.cameraNear > 0 && shadows.cameraFar > shadows.cameraNear,
+    'параметры shadow-камеры должны описывать корректный объём и положительное разрешение.',
+  );
+  assertConfigConstraint(
+    shadows.emitterSaturationIntensity > 0 &&
+      shadows.minIntensity >= 0 && shadows.minIntensity <= shadows.maxIntensity &&
+      shadows.maxIntensity <= 1,
+    'границы интенсивности теней должны быть упорядочены от 0 до 1.',
+  );
+}
+
 /** Create a portable, versioned JSON document from the active merged configuration. */
 export function serializeFieldConfigJson(config: FieldConfig): string {
   return JSON.stringify(
@@ -103,6 +192,8 @@ export function parseFieldConfigJson(content: string): FieldConfig {
     '',
   ) as FieldConfigOverrides;
 
-  return mergeFieldConfig(overrides);
+  const config = mergeFieldConfig(overrides);
+  validateConfigConstraints(config);
+  return config;
 }
 
