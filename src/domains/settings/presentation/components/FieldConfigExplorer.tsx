@@ -185,12 +185,6 @@ function NumberSettingControl({
   );
 }
 
-function inferDigits(step: number): number {
-  if (Number.isInteger(step)) return 0;
-  const text = step.toString();
-  return text.includes('.') ? Math.min(4, text.split('.')[1]?.length ?? 0) : 0;
-}
-
 function ColorSettingControl({
   setting,
   value,
