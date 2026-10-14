@@ -29,6 +29,15 @@ function isHexColor(value: string): boolean {
   return /^#[0-9a-fA-F]{6}$/.test(value);
 }
 
+function parameterCountLabel(count: number): string {
+  const finalTwoDigits = count % 100;
+  if (finalTwoDigits >= 11 && finalTwoDigits <= 14) return `${count} параметров`;
+  const finalDigit = count % 10;
+  if (finalDigit === 1) return `${count} параметр`;
+  if (finalDigit >= 2 && finalDigit <= 4) return `${count} параметра`;
+  return `${count} параметров`;
+}
+
 function SettingControl({
   setting,
   config,
@@ -130,7 +139,15 @@ function ColorSettingControl({
             {setting.description}
           </Text>
         </View>
-        <View style={[styles.colorPreview, { backgroundColor: isHexColor(value) ? value : theme.surfaceRaised, borderColor: theme.surfaceDivider }]} />
+        <View
+          style={[
+            styles.colorPreview,
+            {
+              backgroundColor: isHexColor(value) ? value : theme.surfaceRaised,
+              borderColor: theme.surfaceDivider,
+            },
+          ]}
+        />
       </View>
       <TextInput
         value={draft}
@@ -197,7 +214,7 @@ function SettingGroup({
             {group.description}
           </Text>
           <Text variant="caption" color={theme.textTertiary}>
-            {settings.length} {settings.length === 1 ? 'параметр' : settings.length >= 2 && settings.length <= 4 ? 'параметра' : 'параметров'}
+            {parameterCountLabel(settings.length)}
           </Text>
         </View>
         <Ionicons
@@ -350,7 +367,7 @@ export function FieldConfigExplorer(): ReactElement {
             ? `Найдено параметров: ${visibleSettingCount}`
             : `Все параметры конфигурации: ${FIELD_CONFIG_SETTING_GROUPS.reduce((sum, group) => sum + group.settings.length, 0)}`}
         </Text>
-        <Button label="Сбросить всё" variant="secondary" onPress={resetAll} />
+        <Button label="Сбросить конфиг" variant="secondary" onPress={resetAll} />
       </View>
 
       {visibleGroups.length === 0 ? (
