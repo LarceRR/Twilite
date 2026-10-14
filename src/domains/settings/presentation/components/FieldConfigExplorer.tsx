@@ -231,8 +231,15 @@ export function FieldConfigExplorer(): ReactElement {
   const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<string>>(
     () => new Set(['grid', 'objectGlow']),
   );
+  const [collapsedSearchGroups, setCollapsedSearchGroups] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
 
   const needle = query.trim().toLocaleLowerCase();
+
+  useEffect(() => {
+    setCollapsedSearchGroups(new Set());
+  }, [needle]);
   const visibleGroups = useMemo(() => {
     return FIELD_CONFIG_SETTING_GROUPS.flatMap((group) => {
       if (needle.length === 0) return [{ group, settings: group.settings }];
@@ -292,12 +299,18 @@ export function FieldConfigExplorer(): ReactElement {
   };
 
   const toggleGroup = (id: string): void => {
-    setExpandedGroups((current) => {
+    const update = (current: ReadonlySet<string>): ReadonlySet<string> => {
       const next = new Set(current);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
-    });
+    };
+
+    if (needle.length > 0) {
+      setCollapsedSearchGroups(update);
+    } else {
+      setExpandedGroups(update);
+    }
   };
 
   return (
@@ -353,7 +366,11 @@ export function FieldConfigExplorer(): ReactElement {
             key={group.id}
             group={group}
             settings={settings}
-            expanded={needle.length > 0 || expandedGroups.has(group.id)}
+            expanded={
+              needle.length > 0
+                ? !collapsedSearchGroups.has(group.id)
+                : expandedGroups.has(group.id)
+            }
             onToggle={() => toggleGroup(group.id)}
             config={config}
             onChange={onChangeSetting}
