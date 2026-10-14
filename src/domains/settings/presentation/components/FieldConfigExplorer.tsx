@@ -75,6 +75,7 @@ function SettingControl({
   return (
     <NumberSettingControl
       setting={setting}
+      config={config}
       value={numberValue}
       onChange={(next) => onChange(setting, next)}
     />
@@ -105,17 +106,63 @@ function BooleanSettingControl({
   );
 }
 
+function resolveSettingBounds(
+  setting: Extract<FieldConfigSetting, { readonly kind: 'number' }>,
+  config: FieldConfig,
+): { readonly min: number; readonly max: number } {
+  let min = setting.min;
+  let max = setting.max;
+
+  switch (setting.path) {
+    case 'camera.near':
+      max = Math.min(max, config.camera.far - 0.01);
+      break;
+    case 'camera.far':
+      min = Math.max(min, config.camera.near + 0.01);
+      break;
+    case 'lighting.shadows.cameraLeft':
+      max = Math.min(max, config.lighting.shadows.cameraRight - 1);
+      break;
+    case 'lighting.shadows.cameraRight':
+      min = Math.max(min, config.lighting.shadows.cameraLeft + 1);
+      break;
+    case 'lighting.shadows.cameraTop':
+      min = Math.max(min, config.lighting.shadows.cameraBottom + 1);
+      break;
+    case 'lighting.shadows.cameraBottom':
+      max = Math.min(max, config.lighting.shadows.cameraTop - 1);
+      break;
+    case 'lighting.shadows.cameraNear':
+      max = Math.min(max, config.lighting.shadows.cameraFar - 0.1);
+      break;
+    case 'lighting.shadows.cameraFar':
+      min = Math.max(min, config.lighting.shadows.cameraNear + 0.1);
+      break;
+    case 'lighting.shadows.minIntensity':
+      max = Math.min(max, config.lighting.shadows.maxIntensity);
+      break;
+    case 'lighting.shadows.maxIntensity':
+      min = Math.max(min, config.lighting.shadows.minIntensity);
+      break;
+  }
+
+  return { min, max };
+}
+
 function NumberSettingControl({
   setting,
+  config,
   value: numberValue,
   onChange,
 }: {
   readonly setting: Extract<FieldConfigSetting, { readonly kind: 'number' }>;
+  readonly config: FieldConfig;
   readonly value: number;
   readonly onChange: (value: number) => void;
 }): ReactElement {
   const theme = useThemeColors();
-  const boundedValue = Math.max(setting.min, Math.min(setting.max, numberValue));
+  const { min, max } = resolveSettingBounds(setting, config);
+  const boundedValue = Math.max(min, Math.min(max, numberValue));
   const digits = setting.digits ?? inferDigits(setting.step);
   const [draft, setDraft] = useState(numberValue.toFixed(digits));
 
@@ -136,11 +183,11 @@ function NumberSettingControl({
       return;
     }
 
-    const clamped = Math.max(setting.min, Math.min(setting.max, parsed));
-    const stepCount = Math.round((clamped - setting.min) / setting.step);
+    const clamped = Math.max(min, Math.min(max, parsed));
+    const stepCount = Math.round((clamped - min) / setting.step);
     const stepped = Math.max(
-      setting.min,
-      Math.min(setting.max, setting.min + stepCount * setting.step),
+      min,
+      Math.min(max, min + stepCount * setting.step),
     );
     const committed = Number(stepped.toFixed(Math.max(digits, 0)));
     onChange(committed);
@@ -171,12 +218,12 @@ function NumberSettingControl({
       <Slider
         accessibilityLabel={setting.label}
         value={boundedValue}
-        min={setting.min}
-        max={setting.max}
+        min={min}
+        max={max}
         step={setting.step}
         onChange={onChange}
       />
-      {(numberValue < setting.min || numberValue > setting.max) ? (
+      {(numberValue < min || numberValue > max) ? (
         <Text variant="caption" color={theme.textTertiary}>
           Значение выше или ниже диапазона ползунка. Введите значение в допустимом диапазоне.
         </Text>
