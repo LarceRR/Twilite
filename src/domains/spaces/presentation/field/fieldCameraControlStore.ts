@@ -29,6 +29,7 @@ export type FieldCameraControlState = {
   }) => void;
   setPosition: (position: Vec3) => void;
   setRotationDeg: (rotationDeg: Vec3) => void;
+  setProjection: (projection: { readonly fov: number; readonly near: number; readonly far: number }) => void;
   pulseActiveWorldAxis: (axis: WorldAxis) => void;
   markUserAdjusted: () => void;
 };
@@ -76,6 +77,13 @@ export const useFieldCameraControlStore = create<FieldCameraControlState>()((set
   setRotationDeg: (rotationDeg) =>
     set((state) => ({
       rotationDeg,
+      userAdjusted: true,
+      ready: true,
+      revision: state.revision + 1,
+    })),
+  setProjection: (projection) =>
+    set((state) => ({
+      ...projection,
       userAdjusted: true,
       ready: true,
       revision: state.revision + 1,
