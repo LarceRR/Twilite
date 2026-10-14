@@ -1,7 +1,7 @@
 import { type ThreeEvent } from '@react-three/fiber/native';
 import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import type { ReactElement } from 'react';
-import { BufferGeometry, PlaneGeometry, type Group, type Mesh } from 'three';
+import { BufferGeometry, DoubleSide, PlaneGeometry, type Group, type Mesh } from 'three';
 
 import { useThemeColors } from '@/design-system/colors/colors';
 import { useSettingsStore } from '@/domains/settings/presentation/stores/settingsStore';
@@ -47,10 +47,7 @@ function useChunkSlotResources(width: number, height: number) {
   return { planeGeometry, lineGeometry, material };
 }
 
-/**
- * One recycled field-deck slot. Plane/material stay alive; only texture + lines
- * rebind when the streamed chunk index changes (avoids mount hitches).
- */
+/** The lit base receives shadows; its transparent overlay renders pixels and waves. */
 function FieldGridChunkComponent({
   chunkIndex,
   base,
@@ -70,6 +67,7 @@ function FieldGridChunkComponent({
   const showCellLabels = useSettingsStore((s) => s.developerShowCellLabels);
 
   const groupRef = useRef<Group>(null);
+  const surfaceMeshRef = useRef<Mesh>(null);
   const meshRef = useRef<Mesh>(null);
   const boundChunkRef = useRef<number | null>(null);
 
@@ -84,7 +82,6 @@ function FieldGridChunkComponent({
   useLayoutEffect(() => {
     const group = groupRef.current;
     const prevBound = boundChunkRef.current;
-
     if (chunkIndex == null) {
       if (prevBound != null) {
         onMaterialDispose(prevBound, material);
@@ -106,6 +103,7 @@ function FieldGridChunkComponent({
       material,
       lineGeometry,
       meshRef.current,
+      surfaceMeshRef.current,
     );
 
     if (prevBound != null && prevBound !== chunkIndex) {
@@ -138,11 +136,13 @@ function FieldGridChunkComponent({
 
   return (
     <group ref={groupRef} visible={chunkIndex != null}>
+      <mesh ref={surfaceMeshRef} geometry={planeGeometry} receiveShadow>
+        <meshLambertMaterial color={surface} side={DoubleSide} />
+      </mesh>
       <mesh
         ref={meshRef}
         geometry={planeGeometry}
         material={material}
-        receiveShadow
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
