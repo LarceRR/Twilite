@@ -351,10 +351,9 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
         fieldConfig,
       );
 
-    // GPU uploads can synchronize with the graphics driver. One upload per
-    // frame bounds that cost instead of turning several completed bakes into
-    // a single visible frame hitch.
-    const uploaded = pumpFieldChunkGpuUploads(gl, 1);
+    // GPU uploads can synchronize with the graphics driver. Keep the per-frame
+    // budget configurable so the developer screen can trade speed for smoothness.
+    const uploaded = pumpFieldChunkGpuUploads(gl, fieldConfig.chunks.gpuUploadSteady);
 
     if (
       !bootstrappedRef.current &&
