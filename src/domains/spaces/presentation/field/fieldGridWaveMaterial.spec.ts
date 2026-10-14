@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createFieldGridWaveMaterial,
   registerFieldGridWaveMaterial,
+  resetFieldGridWaveScene,
   syncFieldGridPixelLights,
   triggerFieldGridWaveOnScene,
   syncFieldGridWaveSceneTime,
@@ -28,8 +29,7 @@ describe('fieldGridWaveMaterial', () => {
     } finally {
       unregister();
       material.dispose();
-      syncFieldGridPixelLights([]);
-      syncFieldGridWaveSceneTime(0);
+      resetFieldGridWaveScene();
     }
   });
 });

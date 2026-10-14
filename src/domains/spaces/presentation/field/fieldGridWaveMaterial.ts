@@ -354,6 +354,19 @@ export function triggerFieldGridWaveOnScene(
   }
 }
 
+/** Clear scene-scoped waves/lights when the 3D field unmounts. */
+export function resetFieldGridWaveScene(): void {
+  sceneWaveTime = 0;
+  for (let index = 0; index < FIELD_WAVE_MAX_COUNT; index += 1) {
+    sceneWaveOrigins[index]!.set(0, 0);
+    sceneWaveStartTimes[index] = FIELD_WAVE_SLOT_INACTIVE;
+  }
+  for (const material of sceneWaveMaterials) {
+    copySceneWaveState(material);
+    setPixelLightsOnMaterial(material, []);
+  }
+}
+
 /** Keep shader uniforms in sync with runtime field config overrides. */
 export function syncFieldGridWaveConfig(material: FieldGridWaveMaterial): void {
   const wave = getFieldConfig().wave;
