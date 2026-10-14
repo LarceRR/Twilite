@@ -22,8 +22,6 @@ import {
 } from './fieldGridWave';
 
 export const FIELD_GRID_MAX_PIXEL_LIGHTS = 12;
-const LIGHT_PIXEL_SIZE = 8;
-
 const vertexShader = /* glsl */ `
 precision highp float;
 
@@ -60,6 +58,10 @@ uniform vec3 uLightPositions[LIGHT_COUNT];
 uniform vec3 uLightColors[LIGHT_COUNT];
 uniform vec2 uLightParams[LIGHT_COUNT];
 uniform float uLightPixelSize;
+uniform float uLightIntensityScale;
+uniform float uLightAlphaScale;
+uniform float uLightMaxAlpha;
+uniform float uLightSurfaceColorMix;
 
 varying vec2 vUv;
 varying vec2 vWorldXY;
@@ -113,11 +115,11 @@ vec4 samplePixelLight() {
     float distanceToSource = length(delta);
     float attenuation = saturate(1.0 - distanceToSource / distanceLimit);
     attenuation *= attenuation;
-    accumulated += uLightColors[i] * intensity * attenuation * 0.42;
+    accumulated += uLightColors[i] * intensity * attenuation * uLightIntensityScale;
   }
 
   float energy = max(max(accumulated.r, accumulated.g), accumulated.b);
-  float alpha = clamp(energy * 0.48, 0.0, 0.56);
+  float alpha = clamp(energy * uLightAlphaScale, 0.0, uLightMaxAlpha);
   vec3 color = accumulated / max(energy, 0.0001);
   return vec4(color, alpha);
 }
@@ -130,7 +132,7 @@ void main() {
   vec4 light = samplePixelLight();
   if (light.a > 0.001) {
     if (alpha > 0.001) {
-      color = mix(color, light.rgb, light.a * 0.68);
+      color = mix(color, light.rgb, light.a * uLightSurfaceColorMix);
       alpha = max(alpha, light.a);
     } else {
       color = light.rgb;
@@ -213,6 +215,10 @@ export type FieldGridWaveMaterial = ShaderMaterial & {
     uLightColors: { value: Color[] };
     uLightParams: { value: Vector2[] };
     uLightPixelSize: { value: number };
+    uLightIntensityScale: { value: number };
+    uLightAlphaScale: { value: number };
+    uLightMaxAlpha: { value: number };
+    uLightSurfaceColorMix: { value: number };
   };
 };
 
@@ -263,7 +269,9 @@ function setPixelLightsOnMaterial(
 export function createFieldGridWaveMaterial(
   map: Texture | null = null,
 ): FieldGridWaveMaterial {
-  const wave = getFieldConfig().wave;
+  const fieldConfig = getFieldConfig();
+  const wave = fieldConfig.wave;
+  const pixelGlow = fieldConfig.lighting.objectGlow.pixelOverlay;
   return new ShaderMaterial({
     uniforms: {
       uMap: { value: map ?? transparentPixelTexture },
@@ -279,7 +287,11 @@ export function createFieldGridWaveMaterial(
       uLightPositions: { value: createLightPositions() },
       uLightColors: { value: createLightColors() },
       uLightParams: { value: createLightParams() },
-      uLightPixelSize: { value: LIGHT_PIXEL_SIZE },
+      uLightPixelSize: { value: pixelGlow.pixelSizePx },
+      uLightIntensityScale: { value: pixelGlow.intensityScale },
+      uLightAlphaScale: { value: pixelGlow.alphaScale },
+      uLightMaxAlpha: { value: pixelGlow.maxAlpha },
+      uLightSurfaceColorMix: { value: pixelGlow.surfaceColorMix },
     },
     vertexShader,
     fragmentShader,
@@ -375,6 +387,13 @@ export function syncFieldGridWaveConfig(material: FieldGridWaveMaterial): void {
   material.uniforms.uMaxAlpha.value = wave.maxAlpha;
   material.uniforms.uFadeInEnd.value = wave.fadeInEnd;
   material.uniforms.uFadeOutStart.value = wave.fadeOutStart;
+
+  const pixelGlow = getFieldConfig().lighting.objectGlow.pixelOverlay;
+  material.uniforms.uLightPixelSize.value = pixelGlow.pixelSizePx;
+  material.uniforms.uLightIntensityScale.value = pixelGlow.intensityScale;
+  material.uniforms.uLightAlphaScale.value = pixelGlow.alphaScale;
+  material.uniforms.uLightMaxAlpha.value = pixelGlow.maxAlpha;
+  material.uniforms.uLightSurfaceColorMix.value = pixelGlow.surfaceColorMix;
 }
 
 /** Per-material helpers remain available for isolated shader tests/tools. */
