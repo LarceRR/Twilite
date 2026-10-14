@@ -42,6 +42,29 @@ describe('fieldConfig', () => {
     expect(merged.camera.swipeInertiaSpeedScale).toBe(0.5);
   });
 
+  it('preserves sibling values while applying deeply nested field config patches', () => {
+    const store = useFieldConfigStore.getState();
+    store.patchOverrides({
+      lighting: { objectGlow: { fallbackColor: '#FF5911' } },
+    });
+    useFieldConfigStore.getState().patchOverrides({
+      lighting: { objectGlow: { fallbackIntensity: 2.1 } },
+    });
+    useFieldConfigStore.getState().patchOverrides({
+      lighting: { shadows: { bias: -0.001 } },
+    });
+
+    expect(getFieldConfig().lighting.objectGlow.fallbackColor).toBe('#FF5911');
+    expect(getFieldConfig().lighting.objectGlow.fallbackIntensity).toBe(2.1);
+    expect(getFieldConfig().lighting.objectGlow.fallbackDistance).toBe(
+      DEFAULT_FIELD_CONFIG.lighting.objectGlow.fallbackDistance,
+    );
+    expect(getFieldConfig().lighting.shadows.bias).toBe(-0.001);
+    expect(getFieldConfig().lighting.shadows.mapSizePx).toBe(
+      DEFAULT_FIELD_CONFIG.lighting.shadows.mapSizePx,
+    );
+  });
+
   it('derives grid cols and wave radius steps', () => {
     expect(fieldGridColsFromConfig(DEFAULT_FIELD_CONFIG.grid)).toBe(50);
     expect(fieldWaveMaxRadiusSteps(DEFAULT_FIELD_CONFIG.wave)).toBe(12);
