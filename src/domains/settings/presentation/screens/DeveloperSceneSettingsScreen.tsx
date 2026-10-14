@@ -1,9 +1,14 @@
-import type { ReactElement } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { useState, type ReactElement, type ReactNode } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 
+import { useThemeColors } from '@/design-system/colors/colors';
 import { BlurCard } from '@/design-system/components/BlurCard/BlurCard';
 import { ListRow } from '@/design-system/components/ListRow/ListRow';
 import { Screen } from '@/design-system/components/Screen/Screen';
 import { Switch } from '@/design-system/components/Switch/Switch';
+import { Text } from '@/design-system/components/Text/Text';
+import { spacing } from '@/design-system/spacing/spacing';
 
 import { FieldConfigExplorer } from '../components/FieldConfigExplorer';
 import { useSettingsStore } from '../stores/settingsStore';
@@ -36,6 +41,37 @@ function SceneToggle({
   );
 }
 
+function CollapsibleSection({
+  title,
+  children,
+}: {
+  readonly title: string;
+  readonly children: ReactNode;
+}): ReactElement {
+  const theme = useThemeColors();
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <BlurCard>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={title}
+        accessibilityState={{ expanded }}
+        onPress={() => setExpanded((current) => !current)}
+        style={styles.sectionHeader}
+      >
+        <Text variant="sectionTitle">{title}</Text>
+        <Ionicons
+          name={expanded ? 'chevron-down' : 'chevron-forward'}
+          size={20}
+          color={theme.textSecondary}
+        />
+      </Pressable>
+      {expanded ? <View style={styles.sectionBody}>{children}</View> : null}
+    </BlurCard>
+  );
+}
+
 export function DeveloperSceneSettingsScreen(): ReactElement {
   const developerCameraControlsEnabled = useSettingsStore(
     (s) => s.developerCameraControlsEnabled,
@@ -62,7 +98,9 @@ export function DeveloperSceneSettingsScreen(): ReactElement {
 
   return (
     <Screen title="Сцена" reserveTabBar={false}>
-      <BlurCard title="Отображение">
+      <FieldConfigExplorer />
+
+      <CollapsibleSection title="Отображение">
         <SceneToggle
           title="Отображать активные ячейки"
           subtitle="Жёлтая полоса активных клеток"
@@ -86,16 +124,28 @@ export function DeveloperSceneSettingsScreen(): ReactElement {
           value={developerShowActiveCellCenters}
           onValueChange={setDeveloperShowActiveCellCenters}
         />
-      </BlurCard>
-      <BlurCard title="Камера">
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Камера">
         <SceneToggle
           title="Управление камерой"
           subtitle="Показывает отладку и контролы на экране Поле"
           value={developerCameraControlsEnabled}
           onValueChange={setDeveloperCameraControlsEnabled}
         />
-      </BlurCard>
-      <FieldConfigExplorer />
+      </CollapsibleSection>
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  sectionBody: {
+    paddingTop: spacing.sm,
+  },
+});
