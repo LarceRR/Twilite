@@ -31,7 +31,7 @@ export type FieldChunkBindInput = {
   readonly base: Pick<FieldGridConfig, 'rows' | 'cellSize' | 'dividerWidth' | 'showDividers'>;
   readonly layers: FieldGridLayerFlags;
   readonly surface: string;
-  readonly surfaceRaised: string;
+  readonly activeFill: string;
   readonly surfaceDivider: string;
 };
 
@@ -43,7 +43,7 @@ export function resolveFieldChunkTexture(input: FieldChunkBindInput): Texture {
       fill: themeColorToRgbaTuple(input.surface),
       line: themeColorToRgbaTuple(compositeThemeColorOver(input.surfaceDivider, input.surface)),
       text: hexToRgba(fieldLabelTextHex()),
-      activeFill: themeColorToRgbaTuple(input.surfaceRaised),
+      activeFill: themeColorToRgbaTuple(input.activeFill),
       activeCenter: fieldActiveCenterRgba(),
     },
     layers: input.layers,
