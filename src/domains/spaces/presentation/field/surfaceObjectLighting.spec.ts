@@ -4,9 +4,11 @@ import { PerspectiveCamera } from 'three';
 import {
   candleFlickerMultiplier,
   resolveSceneShadowIntensity,
+  resolveSurfaceObjectLightConfig,
   SurfaceObjectLightVisibility,
   surfaceObjectFlickerSeed,
 } from './surfaceObjectLighting';
+import { DEFAULT_FIELD_CONFIG } from './fieldConfig';
 
 describe('surfaceObjectLighting', () => {
   it('culls a source outside the camera frustum while retaining sources inside it', () => {
@@ -18,6 +20,26 @@ describe('surfaceObjectLighting', () => {
 
     expect(visibility.intersects(0, 0, 0, 1)).toBe(true);
     expect(visibility.intersects(1000, 0, 0, 1)).toBe(false);
+  });
+
+  it('uses configured fallback light for every object while test override is enabled', () => {
+    const config = DEFAULT_FIELD_CONFIG.lighting.objectGlow;
+    expect(config.forceAllObjectsForTesting).toBe(true);
+    expect(resolveSurfaceObjectLightConfig(null, config)).toEqual({
+      color: config.fallbackColor,
+      intensity: config.fallbackIntensity,
+      distance: config.fallbackDistance,
+    });
+    expect(
+      resolveSurfaceObjectLightConfig(
+        { color: '#FF5911', intensity: 0.5, distance: 100 },
+        { ...config, forceAllObjectsForTesting: false },
+      ),
+    ).toEqual({ color: '#FF5911', intensity: 0.5, distance: 100 });
+    expect(resolveSurfaceObjectLightConfig(null, {
+      ...config,
+      forceAllObjectsForTesting: false,
+    })).toBeNull();
   });
 
   it('creates stable seeds for object identities', () => {
