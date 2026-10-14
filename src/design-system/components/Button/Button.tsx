@@ -86,7 +86,10 @@ function ButtonComponent({
         onPress={onPress}
         onPressIn={feedback.onPressIn}
         onPressOut={feedback.onPressOut}
-        style={inactive ? styles.inactive : undefined}
+        style={[
+          block ? styles.block : undefined,
+          inactive ? styles.inactive : undefined,
+        ]}
       >
         <GlassSurface
           cornerRadius={radius.pill}
