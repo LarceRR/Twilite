@@ -83,6 +83,7 @@ type BakeSnapshot = {
     readonly rows: number;
     readonly cellSize: number;
     readonly dividerWidth: number;
+    readonly showDividers: boolean;
   };
   readonly colors: FieldGridTextureColors;
   readonly layers: FieldGridLayerFlags;
@@ -235,6 +236,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
         rows: config.rows,
         cellSize: config.cellSize,
         dividerWidth: config.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH,
+        showDividers: config.showDividers ?? true,
       },
       colors: {
         fill: themeColorToRgbaTuple(surface),
@@ -249,6 +251,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
       config.rows,
       config.cellSize,
       config.dividerWidth,
+      config.showDividers,
       surface,
       surfaceRaised,
       surfaceDivider,
