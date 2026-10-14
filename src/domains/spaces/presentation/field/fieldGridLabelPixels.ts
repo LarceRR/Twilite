@@ -311,7 +311,7 @@ export function buildFieldGridLabelPixels(
     drawActiveFills(data, config, colStart, resolved.activeFill, activeCells.sideSpan, cells);
   }
   drawGridLines(data, config, resolved.line);
-  if (layers.showActiveCells) {
+  if (layers.showActiveCells && config.showDividers !== false) {
     drawActiveBorders(
       data,
       config,
