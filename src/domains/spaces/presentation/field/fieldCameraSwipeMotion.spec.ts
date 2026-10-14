@@ -8,6 +8,7 @@ import {
   beginCameraSwipe,
   cancelCameraSwipeMotion,
   finishCameraSwipe,
+  stopCameraSwipeInertia,
   updateCameraSwipe,
 } from './fieldCameraSwipeMotion';
 
@@ -141,6 +142,42 @@ describe('fieldCameraSwipeMotion', () => {
     applyPendingCameraSwipeMovement(camera, 0.05);
     expect(camera.position.x).toBeCloseTo(renderedPosition.x, 5);
     expect(useFieldCameraControlStore.getState().position).toEqual(renderedPosition);
+  });
+
+  it('stops inertia on touch-down at the current position and can resume with a new swipe', () => {
+    const camera = new PerspectiveCamera();
+    camera.position.set(-323, 0, 171);
+
+    beginCameraSwipe();
+    updateCameraSwipe(0, 600);
+    finishCameraSwipe(600);
+    applyPendingCameraSwipeMovement(camera, 0.05);
+
+    const caughtPosition = {
+      x: camera.position.x,
+      y: camera.position.y,
+      z: camera.position.z,
+    };
+
+    stopCameraSwipeInertia();
+
+    expect(useFieldCameraControlStore.getState().position).toEqual(caughtPosition);
+
+    // Holding the finger still must keep the camera at the caught position.
+    applyPendingCameraSwipeMovement(camera, 0.05);
+    expect(camera.position.x).toBeCloseTo(caughtPosition.x, 5);
+    expect(camera.position.y).toBeCloseTo(caughtPosition.y, 5);
+    expect(camera.position.z).toBeCloseTo(caughtPosition.z, 5);
+
+    // A later drag starts from the caught position, without snapping back.
+    beginCameraSwipe();
+    applyPendingCameraSwipeMovement(camera, 1 / 60);
+    expect(camera.position.x).toBeCloseTo(caughtPosition.x, 5);
+    updateCameraSwipe(2);
+    applyPendingCameraSwipeMovement(camera, 1 / 60);
+    expect(camera.position.x).toBeGreaterThan(caughtPosition.x);
+
+    finishCameraSwipe();
   });
 
   it('increases coast distance with flick speed and caps the strongest flick', () => {

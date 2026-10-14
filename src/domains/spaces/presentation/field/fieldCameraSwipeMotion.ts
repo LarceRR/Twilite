@@ -106,9 +106,24 @@ export function cancelCameraSwipeMotion(position: Vec3): void {
   }
 }
 
+/**
+ * Stops the coast at its latest rendered position on touch-down.
+ *
+ * This is separate from beginCameraSwipe because a pan only becomes active
+ * after its movement threshold is crossed. A stationary finger must still be
+ * able to catch and hold the camera in place.
+ */
+export function stopCameraSwipeInertia(): void {
+  if (inertia === null) return;
+
+  const position = positionAt(inertia.path, inertia.path.distance);
+  inertia = null;
+  commitPosition(position);
+}
+
 export function beginCameraSwipe(): void {
-  // Interrupt inertia at its exact current position; never let a new gesture
-  // compete with the previous animation.
+  // Defensive fallback: if the pan starts without a touch-down interruption,
+  // begin exactly where the inertia was last rendered.
   if (inertia !== null) {
     const position = positionAt(inertia.path, inertia.path.distance);
     inertia = null;

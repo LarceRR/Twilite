@@ -2,7 +2,12 @@ import type { ReactElement, ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
-import { beginCameraSwipe, finishCameraSwipe, updateCameraSwipe } from './fieldCameraSwipeMotion';
+import {
+  beginCameraSwipe,
+  finishCameraSwipe,
+  stopCameraSwipeInertia,
+  updateCameraSwipe,
+} from './fieldCameraSwipeMotion';
 
 const SWIPE_ACTIVATION_THRESHOLD_PX = 8;
 const HORIZONTAL_SWIPE_TOLERANCE_PX = 24;
@@ -17,6 +22,8 @@ export function FieldCameraSwipeControls({
     .activeOffsetY([-SWIPE_ACTIVATION_THRESHOLD_PX, SWIPE_ACTIVATION_THRESHOLD_PX])
     .failOffsetX([-HORIZONTAL_SWIPE_TOLERANCE_PX, HORIZONTAL_SWIPE_TOLERANCE_PX])
     .runOnJS(true)
+    // Stop inertia on finger-down, before the pan crosses its activation threshold.
+    .onTouchesDown(() => stopCameraSwipeInertia())
     .onStart(beginCameraSwipe)
     .onChange(({ changeY, velocityY }) => updateCameraSwipe(changeY, velocityY))
     .onEnd(({ velocityY }) => finishCameraSwipe(velocityY))
