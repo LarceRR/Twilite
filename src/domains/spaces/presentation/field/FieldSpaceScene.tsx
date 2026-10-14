@@ -107,9 +107,39 @@ function FieldSceneLighting({
   useLayoutEffect(() => {
     const light = lightRef.current;
     if (light === null) return;
-    light.shadow.camera.up.set(0, 0, 1);
-    light.shadow.camera.updateProjectionMatrix();
-  }, []);
+
+    const shadowCamera = light.shadow.camera;
+    shadowCamera.up.set(0, 0, 1);
+    shadowCamera.left = lighting.shadows.cameraLeft;
+    shadowCamera.right = lighting.shadows.cameraRight;
+    shadowCamera.top = lighting.shadows.cameraTop;
+    shadowCamera.bottom = lighting.shadows.cameraBottom;
+    shadowCamera.near = lighting.shadows.cameraNear;
+    shadowCamera.far = lighting.shadows.cameraFar;
+    shadowCamera.updateProjectionMatrix();
+
+    const shadowMap = light.shadow.map;
+    if (
+      shadowMap !== null &&
+      (shadowMap.width !== lighting.shadows.mapSizePx ||
+        shadowMap.height !== lighting.shadows.mapSizePx)
+    ) {
+      shadowMap.dispose();
+      light.shadow.map = null;
+    }
+    light.shadow.mapSize.set(
+      lighting.shadows.mapSizePx,
+      lighting.shadows.mapSizePx,
+    );
+  }, [
+    lighting.shadows.mapSizePx,
+    lighting.shadows.cameraLeft,
+    lighting.shadows.cameraRight,
+    lighting.shadows.cameraTop,
+    lighting.shadows.cameraBottom,
+    lighting.shadows.cameraNear,
+    lighting.shadows.cameraFar,
+  ]);
 
   useFrame(({ camera, clock }) => {
     const light = lightRef.current;
