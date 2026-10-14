@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
+import { currentThemeColors } from '@/design-system/colors/colors';
+
 import {
   FIELD_ACTIVE_CENTER_RGBA,
   FIELD_ACTIVE_FILL_HEX,
   FIELD_ACTIVE_FILL_RGBA,
-  lightenThemeColor,
   themeColorToRgbaTuple,
 } from './fieldGridActiveCells';
 import { createFieldGridConfig } from './fieldGridConfig';
@@ -83,7 +84,7 @@ describe('fieldGridLabelPixels', () => {
     expect(isLabelGlyphPixelOn('1', 2, 0)).toBe(true);
   });
 
-  it('fills the active center band with lightened accentSoft and a center mark', () => {
+  it('fills the active center band with surfaceRaised and a center mark', () => {
     const { data, width } = buildFieldGridLabelPixels(config, COLORS);
     // Active cell (col0,row10): x∈[1,61), data y∈[611,671).
     expect(sample(data, width, 20, 620)).toEqual(ACTIVE_FILL);
@@ -102,7 +103,7 @@ describe('fieldGridLabelPixels', () => {
     expect(sample(data, width, 30, 640)).toEqual(ACTIVE_CENTER);
   });
 
-  it('skips lightened accentSoft active fills when showActiveCells is off', () => {
+  it('skips surfaceRaised active fills when showActiveCells is off', () => {
     const { data, width } = buildFieldGridLabelPixels(config, COLORS, {
       showActiveCells: false,
     });
@@ -141,13 +142,14 @@ describe('fieldGridLabelPixels', () => {
     expect(textPixels).toBeGreaterThan(5);
   });
 
-  it('lightens the accentSoft hue and returns an opaque color', () => {
-    expect(lightenThemeColor('rgba(100, 150, 200, 0.18)')).toBe('#9ABBDB');
-    expect(lightenThemeColor('#FFFFFF')).toBe('#ffffff');
-    expect(lightenThemeColor('rgb(0, 0, 0)', 0.5)).toBe('#808080');
+  it('uses the surfaceRaised theme token for active-cell fills', () => {
+    expect(FIELD_ACTIVE_FILL_HEX).toBe(currentThemeColors().surfaceRaised);
+    expect(FIELD_ACTIVE_FILL_RGBA).toEqual(
+      themeColorToRgbaTuple(currentThemeColors().surfaceRaised),
+    );
   });
 
-  it('converts all CSS color formats accepted for theme accents', () => {
+  it('converts all CSS color formats accepted for theme colors', () => {
     expect(themeColorToRgbaTuple('#112233')).toEqual([17, 34, 51, 255]);
     expect(themeColorToRgbaTuple('#11223380')).toEqual([17, 34, 51, 128]);
     expect(themeColorToRgbaTuple('rgb(17, 34, 51)')).toEqual([17, 34, 51, 255]);
