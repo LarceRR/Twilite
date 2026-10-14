@@ -3,13 +3,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 
 import { useUiStore } from '@/app/stores/uiStore';
-import { useSceneColors } from '@/design-system/colors/colors';
+import { useThemeColors } from '@/design-system/colors/colors';
 import { useSettingsStore } from '@/domains/settings/presentation/stores/settingsStore';
 
 import {
+  compositeThemeColorOver,
   fieldActiveCenterRgba,
-  fieldActiveFillRgba,
   fieldLabelTextHex,
+  themeColorToRgbaTuple,
 } from './fieldGridActiveCells';
 import { useFieldCameraControlStore } from './fieldCameraControlStore';
 import {
@@ -190,7 +191,7 @@ function warmChunkPrefetch(
 /** Streams field chunks along +X; camera pose is polled in useFrame (no React bind). */
 export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElement {
   const showToast = useUiStore((s) => s.showToast);
-  const scene = useSceneColors();
+  const { surface, surfaceRaised, surfaceDivider } = useThemeColors();
   const fieldConfig = useFieldConfig();
   const showActiveCells = useSettingsStore((s) => s.developerShowActiveCells);
   const showActiveCenters = useSettingsStore((s) => s.developerShowActiveCellCenters);
@@ -237,10 +238,10 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
         dividerWidth: config.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH,
       },
       colors: {
-        fill: hexToRgba(scene.surfaceBase),
-        line: hexToRgba(scene.surfaceDot),
+        fill: themeColorToRgbaTuple(surface),
+        line: themeColorToRgbaTuple(compositeThemeColorOver(surfaceDivider, surface)),
         text: hexToRgba(fieldLabelTextHex()),
-        activeFill: fieldActiveFillRgba(),
+        activeFill: themeColorToRgbaTuple(surfaceRaised),
         activeCenter: fieldActiveCenterRgba(),
       },
       layers: { showActiveCells, showActiveCenters, showCellLabels },
@@ -249,8 +250,9 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
       config.rows,
       config.cellSize,
       config.dividerWidth,
-      scene.surfaceBase,
-      scene.surfaceDot,
+      surface,
+      surfaceRaised,
+      surfaceDivider,
       showActiveCells,
       showActiveCenters,
       showCellLabels,

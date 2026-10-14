@@ -1,21 +1,22 @@
 import { useFrame } from '@react-three/fiber/native';
 import type { ReactElement, RefObject } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { type Group, type Mesh, type MeshBasicMaterial, type Texture, Vector3 } from 'three';
 
 import type { AuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAssetHeaders';
 import type { SurfaceObject } from '@/domains/spaces/domain/entities/SurfaceObject';
+import { useThemeColors } from '@/design-system/colors/colors';
+
 import { FieldSurfaceObjectArtwork } from './FieldSurfaceObjectArtwork';
 import { cellCenterOnPlane } from './fieldGridCells';
 import type { FieldGridConfig } from './fieldGridConfig';
 import {
   advanceSpritePlayback,
-  easeOutCubic,
+  surfaceObjectRiseProgress,
   type SpritePlaybackCursor,
   SURFACE_OBJECT_ANIMATION_CONFIG,
   staggerAppearanceDelays,
 } from './surfaceObjectAnimation';
-import { useFieldConfig } from './useFieldConfig';
 
 const billboardCameraPosition = new Vector3();
 
@@ -44,8 +45,9 @@ export function FieldSurfaceObjects({
   readonly headers: AuthenticatedAssetHeaders;
 }): ReactElement {
   const runtime = useRef(new Map<string, RuntimeObject>());
-  const appearing = useAppearingObjects(objects);
-  const platformColor = useFieldPlatformColor();
+  const appearance = useAppearingObjects(objects);
+  const { surfaceRaised } = useThemeColors();
+  const platformColor = surfaceRaised;
   const lastBillboardCameraXY = useRef({ x: Number.NaN, y: Number.NaN });
 
   const register = useCallback((item: RuntimeObject): (() => void) => {
@@ -80,7 +82,7 @@ export function FieldSurfaceObjects({
     <group>
       {objects.map((object) => (
         <FieldSurfaceObjectColumn
-          appearanceDelayMs={appearing.get(object.id) ?? null}
+          appearanceDelayMs={resolveAppearanceDelay(appearance, object.id)}
           config={config}
           headers={headers}
           platformColor={platformColor}
@@ -91,10 +93,6 @@ export function FieldSurfaceObjects({
       ))}
     </group>
   );
-}
-
-function useFieldPlatformColor(): string {
-  return useFieldConfig().activeCells.fillHex;
 }
 
 function FieldSurfaceObjectColumn({
@@ -121,6 +119,11 @@ function FieldSurfaceObjectColumn({
       ? 0
       : platformSize * (object.pixelObject.canvas.height / object.pixelObject.canvas.width);
   const center = cellCenterOnPlane(object.cell.x, object.cell.y, config);
+  const initialElapsedMs =
+    appearanceDelayMs === null
+      ? SURFACE_OBJECT_ANIMATION_CONFIG.riseDurationMs
+      : -appearanceDelayMs;
+  const initialProgress = surfaceObjectRiseProgress(initialElapsedMs);
   const item = useMemo<RuntimeObject>(
     () => ({
       column,
@@ -132,14 +135,11 @@ function FieldSurfaceObjectColumn({
       artworkMaterial: null,
       texture: null,
       cursor: { index: 0, elapsedMs: 0 },
-      elapsedMs:
-        appearanceDelayMs === null
-          ? SURFACE_OBJECT_ANIMATION_CONFIG.riseDurationMs
-          : -appearanceDelayMs,
+      elapsedMs: initialElapsedMs,
       frame: null,
       billboardUpdated: false,
     }),
-    [appearanceDelayMs, artHeight, object, platformHeight, platformSize],
+    [initialElapsedMs, artHeight, object, platformHeight, platformSize],
   );
 
   useEffect(() => register(item), [item, register]);
@@ -155,9 +155,7 @@ function FieldSurfaceObjectColumn({
     (material: MeshBasicMaterial | null): void => {
       item.artworkMaterial = material;
       if (material !== null) {
-        material.opacity = easeOutCubic(
-          item.elapsedMs / SURFACE_OBJECT_ANIMATION_CONFIG.riseDurationMs,
-        );
+        material.opacity = surfaceObjectRiseProgress(item.elapsedMs);
       }
     },
     [item],
@@ -165,9 +163,14 @@ function FieldSurfaceObjectColumn({
 
   return (
     <group position={[center[0], center[1], 0]}>
-      <mesh ref={column}>
+      <mesh
+        ref={column}
+        visible={initialProgress > 0}
+        position={[0, 0, (platformHeight * initialProgress) / 2]}
+        scale={[1, 1, initialProgress]}
+      >
         <boxGeometry args={[platformSize, platformSize, platformHeight]} />
-        <meshStandardMaterial color={platformColor} roughness={0.82} />
+        <meshBasicMaterial color={platformColor} toneMapped={false} />
       </mesh>
       <group ref={artwork} rotation={[0, 0, 0]}>
         <FieldSurfaceObjectArtwork
@@ -188,6 +191,7 @@ function advanceColumn(item: RuntimeObject, deltaMs: number): void {
     // Settled objects are static. Avoid redundant transform/material writes on
     // every frame, while still applying their initial pose after mount.
     if (item.column.current !== null) {
+      if (!item.column.current.visible) item.column.current.visible = true;
       if (item.column.current.scale.z !== 1) item.column.current.scale.z = 1;
       if (item.column.current.position.z !== item.platformHeight / 2) {
         item.column.current.position.z = item.platformHeight / 2;
@@ -207,9 +211,12 @@ function advanceColumn(item: RuntimeObject, deltaMs: number): void {
   }
 
   item.elapsedMs = Math.min(duration, item.elapsedMs + deltaMs);
-  const progress = easeOutCubic(item.elapsedMs / duration);
+  const progress = surfaceObjectRiseProgress(item.elapsedMs);
   const height = item.platformHeight * progress;
   if (item.column.current !== null) {
+    // A pending object must be indistinguishable from an empty cell until its
+    // stagger delay expires and the platform starts rising.
+    item.column.current.visible = progress > 0;
     // Scale only the explicit platform depth, keeping its bottom on the deck.
     item.column.current.scale.z = progress;
     item.column.current.position.z = height / 2;
@@ -262,7 +269,12 @@ function setTextureFrame(texture: Texture, frame: number, columns: number, rows:
   texture.updateMatrix();
 }
 
-function useAppearingObjects(objects: readonly SurfaceObject[]): ReadonlyMap<string, number> {
+type AppearanceState = {
+  readonly delays: ReadonlyMap<string, number>;
+  readonly known: ReadonlySet<string>;
+};
+
+function useAppearingObjects(objects: readonly SurfaceObject[]): AppearanceState {
   const [appearing, setAppearing] = useState<ReadonlyMap<string, number>>(() =>
     staggerAppearanceDelays(objects.map((object) => object.id)),
   );
@@ -271,7 +283,7 @@ function useAppearingObjects(objects: readonly SurfaceObject[]): ReadonlyMap<str
     Date.now() + objects.length * SURFACE_OBJECT_ANIMATION_CONFIG.staggerDelayMs,
   );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const newIds = collectNewObjectIds(objects, known.current);
     for (const object of objects) known.current.add(object.id);
     if (newIds.length > 0) {
@@ -296,8 +308,21 @@ function useAppearingObjects(objects: readonly SurfaceObject[]): ReadonlyMap<str
     return () => clearTimeout(timer);
   }, [appearing]);
 
-  return appearing;
+  return { delays: appearing, known: known.current };
 }
+
+function resolveAppearanceDelay(
+  appearance: AppearanceState,
+  objectId: string,
+): number | null {
+  const scheduledDelay = appearance.delays.get(objectId);
+  if (scheduledDelay !== undefined) return scheduledDelay;
+
+  // Objects arriving after the screen has mounted must start collapsed even
+  // before the effect adds them to the stagger queue.
+  return appearance.known.has(objectId) ? null : 0;
+}
+
 function collectNewObjectIds(
   objects: readonly SurfaceObject[],
   known: ReadonlySet<string>,

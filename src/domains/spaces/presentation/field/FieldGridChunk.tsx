@@ -3,9 +3,10 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import type { ReactElement } from 'react';
 import { BufferGeometry, PlaneGeometry, type Group, type Mesh } from 'three';
 
-import { useSceneColors } from '@/design-system/colors/colors';
+import { useThemeColors } from '@/design-system/colors/colors';
 import { useSettingsStore } from '@/domains/settings/presentation/stores/settingsStore';
 
+import { compositeThemeColorOver } from './fieldGridActiveCells';
 import { bindFieldChunkSlot } from './fieldGridChunkBind';
 import { fieldGridWorldSize, type FieldGridConfig } from './fieldGridConfig';
 import {
@@ -61,7 +62,8 @@ function FieldGridChunkComponent({
   onPointerCancel,
   onPointerLeave,
 }: FieldGridChunkProps): ReactElement {
-  const scene = useSceneColors();
+  const { surface, surfaceRaised, surfaceDivider } = useThemeColors();
+  const gridLineColor = compositeThemeColorOver(surfaceDivider, surface);
   const fieldConfig = useFieldConfig();
   const showActiveCells = useSettingsStore((s) => s.developerShowActiveCells);
   const showActiveCenters = useSettingsStore((s) => s.developerShowActiveCellCenters);
@@ -97,8 +99,9 @@ function FieldGridChunkComponent({
         chunkIndex,
         base,
         layers: { showActiveCells, showActiveCenters, showCellLabels },
-        surfaceBase: scene.surfaceBase,
-        surfaceDot: scene.surfaceDot,
+        surface,
+        surfaceRaised,
+        surfaceDivider,
       },
       material,
       lineGeometry,
@@ -117,8 +120,9 @@ function FieldGridChunkComponent({
     showActiveCells,
     showActiveCenters,
     showCellLabels,
-    scene.surfaceBase,
-    scene.surfaceDot,
+    surface,
+    surfaceRaised,
+    surfaceDivider,
     material,
     lineGeometry,
     onMaterialReady,
@@ -146,7 +150,7 @@ function FieldGridChunkComponent({
         onPointerLeave={onPointerLeave}
       />
       <lineSegments geometry={lineGeometry}>
-        <lineBasicMaterial color={scene.surfaceDot} toneMapped={false} />
+        <lineBasicMaterial color={gridLineColor} toneMapped={false} />
       </lineSegments>
     </group>
   );

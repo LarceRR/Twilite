@@ -1,4 +1,4 @@
-import { isActiveFieldGridCell } from './fieldGridActiveCells';
+import { fieldActiveFillRgba, isActiveFieldGridCell } from './fieldGridActiveCells';
 import { hexToRgbaTuple, type FieldConfig } from './fieldConfig';
 import { getFieldConfig } from './fieldConfigStore';
 import { cellLabelFromColRow } from './fieldGridCells';
@@ -50,7 +50,7 @@ function resolveColors(
     fill: colors.fill,
     line: colors.line,
     text: colors.text,
-    activeFill: colors.activeFill ?? hexToRgbaTuple(activeCells.fillHex),
+    activeFill: colors.activeFill ?? fieldActiveFillRgba(),
     activeCenter: colors.activeCenter ?? hexToRgbaTuple(activeCells.centerHex),
   };
 }

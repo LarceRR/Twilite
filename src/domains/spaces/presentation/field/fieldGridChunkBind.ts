@@ -6,9 +6,10 @@ import {
 } from 'three';
 
 import {
+  compositeThemeColorOver,
   fieldActiveCenterRgba,
-  fieldActiveFillRgba,
   fieldLabelTextHex,
+  themeColorToRgbaTuple,
 } from './fieldGridActiveCells';
 import { getFieldConfig } from './fieldConfigStore';
 import { prepareFieldChunkTexture } from './fieldGridChunkBake';
@@ -29,8 +30,9 @@ export type FieldChunkBindInput = {
   readonly chunkIndex: number;
   readonly base: Pick<FieldGridConfig, 'rows' | 'cellSize' | 'dividerWidth'>;
   readonly layers: FieldGridLayerFlags;
-  readonly surfaceBase: string;
-  readonly surfaceDot: string;
+  readonly surface: string;
+  readonly surfaceRaised: string;
+  readonly surfaceDivider: string;
 };
 
 export function resolveFieldChunkTexture(input: FieldChunkBindInput): Texture {
@@ -38,10 +40,10 @@ export function resolveFieldChunkTexture(input: FieldChunkBindInput): Texture {
     chunkIndex: input.chunkIndex,
     base: input.base,
     colors: {
-      fill: hexToRgba(input.surfaceBase),
-      line: hexToRgba(input.surfaceDot),
+      fill: themeColorToRgbaTuple(input.surface),
+      line: themeColorToRgbaTuple(compositeThemeColorOver(input.surfaceDivider, input.surface)),
       text: hexToRgba(fieldLabelTextHex()),
-      activeFill: fieldActiveFillRgba(),
+      activeFill: themeColorToRgbaTuple(input.surfaceRaised),
       activeCenter: fieldActiveCenterRgba(),
     },
     layers: input.layers,

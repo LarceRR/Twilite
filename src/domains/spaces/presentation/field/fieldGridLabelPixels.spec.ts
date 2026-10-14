@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import { currentThemeColors } from '@/design-system/colors/colors';
+
 import {
   FIELD_ACTIVE_CENTER_RGBA,
   FIELD_ACTIVE_FILL_HEX,
   FIELD_ACTIVE_FILL_RGBA,
+  compositeThemeColorOver,
+  themeColorToRgbaTuple,
 } from './fieldGridActiveCells';
 import { createFieldGridConfig } from './fieldGridConfig';
 import {
@@ -81,7 +85,7 @@ describe('fieldGridLabelPixels', () => {
     expect(isLabelGlyphPixelOn('1', 2, 0)).toBe(true);
   });
 
-  it('fills the active center band with #fdba2f and a pink center mark', () => {
+  it('fills the active center band with surfaceRaised and a center mark', () => {
     const { data, width } = buildFieldGridLabelPixels(config, COLORS);
     // Active cell (col0,row10): x∈[1,61), data y∈[611,671).
     expect(sample(data, width, 20, 620)).toEqual(ACTIVE_FILL);
@@ -100,7 +104,7 @@ describe('fieldGridLabelPixels', () => {
     expect(sample(data, width, 30, 640)).toEqual(ACTIVE_CENTER);
   });
 
-  it('skips yellow active fills when showActiveCells is off', () => {
+  it('skips surfaceRaised active fills when showActiveCells is off', () => {
     const { data, width } = buildFieldGridLabelPixels(config, COLORS, {
       showActiveCells: false,
     });
@@ -139,9 +143,28 @@ describe('fieldGridLabelPixels', () => {
     expect(textPixels).toBeGreaterThan(5);
   });
 
+  it('uses the surfaceRaised theme token for active-cell fills', () => {
+    expect(FIELD_ACTIVE_FILL_HEX).toBe(currentThemeColors().surfaceRaised);
+    expect(FIELD_ACTIVE_FILL_RGBA).toEqual(
+      themeColorToRgbaTuple(currentThemeColors().surfaceRaised),
+    );
+  });
+
+  it('composites translucent surfaceDivider over the surface for texture rendering', () => {
+    expect(compositeThemeColorOver('rgba(0, 0, 0, 0.1)', '#ffffff')).toBe('#e5e5e5');
+    expect(compositeThemeColorOver('#112233', '#ffffff')).toBe('#112233');
+  });
+
+  it('converts all CSS color formats accepted for theme colors', () => {
+    expect(themeColorToRgbaTuple('#112233')).toEqual([17, 34, 51, 255]);
+    expect(themeColorToRgbaTuple('#11223380')).toEqual([17, 34, 51, 128]);
+    expect(themeColorToRgbaTuple('rgb(17, 34, 51)')).toEqual([17, 34, 51, 255]);
+    expect(themeColorToRgbaTuple('rgba(17, 34, 51, 0.5)')).toEqual([17, 34, 51, 128]);
+  });
+
   it('parses hex colors', () => {
     expect(hexToRgba('#112233')).toEqual([17, 34, 51, 255]);
     expect(hexToRgba('#abc', 128)).toEqual([170, 187, 204, 128]);
-    expect(hexToRgba(FIELD_ACTIVE_FILL_HEX)).toEqual([253, 186, 47, 255]);
+    expect(themeColorToRgbaTuple(FIELD_ACTIVE_FILL_HEX)).toEqual(ACTIVE_FILL);
   });
 });
