@@ -37,6 +37,8 @@ export type FieldGridConfig = {
   /** Interior cell dimension, excluding the divider at its boundary. */
   readonly cellSize: number;
   readonly dividerWidth?: number;
+  /** Whether to draw visual divider lines, independent of the grid's cell pitch. */
+  readonly showDividers?: boolean;
 };
 
 export function createFieldGridConfig(
@@ -44,6 +46,7 @@ export function createFieldGridConfig(
   rows: number = FIELD_GRID_ROWS,
   cellSize: number = FIELD_CELL_SIZE_PX,
   dividerWidth: number = FIELD_GRID_DIVIDER_WIDTH,
+  showDividers: boolean = true,
 ): FieldGridConfig {
   if (
     cols < 1 ||
@@ -54,7 +57,7 @@ export function createFieldGridConfig(
   ) {
     throw new Error('Field grid config must use positive cols, rows, and cellSize');
   }
-  return { cols, rows, cellSize, dividerWidth };
+  return { cols, rows, cellSize, dividerWidth, showDividers };
 }
 
 export function fieldGridCellPitch(
