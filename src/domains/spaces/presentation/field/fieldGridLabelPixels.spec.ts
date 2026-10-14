@@ -97,7 +97,7 @@ describe('fieldGridLabelPixels', () => {
     expect(isLabelGlyphPixelOn('1', 2, 0)).toBe(true);
   });
 
-  it('fills the active center band with surfaceRaised and a center mark', () => {
+  it('fills the active center band with the configured active color and a center mark', () => {
     const { data, width } = buildFieldGridLabelPixels(config, COLORS);
     // Active cell (col0,row10): x∈[1,61), data y∈[611,671).
     expect(sample(data, width, 20, 620)).toEqual(ACTIVE_FILL);
@@ -116,7 +116,7 @@ describe('fieldGridLabelPixels', () => {
     expect(sample(data, width, 30, 640)).toEqual(ACTIVE_CENTER);
   });
 
-  it('skips surfaceRaised active fills when showActiveCells is off', () => {
+  it('skips configured active fills when showActiveCells is off', () => {
     const { data, width } = buildFieldGridLabelPixels(config, COLORS, {
       showActiveCells: false,
     });
@@ -124,7 +124,7 @@ describe('fieldGridLabelPixels', () => {
     expect(sample(data, width, 30, 630)).toEqual(ACTIVE_CENTER);
   });
 
-  it('skips pink centers when showActiveCenters is off', () => {
+  it('skips configured center marks when showActiveCenters is off', () => {
     const { data, width } = buildFieldGridLabelPixels(config, COLORS, {
       showActiveCenters: false,
     });
