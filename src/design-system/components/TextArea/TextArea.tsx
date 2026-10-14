@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 
 import { useThemeColors } from '../../colors/themeStore';
-import { icons, type IconName } from '../../icons/icons';
+import type { IconName } from '../../icons/icons';
 import { radius } from '../../radius/radius';
 import { layout, spacing } from '../../spacing/spacing';
 import { typography } from '../../typography/typography';
@@ -44,7 +44,7 @@ function TextAreaComponent(
   const leadingContent =
     leading ??
     (icon === undefined ? (
-      <Ionicons name={icons.search} size={18} color={theme.textTertiary} />
+      <Ionicons name="document-text-outline" size={18} color={theme.textTertiary} />
     ) : (
       <Ionicons name={icon} size={18} color={theme.textTertiary} />
     ));
@@ -53,7 +53,6 @@ function TextAreaComponent(
     <GlassSurface
       cornerRadius={radius.md}
       interactive
-      tintColor={theme.surfaceSunken}
       style={[styles.surface, containerStyle]}
     >
       <View style={styles.row}>
