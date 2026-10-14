@@ -8,6 +8,7 @@ import type { IconName } from '../../icons/icons';
 import { radius } from '../../radius/radius';
 import { layout, spacing } from '../../spacing/spacing';
 import { usePressFeedback } from '../Pressable/usePressFeedback';
+import { GlassSurface } from '../GlassSurface/GlassSurface';
 
 export type IconButtonProps = {
   readonly icon: IconName;
@@ -42,13 +43,15 @@ function IconButtonComponent({
         onPress={onPress}
         onPressIn={feedback.onPressIn}
         onPressOut={feedback.onPressOut}
-        style={[
-          styles.base,
-          tinted && { backgroundColor: theme.accentSoft },
-          disabled && styles.disabled,
-        ]}
       >
-        <Ionicons name={icon} size={size} color={color ?? theme.textPrimary} />
+        <GlassSurface
+          cornerRadius={radius.pill}
+          interactive
+          tintColor={tinted ? theme.accentSoft : undefined}
+          style={[styles.base, disabled && styles.disabled]}
+        >
+          <Ionicons name={icon} size={size} color={color ?? theme.textPrimary} />
+        </GlassSurface>
       </Pressable>
     </Animated.View>
   );
@@ -62,7 +65,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minWidth: layout.controlHeightCompact,
     minHeight: layout.controlHeightCompact,
-    borderRadius: radius.pill,
     padding: spacing.sm,
   },
   disabled: {
