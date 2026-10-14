@@ -72,7 +72,7 @@ describe('fieldConfigJson', () => {
       parseFieldConfigJson(
         JSON.stringify({ camera: { near: 500, far: 100 } }),
       ),
-    ).toThrow(/camera/);
+    ).toThrow(/камера/i);
   });
 
   it('reports malformed JSON clearly', () => {
