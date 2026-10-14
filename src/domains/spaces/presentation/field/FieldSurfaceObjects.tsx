@@ -18,7 +18,7 @@ import { useThemeColors } from '@/design-system/colors/colors';
 import { FieldSurfaceObjectArtwork } from './FieldSurfaceObjectArtwork';
 import { cellCenterOnPlane } from './fieldGridCells';
 import type { FieldConfig } from './fieldConfig';
-import type { FieldGridConfig } from './fieldGridConfig';
+import { FIELD_LOCAL_LIGHT_LAYER, type FieldGridConfig } from './fieldGridConfig';
 import {
   createFieldGridWaveMaterial,
   registerFieldGridWaveMaterial,
@@ -55,6 +55,7 @@ type RuntimeObject = {
   readonly flickerSeed: number;
   readonly platformHeight: number;
   readonly platformSize: number;
+  readonly lightHeightAbovePlatform: number;
   readonly artHeight: number;
   readonly lightConfig: PixelObjectLightDto | null;
   readonly flickerConfig: FieldConfig['lighting']['objectGlow']['flicker'];
@@ -150,7 +151,7 @@ export function FieldSurfaceObjects({
         continue;
       }
 
-      const z = item.artwork.current?.position.z ?? item.platformHeight;
+      const z = item.platformHeight + item.lightHeightAbovePlatform;
       if (!lightVisibility.intersects(item.centerX, item.centerY, z, lightConfig.distance)) {
         light.visible = false;
         continue;
@@ -161,6 +162,8 @@ export function FieldSurfaceObjects({
         (camera.position.y - item.centerY) ** 2 +
         (camera.position.z - z) ** 2;
       item.pixelLight.z = z;
+      item.pixelLight.platformTopZ = item.platformHeight;
+      item.pixelLight.platformHalfSize = item.platformSize / 2;
       item.pixelLight.intensity = intensity;
       candidates.push(item);
     }
@@ -236,6 +239,12 @@ function FieldSurfaceObjectColumn({
       ? SURFACE_OBJECT_ANIMATION_CONFIG.riseDurationMs
       : -appearanceDelayMs;
   const initialProgress = surfaceObjectRiseProgress(initialElapsedMs);
+
+  useLayoutEffect(() => {
+    column.current?.layers.enable(FIELD_LOCAL_LIGHT_LAYER);
+    light.current?.layers.set(FIELD_LOCAL_LIGHT_LAYER);
+  }, []);
+
   const item = useMemo<RuntimeObject>(
     () => ({
       column,
@@ -250,6 +259,7 @@ function FieldSurfaceObjectColumn({
       flickerSeed: surfaceObjectFlickerSeed(object.id),
       platformHeight,
       platformSize,
+      lightHeightAbovePlatform: objectGlowConfig.heightAbovePlatform,
       artHeight,
       lightConfig,
       flickerConfig: objectGlowConfig.flicker,
@@ -263,6 +273,8 @@ function FieldSurfaceObjectColumn({
             color: lightConfig.color,
             intensity: 0,
             distance: lightConfig.distance,
+            platformTopZ: platformHeight,
+            platformHalfSize: platformSize / 2,
           },
       lightDistanceSquared: Number.POSITIVE_INFINITY,
       artworkMaterial: null,
@@ -341,17 +353,18 @@ function FieldSurfaceObjectColumn({
           onTextureReady={onTextureReady}
           sprite={object.pixelObject}
         />
-        {lightConfig === null ? null : (
-          <pointLight
-            ref={light}
-            color={lightConfig.color}
-            intensity={lightConfig.intensity}
-            distance={lightConfig.distance}
-            decay={objectGlowConfig.decay}
-            castShadow={false}
-          />
-        )}
       </group>
+      {lightConfig === null ? null : (
+        <pointLight
+          ref={light}
+          position={[0, 0, platformHeight + objectGlowConfig.heightAbovePlatform]}
+          color={lightConfig.color}
+          intensity={lightConfig.intensity}
+          distance={lightConfig.distance}
+          decay={objectGlowConfig.decay}
+          castShadow={false}
+        />
+      )}
     </group>
   );
 }
