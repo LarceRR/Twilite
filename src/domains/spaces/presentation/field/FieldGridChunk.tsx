@@ -123,7 +123,7 @@ function FieldGridChunkComponent({
     showActiveCenters,
     showCellLabels,
     surface,
-    surfaceRaised,
+    fieldConfig.activeCells.fillHex,
     surfaceDivider,
     material,
     lineGeometry,
