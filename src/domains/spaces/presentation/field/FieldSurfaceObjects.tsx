@@ -243,7 +243,7 @@ function FieldSurfaceObjectColumn({
   useLayoutEffect(() => {
     column.current?.layers.enable(FIELD_LOCAL_LIGHT_LAYER);
     light.current?.layers.set(FIELD_LOCAL_LIGHT_LAYER);
-  }, []);
+  }, [lightConfig]);
 
   const item = useMemo<RuntimeObject>(
     () => ({
@@ -341,6 +341,7 @@ function FieldSurfaceObjectColumn({
         ref={waveOverlay}
         visible={initialProgress > 0}
         position={[0, 0, platformHeight * initialProgress + 0.2]}
+        renderOrder={0}
       >
         <planeGeometry args={[platformSize, platformSize]} />
         <primitive object={waveMaterial} attach="material" />
