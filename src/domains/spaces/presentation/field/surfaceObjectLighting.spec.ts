@@ -46,6 +46,7 @@ describe('surfaceObjectLighting', () => {
     expect(DEFAULT_FIELD_CONFIG.lighting.objectGlow.decay).toBe(0.5);
     expect(DEFAULT_FIELD_CONFIG.lighting.surfaceAmbientIntensity).toBeGreaterThan(0);
     expect(DEFAULT_FIELD_CONFIG.lighting.shadows.filterRadius).toBe(6);
+    expect(DEFAULT_FIELD_CONFIG.lighting.shadows.localShadowIntensity).toBe(0.5);
   });
 
   it('creates stable seeds for object identities', () => {

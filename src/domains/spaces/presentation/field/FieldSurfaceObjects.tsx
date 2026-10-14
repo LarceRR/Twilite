@@ -87,6 +87,7 @@ function setLocalShadowCasting(
   enabled: boolean,
   mapSizePx: number,
   filterRadius: number,
+  shadowIntensity: number,
 ): void {
   const light = item.light.current;
   if (light === null) {
@@ -106,6 +107,7 @@ function setLocalShadowCasting(
   shadow.bias = -0.0008;
   shadow.normalBias = 0.025;
   shadow.radius = filterRadius;
+  shadow.intensity = shadowIntensity;
 
   if (item.castsLocalShadow !== enabled) {
     item.castsLocalShadow = enabled;
@@ -192,6 +194,7 @@ export function FieldSurfaceObjects({
           false,
           shadowConfig.localShadowMapSizePx,
           shadowConfig.filterRadius,
+          shadowConfig.localShadowIntensity,
         );
         if (light !== null) light.visible = false;
         continue;
@@ -254,6 +257,7 @@ export function FieldSurfaceObjects({
         isActive && index < shadowConfig.localShadowLights,
         shadowConfig.localShadowMapSizePx,
         shadowConfig.filterRadius,
+        shadowConfig.localShadowIntensity,
       );
       if (isActive && item.pixelLight !== null) pixelLights.push(item.pixelLight);
     }

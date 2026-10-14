@@ -137,6 +137,7 @@ function validateConfigConstraints(config: FieldConfig): void {
   assertConfigConstraint(
     Number.isInteger(shadows.mapSizePx) && shadows.mapSizePx > 0 &&
       Number.isInteger(shadows.localShadowMapSizePx) && shadows.localShadowMapSizePx > 0 &&
+      shadows.localShadowIntensity >= 0 && shadows.localShadowIntensity <= 1 &&
       shadows.filterRadius >= 0 && shadows.filterRadius <= 10 &&
       Number.isInteger(shadows.localShadowLights) && shadows.localShadowLights >= 0 &&
       shadows.localShadowLights <= 4 &&

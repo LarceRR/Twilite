@@ -223,6 +223,8 @@ export type FieldConfig = {
       readonly localShadowLights: number;
       /** Per-light cube shadow-map face size for point lights. */
       readonly localShadowMapSizePx: number;
+      /** Opacity of shadows cast by local point lights; lower values let other light sources fill them. */
+      readonly localShadowIntensity: number;
       /** Filter radius multiplier used to soften directional and point-light shadow edges. */
       readonly filterRadius: number;
       /** Left clipping boundary of the directional shadow camera, in world units. */
@@ -378,6 +380,7 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
       mapSizePx: 512,
       localShadowLights: 3,
       localShadowMapSizePx: 128,
+      localShadowIntensity: 0.5,
       filterRadius: 6,
       cameraLeft: -800,
       cameraRight: 800,
