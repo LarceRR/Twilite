@@ -1,10 +1,34 @@
 import { Frustum, Matrix4, Sphere, Vector3, type Camera } from 'three';
 
+import { DEFAULT_FIELD_CONFIG, type FieldConfig } from './fieldConfig';
+
+/** Light data accepted from the API or synthesized by the temporary test override. */
+export type SurfaceObjectLightConfig = {
+  readonly color: string;
+  readonly intensity: number;
+  readonly distance: number;
+};
+
 /** Identity and optional source metadata used to modulate the shared shadow layer. */
 export type SurfaceObjectLightingIdentity = {
   readonly id: string;
-  readonly light: { readonly intensity: number } | null;
+  readonly light: Pick<SurfaceObjectLightConfig, 'intensity'> | null;
 };
+
+/** Return API settings when available; otherwise use the development glow override. */
+export function resolveSurfaceObjectLightConfig(
+  backendLight: SurfaceObjectLightConfig | null | undefined,
+  config: FieldConfig['lighting']['objectGlow'] = DEFAULT_FIELD_CONFIG.lighting.objectGlow,
+): SurfaceObjectLightConfig | null {
+  if (config.forceAllObjectsForTesting) {
+    return {
+      color: config.fallbackColor,
+      intensity: config.fallbackIntensity,
+      distance: config.fallbackDistance,
+    };
+  }
+  return backendLight ?? null;
+}
 
 /** Stable identity seed so each visible candle flickers independently. */
 export function surfaceObjectFlickerSeed(id: string): number {
@@ -28,12 +52,7 @@ export class SurfaceObjectLightVisibility {
     this.frustum.setFromProjectionMatrix(this.projectionView);
   }
 
-  intersects(
-    x: number,
-    y: number,
-    z: number,
-    radius: number,
-  ): boolean {
+  intersects(x: number, y: number, z: number, radius: number): boolean {
     this.bounds.center.set(x, y, z);
     this.bounds.radius = Math.max(0, radius);
     return this.frustum.intersectsSphere(this.bounds);
@@ -50,23 +69,30 @@ function noise(seed: number, bucket: number, salt: number): number {
   return (value >>> 0) / 0xffffffff;
 }
 
-/**
- * Stepwise, irregular candle-like flicker. It is deterministic for a given
- * object/time so the light and its stylized shadow share the same modulation.
- */
-export function candleFlickerMultiplier(elapsedMs: number, seed: number): number {
+/** Stepwise, irregular candle-like flicker. Timing and amplitudes come from FieldConfig. */
+export function candleFlickerMultiplier(
+  elapsedMs: number,
+  seed: number,
+  config: FieldConfig['lighting']['objectGlow']['flicker'] =
+    DEFAULT_FIELD_CONFIG.lighting.objectGlow.flicker,
+): number {
   const time = Math.max(0, Number.isFinite(elapsedMs) ? elapsedMs : 0);
-  const slow = noise(seed, Math.floor(time / 113), 0x9e3779b1);
-  const medium = noise(seed, Math.floor(time / 47), 0x85ebca6b);
-  const fast = noise(seed, Math.floor(time / 23), 0xc2b2ae35);
-  const value = 0.58 + slow * 0.22 + medium * 0.18 + fast * 0.13;
-  return Math.round(value * 100) / 100;
+  const slow = noise(seed, Math.floor(time / config.slowIntervalMs), 0x9e3779b1);
+  const medium = noise(seed, Math.floor(time / config.mediumIntervalMs), 0x85ebca6b);
+  const fast = noise(seed, Math.floor(time / config.fastIntervalMs), 0xc2b2ae35);
+  const value =
+    config.minMultiplier +
+    slow * config.slowAmplitude +
+    medium * config.mediumAmplitude +
+    fast * config.fastAmplitude;
+  return Math.round(value * config.roundingScale) / config.roundingScale;
 }
 
-/** Shared key-light shadow contrast follows both emitter strength and flicker. */
+/** Shared key-light shadow contrast follows emitter strength and configured flicker. */
 export function resolveSceneShadowIntensity(
   lights: readonly SurfaceObjectLightingIdentity[],
   elapsedMs: number,
+  config: FieldConfig['lighting'] = DEFAULT_FIELD_CONFIG.lighting,
 ): number {
   let weightedFlicker = 0;
   let totalIntensity = 0;
@@ -75,16 +101,23 @@ export function resolveSceneShadowIntensity(
     const sourceIntensity = Math.max(0, item.light.intensity);
     if (sourceIntensity === 0) continue;
     weightedFlicker +=
-      candleFlickerMultiplier(elapsedMs, surfaceObjectFlickerSeed(item.id)) *
-      sourceIntensity;
+      candleFlickerMultiplier(
+        elapsedMs,
+        surfaceObjectFlickerSeed(item.id),
+        config.objectGlow.flicker,
+      ) * sourceIntensity;
     totalIntensity += sourceIntensity;
   }
-  if (totalIntensity === 0) return 0.42;
+  if (totalIntensity === 0) return config.shadows.baselineIntensity;
 
   const averageFlicker = weightedFlicker / totalIntensity;
-  const emissionStrength = Math.min(1, totalIntensity / 2.5);
+  const emissionStrength = Math.min(1, totalIntensity / config.shadows.emitterSaturationIntensity);
   return Math.max(
-    0.2,
-    Math.min(0.82, 0.42 + averageFlicker * 0.38 * emissionStrength),
+    config.shadows.minIntensity,
+    Math.min(
+      config.shadows.maxIntensity,
+      config.shadows.baselineIntensity +
+        averageFlicker * config.shadows.contrastScale * emissionStrength,
+    ),
   );
 }
