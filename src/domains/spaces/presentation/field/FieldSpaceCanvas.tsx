@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import type { AuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAssetHeaders';
 import { useSceneColors } from '@/design-system/colors/colors';
 import type { SurfaceObject } from '@/domains/spaces/domain/entities/SurfaceObject';
+import { FieldCameraSwipeControls } from './FieldCameraSwipeControls';
 import { FieldSpaceCamera } from './FieldSpaceCamera';
 import { FieldSpaceScene } from './FieldSpaceScene';
 import { fieldCameraOpticsFromConfig } from './fieldCameraFraming';
@@ -26,26 +27,28 @@ export function FieldSpaceCanvas({
 
   return (
     <View style={[styles.root, { backgroundColor: scene.background }]}>
-      <Canvas
-        style={styles.canvas}
-        camera={{
-          position: [pose.position.x, pose.position.y, pose.position.z],
-          rotation: [
-            (pose.rotationDeg.x * Math.PI) / 180,
-            (pose.rotationDeg.y * Math.PI) / 180,
-            (pose.rotationDeg.z * Math.PI) / 180,
-          ],
-          up: [0, 0, 1],
-          fov,
-          near: pose.near,
-          far: pose.far,
-        }}
-        gl={{ antialias: true }}
-      >
-        <color attach="background" args={[scene.background]} />
-        <FieldSpaceCamera />
-        <FieldSpaceScene headers={headers} objects={objects} />
-      </Canvas>
+      <FieldCameraSwipeControls>
+        <Canvas
+          style={styles.canvas}
+          camera={{
+            position: [pose.position.x, pose.position.y, pose.position.z],
+            rotation: [
+              (pose.rotationDeg.x * Math.PI) / 180,
+              (pose.rotationDeg.y * Math.PI) / 180,
+              (pose.rotationDeg.z * Math.PI) / 180,
+            ],
+            up: [0, 0, 1],
+            fov,
+            near: pose.near,
+            far: pose.far,
+          }}
+          gl={{ antialias: true }}
+        >
+          <color attach="background" args={[scene.background]} />
+          <FieldSpaceCamera />
+          <FieldSpaceScene headers={headers} objects={objects} />
+        </Canvas>
+      </FieldCameraSwipeControls>
     </View>
   );
 }

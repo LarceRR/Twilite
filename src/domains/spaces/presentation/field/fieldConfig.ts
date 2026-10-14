@@ -44,6 +44,18 @@ export type FieldConfig = {
     readonly rotateStepDeg: number;
     readonly holdRampMs: number;
     readonly holdMaxStep: number;
+    /** Multiplier from finger release velocity to camera world velocity. */
+    readonly swipeInertiaSpeedScale: number;
+    /** Maximum camera velocity after a swipe release, in world units per second. */
+    readonly swipeInertiaMaxSpeed: number;
+    /** Unitless drag coefficient used by the analytic friction simulation. */
+    readonly swipeInertiaDrag: number;
+    /** Stop integrating inertia below this camera velocity, in world units per second. */
+    readonly swipeInertiaStopSpeed: number;
+    /** Maximum frame time used to integrate swipe inertia. */
+    readonly swipeFrameDeltaMaxSec: number;
+    /** Response rate for smoothing camera movement while a finger is down. */
+    readonly swipeFollowResponse: number;
     readonly hudPublishMs: number;
     readonly activeAxisHighlightMs: number;
   };
@@ -130,6 +142,12 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
     rotateStepDeg: 1,
     holdRampMs: 1500,
     holdMaxStep: 20,
+    swipeInertiaSpeedScale: 0.35,
+    swipeInertiaMaxSpeed: 240,
+    swipeInertiaDrag: 0.135,
+    swipeInertiaStopSpeed: 0.5,
+    swipeFrameDeltaMaxSec: 0.05,
+    swipeFollowResponse: 36,
     hudPublishMs: 100,
     activeAxisHighlightMs: 280,
   },

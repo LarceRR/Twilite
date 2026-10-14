@@ -5,6 +5,7 @@ import {
   cameraNeedsProjectionUpdate,
   formatCameraHud,
   holdRepeatDelta,
+  moveCameraAlongViewDirection,
   moveCameraPosition,
   nextRotateAxis,
   rotateCameraEuler,
@@ -21,6 +22,20 @@ describe('fieldCameraMotion', () => {
     expect(moveCameraPosition(origin, 'down', 1)).toEqual({ x: 0, y: 0, z: -1 });
     expect(moveCameraPosition(origin, 'forward', 1)).toEqual({ x: 0, y: 1, z: 0 });
     expect(moveCameraPosition(origin, 'back', 1)).toEqual({ x: 0, y: -1, z: 0 });
+  });
+
+  it('moves forward and backward along the camera view direction', () => {
+    const origin = { x: 0, y: 0, z: 0 };
+    const rotation = { x: 83, y: 0, z: -90 };
+    const forward = moveCameraAlongViewDirection(origin, rotation, 10);
+    const backward = moveCameraAlongViewDirection(origin, rotation, -10);
+
+    expect(forward.x).toBeCloseTo(9.925, 2);
+    expect(forward.y).toBeCloseTo(0, 5);
+    expect(forward.z).toBeCloseTo(-1.219, 2);
+    expect(backward.x).toBeCloseTo(-forward.x, 5);
+    expect(backward.y).toBeCloseTo(-forward.y, 5);
+    expect(backward.z).toBeCloseTo(-forward.z, 5);
   });
 
   it('rotates by the selected axis and cycles X→Y→Z', () => {

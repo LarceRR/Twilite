@@ -27,7 +27,7 @@ describe('fieldConfig', () => {
     const merged = mergeFieldConfig({
       grid: { cellSizePx: 80, rows: 21 },
       wave: { maxAlpha: 0.5 },
-      camera: { position: { x: -100 } },
+      camera: { position: { x: -100 }, swipeInertiaSpeedScale: 0.5 },
     });
     expect(merged.grid.cellSizePx).toBe(80);
     expect(merged.grid.rows).toBe(21);
@@ -39,6 +39,7 @@ describe('fieldConfig', () => {
       y: DEFAULT_FIELD_CONFIG.camera.position.y,
       z: DEFAULT_FIELD_CONFIG.camera.position.z,
     });
+    expect(merged.camera.swipeInertiaSpeedScale).toBe(0.5);
   });
 
   it('derives grid cols and wave radius steps', () => {
