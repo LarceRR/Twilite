@@ -52,6 +52,7 @@ import {
 import type { FieldGridCellCoord } from './fieldGridHitTest';
 import { FieldGridChunk } from './FieldGridChunk';
 import {
+  hexToRgba,
   type FieldGridLayerFlags,
   type FieldGridTextureColors,
 } from './fieldGridLabelPixels';
