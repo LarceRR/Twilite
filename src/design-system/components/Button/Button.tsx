@@ -1,13 +1,14 @@
+import { Ionicons } from '@expo/vector-icons';
 import { memo, type ReactElement } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
-import type { ThemeColors } from '../../colors/themes';
 import { useThemeColors } from '../../colors/themeStore';
+import { icons, type IconName } from '../../icons/icons';
 import { radius } from '../../radius/radius';
-import { shadows } from '../../shadows/shadows';
 import { layout, spacing } from '../../spacing/spacing';
 import { usePressFeedback } from '../Pressable/usePressFeedback';
+import { GlassSurface } from '../GlassSurface/GlassSurface';
 import { Text } from '../Text/Text';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -19,11 +20,13 @@ export type ButtonProps = {
   readonly disabled?: boolean;
   readonly loading?: boolean;
   readonly compact?: boolean;
+  readonly icon?: IconName;
+  readonly accessibilityLabel?: string;
   readonly accessibilityHint?: string;
   readonly testID?: string;
 };
 
-function backgroundFor(variant: ButtonVariant, theme: ThemeColors): string {
+function tintFor(variant: ButtonVariant, theme: ReturnType<typeof useThemeColors>): string {
   switch (variant) {
     case 'primary':
       return theme.accent;
@@ -31,15 +34,14 @@ function backgroundFor(variant: ButtonVariant, theme: ThemeColors): string {
       return theme.surfaceSunken;
     case 'danger':
       return theme.negative;
-    default:
-      return 'transparent';
+    case 'ghost':
+      return theme.glassTint;
   }
 }
 
-function labelColorFor(variant: ButtonVariant, theme: ThemeColors): string {
+function labelColorFor(variant: ButtonVariant, theme: ReturnType<typeof useThemeColors>): string {
   switch (variant) {
     case 'primary':
-      return theme.accentOn;
     case 'danger':
       return theme.accentOn;
     default:
@@ -47,6 +49,10 @@ function labelColorFor(variant: ButtonVariant, theme: ThemeColors): string {
   }
 }
 
+/**
+ * Cross-platform action control. iOS 26+ uses native Liquid Glass, older iOS
+ * uses themed system blur and Android uses the design-system glass fill.
+ */
 function ButtonComponent({
   label,
   onPress,
@@ -54,6 +60,8 @@ function ButtonComponent({
   disabled = false,
   loading = false,
   compact = false,
+  icon,
+  accessibilityLabel,
   accessibilityHint,
   testID,
 }: ButtonProps): ReactElement {
@@ -66,6 +74,7 @@ function ButtonComponent({
     <Animated.View style={feedback.animatedStyle}>
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel ?? label}
         accessibilityState={{ disabled: inactive, busy: loading }}
         {...(accessibilityHint === undefined ? {} : { accessibilityHint })}
         {...(testID === undefined ? {} : { testID })}
@@ -74,27 +83,34 @@ function ButtonComponent({
         onPress={onPress}
         onPressIn={feedback.onPressIn}
         onPressOut={feedback.onPressOut}
-        style={[
-          styles.base,
-          compact ? styles.compact : styles.regular,
-          { backgroundColor: backgroundFor(variant, theme) },
-          variant === 'secondary' && {
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: theme.surfaceDivider,
-          },
-          variant === 'primary' && shadows.low,
-          inactive && styles.inactive,
-        ]}
+        style={inactive ? styles.inactive : undefined}
       >
-        {loading ? (
-          <ActivityIndicator color={labelColor} size="small" />
-        ) : (
-          <View style={styles.labelWrap}>
-            <Text variant="label" color={labelColor} numberOfLines={1}>
-              {label}
-            </Text>
-          </View>
-        )}
+        <GlassSurface
+          cornerRadius={radius.pill}
+          interactive
+          tintColor={tintFor(variant, theme)}
+          style={[
+            styles.surface,
+            compact ? styles.compact : styles.regular,
+            variant === 'secondary' && {
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: theme.surfaceDivider,
+            },
+          ]}
+        >
+          {loading ? (
+            <ActivityIndicator color={labelColor} size="small" />
+          ) : (
+            <View style={styles.labelWrap}>
+              {icon === undefined ? null : (
+                <Ionicons name={icon} size={18} color={labelColor} />
+              )}
+              <Text variant="label" color={labelColor} numberOfLines={1}>
+                {label}
+              </Text>
+            </View>
+          )}
+        </GlassSurface>
       </Pressable>
     </Animated.View>
   );
@@ -103,10 +119,11 @@ function ButtonComponent({
 export const Button = memo(ButtonComponent);
 
 const styles = StyleSheet.create({
-  base: {
+  surface: {
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.pill,
+    overflow: 'hidden',
     paddingHorizontal: spacing.xl,
   },
   regular: {
@@ -122,6 +139,8 @@ const styles = StyleSheet.create({
   labelWrap: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.sm,
+    paddingVertical: spacing.xs,
   },
 });
