@@ -46,7 +46,20 @@ describe('field pixel circle geometry', () => {
     expect(geometry.boundingBox?.max.y).toBe(30);
     expect(geometry.boundingBox?.min.z).toBe(-8);
     expect(geometry.boundingBox?.max.z).toBe(8);
-    expect(geometry.getAttribute('position').count).toBeLessThan(1_000);
+    const positions = geometry.getAttribute('position');
+    const normals = geometry.getAttribute('normal');
+    expect(positions.count).toBeLessThan(2_000);
+    expect(normals.count).toBe(positions.count);
+
+    let sideNormalCount = 0;
+    for (let index = 0; index < normals.count; index += 1) {
+      const nx = normals.getX(index);
+      const ny = normals.getY(index);
+      const nz = normals.getZ(index);
+      expect(Number.isFinite(nx) && Number.isFinite(ny) && Number.isFinite(nz)).toBe(true);
+      if (Math.abs(nz) < 0.5) sideNormalCount += 1;
+    }
+    expect(sideNormalCount).toBeGreaterThan(0);
 
     geometry.dispose();
   });

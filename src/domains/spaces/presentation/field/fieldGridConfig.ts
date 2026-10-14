@@ -5,7 +5,7 @@ import {
   fieldGridWidthFromConfig,
 } from './fieldConfig';
 
-/** Logical pixel size of one field cell in world units (1 unit = 1 px). */
+/** Logical pixel size of one field cell in world units (1 unit = 1 px; 100 units = 1 m for lighting). */
 export const FIELD_CELL_SIZE_PX = DEFAULT_FIELD_CONFIG.grid.cellSizePx;
 export const FIELD_GRID_DIVIDER_WIDTH = DEFAULT_FIELD_CONFIG.grid.dividerWidthPx;
 
@@ -31,8 +31,6 @@ export const FIELD_GRID_HEIGHT = fieldGridHeightFromConfig(DEFAULT_FIELD_CONFIG.
  */
 export const FIELD_WORLD_UP: readonly [number, number, number] = [0, 0, 1];
 
-/** Layer reserved for local point lights and the platform meshes they illuminate. */
-export const FIELD_LOCAL_LIGHT_LAYER = 1;
 
 /** Render transparent grid/light effects before sprite artwork. */
 export const FIELD_GRID_OVERLAY_RENDER_ORDER = 0;
