@@ -90,6 +90,47 @@ export type FieldConfig = {
     readonly ambientIntensity: number;
     readonly directionalIntensity: number;
     readonly directionalPosition: readonly [number, number, number];
+    readonly objectGlow: {
+      /** Temporary development override until the API provides per-object light metadata. */
+      readonly forceAllObjectsForTesting: boolean;
+      readonly fallbackColor: string;
+      readonly fallbackIntensity: number;
+      readonly fallbackDistance: number;
+      readonly decay: number;
+      readonly flicker: {
+        readonly minMultiplier: number;
+        readonly slowAmplitude: number;
+        readonly mediumAmplitude: number;
+        readonly fastAmplitude: number;
+        readonly slowIntervalMs: number;
+        readonly mediumIntervalMs: number;
+        readonly fastIntervalMs: number;
+        readonly roundingScale: number;
+      };
+      readonly pixelOverlay: {
+        readonly pixelSizePx: number;
+        readonly intensityScale: number;
+        readonly alphaScale: number;
+        readonly maxAlpha: number;
+        readonly surfaceColorMix: number;
+      };
+    };
+    readonly shadows: {
+      readonly mapSizePx: number;
+      readonly cameraLeft: number;
+      readonly cameraRight: number;
+      readonly cameraTop: number;
+      readonly cameraBottom: number;
+      readonly cameraNear: number;
+      readonly cameraFar: number;
+      readonly bias: number;
+      readonly normalBias: number;
+      readonly baselineIntensity: number;
+      readonly minIntensity: number;
+      readonly maxIntensity: number;
+      readonly emitterSaturationIntensity: number;
+      readonly contrastScale: number;
+    };
   };
 };
 
@@ -183,6 +224,46 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
     ambientIntensity: 0.85,
     directionalIntensity: 0.55,
     directionalPosition: [240, 420, 180],
+    objectGlow: {
+      forceAllObjectsForTesting: true,
+      fallbackColor: '#FFAE00',
+      fallbackIntensity: 1.4,
+      fallbackDistance: 240,
+      decay: 2,
+      flicker: {
+        minMultiplier: 0.58,
+        slowAmplitude: 0.22,
+        mediumAmplitude: 0.18,
+        fastAmplitude: 0.13,
+        slowIntervalMs: 113,
+        mediumIntervalMs: 47,
+        fastIntervalMs: 23,
+        roundingScale: 100,
+      },
+      pixelOverlay: {
+        pixelSizePx: 8,
+        intensityScale: 0.42,
+        alphaScale: 0.48,
+        maxAlpha: 0.56,
+        surfaceColorMix: 0.68,
+      },
+    },
+    shadows: {
+      mapSizePx: 256,
+      cameraLeft: -1200,
+      cameraRight: 1200,
+      cameraTop: 700,
+      cameraBottom: -700,
+      cameraNear: 0.1,
+      cameraFar: 4000,
+      bias: -0.0005,
+      normalBias: 0.02,
+      baselineIntensity: 0.42,
+      minIntensity: 0.2,
+      maxIntensity: 0.82,
+      emitterSaturationIntensity: 2.5,
+      contrastScale: 0.38,
+    },
   },
 };
 
