@@ -57,9 +57,11 @@ import {
   type FieldGridTextureColors,
 } from './fieldGridLabelPixels';
 import {
-  syncFieldGridWaveConfig,
-  syncFieldGridWaveTime,
-  triggerFieldGridWave,
+  registerFieldGridWaveMaterial,
+  syncFieldGridPixelLights,
+  syncFieldGridWaveSceneConfig,
+  syncFieldGridWaveSceneTime,
+  triggerFieldGridWaveOnScene,
   type FieldGridWaveMaterial,
 } from './fieldGridWaveMaterial';
 import { useFieldConfig } from './useFieldConfig';
@@ -91,20 +93,16 @@ function clearPressSession(session: PressSession | null): void {
   clearTimeout(session.timer);
 }
 
-function fireWaveBurstOnMaterials(
-  materials: Iterable<FieldGridWaveMaterial>,
+function fireWaveBurst(
   cell: FieldGridCellCoord,
   config: FieldGridConfig,
   nowSec: number,
   count: 1 | 2,
 ): void {
   const [cx, cy] = cellCenterOnPlane(cell.col, cell.row, config);
-  const gapSec = fieldWaveSecondBurstGapSec();
-  for (const material of materials) {
-    triggerFieldGridWave(material, cx, cy, nowSec);
-    if (count === 2) {
-      triggerFieldGridWave(material, cx, cy, nowSec + gapSec);
-    }
+  triggerFieldGridWaveOnScene(cx, cy, nowSec);
+  if (count === 2) {
+    triggerFieldGridWaveOnScene(cx, cy, nowSec + fieldWaveSecondBurstGapSec());
   }
 }
 
@@ -229,6 +227,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
   const timeRef = useRef(0);
   const pressRef = useRef<PressSession | null>(null);
   const materialsRef = useRef(new Map<number, FieldGridWaveMaterial>());
+  const unregisterWaveMaterialRef = useRef(new Map<FieldGridWaveMaterial, () => void>());
 
   const bake = useMemo(
     (): BakeSnapshot => ({
@@ -272,14 +271,19 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
       clearPressSession(pressRef.current);
       pressRef.current = null;
       materialsRef.current.clear();
+      for (const unregister of unregisterWaveMaterialRef.current.values()) unregister();
+      unregisterWaveMaterialRef.current.clear();
+      syncFieldGridPixelLights([]);
     },
     [],
   );
 
   const onMaterialReady = useCallback(
     (chunkIndex: number, material: FieldGridWaveMaterial) => {
-      syncFieldGridWaveConfig(material);
       materialsRef.current.set(chunkIndex, material);
+      if (!unregisterWaveMaterialRef.current.has(material)) {
+        unregisterWaveMaterialRef.current.set(material, registerFieldGridWaveMaterial(material));
+      }
     },
     [],
   );
@@ -289,6 +293,8 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
       const current = materialsRef.current.get(chunkIndex);
       if (current === material) {
         materialsRef.current.delete(chunkIndex);
+        unregisterWaveMaterialRef.current.get(material)?.();
+        unregisterWaveMaterialRef.current.delete(material);
       }
     },
     [],
@@ -297,9 +303,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
   // Wave tuning is static across frames. Sync only when its config changes,
   // not once per chunk on every render frame.
   useEffect(() => {
-    for (const material of materialsRef.current.values()) {
-      syncFieldGridWaveConfig(material);
-    }
+    syncFieldGridWaveSceneConfig();
   }, [fieldConfig.wave]);
 
   useFrame(({ clock, gl, camera }) => {
@@ -384,9 +388,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
       }
     }
 
-    for (const material of materialsRef.current.values()) {
-      syncFieldGridWaveTime(material, clock.elapsedTime);
-    }
+    syncFieldGridWaveSceneTime(clock.elapsedTime);
   });
 
   const cancelPress = useCallback((): void => {
@@ -414,13 +416,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
           return;
         }
         session.longFired = true;
-        fireWaveBurstOnMaterials(
-          materialsRef.current.values(),
-          session.cell,
-          config,
-          timeRef.current,
-          2,
-        );
+        fireWaveBurst(session.cell, config, timeRef.current, 2);
         showToast(fieldCellLongPressToastMessage(session.cell.label));
       }, fieldCellLongPressMs());
 
@@ -463,13 +459,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
       const released = resolveActiveFieldCellAtPoint(event.point.x, event.point.y, config);
       if (!sameFieldCell(pressed, released) || released == null) return;
 
-      fireWaveBurstOnMaterials(
-        materialsRef.current.values(),
-        released,
-        config,
-        timeRef.current,
-        1,
-      );
+      fireWaveBurst(released, config, timeRef.current, 1);
       showToast(fieldCellTapToastMessage(released.label));
     },
     [cancelPress, config, showToast],

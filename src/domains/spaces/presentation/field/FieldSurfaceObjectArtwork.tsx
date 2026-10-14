@@ -117,7 +117,7 @@ function LoadedArtwork({
   if (texture === null) return null;
 
   return (
-    <mesh>
+    <mesh castShadow>
       <planeGeometry args={[width, height]} />
       <meshBasicMaterial
         ref={onMaterialReady}
