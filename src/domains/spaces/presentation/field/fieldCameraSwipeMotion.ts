@@ -8,22 +8,22 @@ import { getFieldConfig } from './fieldConfigStore';
 type CameraSwipePath = {
   readonly origin: Vec3;
   readonly direction: Vec3;
-  readonly height: number;
   readonly baselinePosition: Vec3;
   readonly baselineForward: Vec3;
+  /** Signed world distance from origin along direction. */
   distance: number;
 };
 
 type ActiveCameraSwipe = {
   readonly path: CameraSwipePath;
   readonly worldUnitsPerPoint: number;
-  renderedDistance: number;
-  velocity: number;
+  velocityY: number;
 };
 
 type CameraSwipeInertia = {
   readonly path: CameraSwipePath;
-  velocity: number;
+  /** Signed world units per second along path.direction. */
+  readonly velocity: number;
   elapsedSeconds: number;
 };
 
@@ -32,7 +32,10 @@ let inertia: CameraSwipeInertia | null = null;
 
 function groundDirection(direction: Vec3): Vec3 {
   const length = Math.hypot(direction.x, direction.y);
-  if (length === 0) return { x: 1, y: 0, z: 0 };
+  if (!Number.isFinite(length) || length < Number.EPSILON) {
+    return { x: 1, y: 0, z: 0 };
+  }
+
   return { x: direction.x / length, y: direction.y / length, z: 0 };
 }
 
@@ -40,60 +43,94 @@ function positionAt(path: CameraSwipePath, distance: number): Vec3 {
   return {
     x: path.origin.x + path.direction.x * distance,
     y: path.origin.y + path.direction.y * distance,
-    z: path.height,
+    z: path.origin.z,
   };
 }
 
-function clampDistance(path: CameraSwipePath, distance: number): number {
+/**
+ * Prevents a swipe from moving the camera farther behind the default framing
+ * position. The returned value is the allowed delta, not an absolute distance.
+ */
+function clampDistanceDelta(path: CameraSwipePath, delta: number): number {
+  if (!Number.isFinite(delta) || delta === 0) return 0;
+
   const forwardProjection =
-    path.direction.x * path.baselineForward.x + path.direction.y * path.baselineForward.y;
-  if (forwardProjection === 0 || distance * forwardProjection >= 0) return distance;
+    path.direction.x * path.baselineForward.x +
+    path.direction.y * path.baselineForward.y;
+
+  // This path is perpendicular to the baseline forward direction, or the
+  // requested movement is away from the baseline, so no clamp is required.
+  if (Math.abs(forwardProjection) < Number.EPSILON || delta * forwardProjection >= 0) {
+    return delta;
+  }
 
   const currentPosition = positionAt(path, path.distance);
   const forwardOffset =
     (currentPosition.x - path.baselinePosition.x) * path.baselineForward.x +
     (currentPosition.y - path.baselinePosition.y) * path.baselineForward.y;
+
   if (forwardOffset <= 0) return 0;
 
-  const distanceToBaseline = -forwardOffset / forwardProjection;
-  return Math.abs(distance) > Math.abs(distanceToBaseline) ? distanceToBaseline : distance;
+  const deltaToBaseline = -forwardOffset / forwardProjection;
+  return Math.abs(delta) > Math.abs(deltaToBaseline) ? deltaToBaseline : delta;
 }
 
 function createPath(position: Vec3, rotationDeg: Vec3): CameraSwipePath {
   const framing = fieldCameraOpticsFromConfig();
-  const baselineForward = groundDirection(cameraForwardDirection(framing.rotationDeg));
+
   return {
-    origin: { x: position.x, y: position.y, z: framing.position.z },
+    origin: { ...position },
     direction: groundDirection(cameraForwardDirection(rotationDeg)),
-    height: framing.position.z,
     baselinePosition: framing.position,
-    baselineForward,
+    baselineForward: groundDirection(cameraForwardDirection(framing.rotationDeg)),
     distance: 0,
   };
 }
 
+function commitPosition(position: Vec3): void {
+  useFieldCameraControlStore.getState().setPosition(position);
+}
+
+/**
+ * Stops an in-progress gesture/coast when the canvas unmounts. Persisting the
+ * rendered pose prevents module-level inertia from resuming against a newly
+ * created camera at the older release position.
+ */
+export function cancelCameraSwipeMotion(position: Vec3): void {
+  const hadPendingMotion = activeSwipe !== null || inertia !== null;
+  activeSwipe = null;
+  inertia = null;
+
+  if (hadPendingMotion) {
+    commitPosition({ x: position.x, y: position.y, z: position.z });
+  }
+}
+
 export function beginCameraSwipe(): void {
+  // Interrupt inertia at its exact current position; never let a new gesture
+  // compete with the previous animation.
   if (inertia !== null) {
     const position = positionAt(inertia.path, inertia.path.distance);
     inertia = null;
-    useFieldCameraControlStore.getState().setPosition(position);
+    commitPosition(position);
   }
+
   const { position, rotationDeg } = useFieldCameraControlStore.getState();
   activeSwipe = {
     path: createPath(position, rotationDeg),
     worldUnitsPerPoint: getFieldConfig().camera.moveStepPx,
-    renderedDistance: 0,
-    velocity: 0,
+    velocityY: 0,
   };
 }
 
 export function updateCameraSwipe(translationYDelta: number, velocityY?: number): void {
   if (activeSwipe === null || !Number.isFinite(translationYDelta)) return;
-  const distance = translationYDelta * activeSwipe.worldUnitsPerPoint;
-  const appliedDistance = clampDistance(activeSwipe.path, distance);
-  activeSwipe.path.distance += appliedDistance;
-  if (velocityY !== undefined && Number.isFinite(velocityY) && velocityY !== 0) {
-    activeSwipe.velocity = velocityY;
+
+  const requestedDelta = translationYDelta * activeSwipe.worldUnitsPerPoint;
+  activeSwipe.path.distance += clampDistanceDelta(activeSwipe.path, requestedDelta);
+
+  if (velocityY !== undefined && Number.isFinite(velocityY)) {
+    activeSwipe.velocityY = velocityY;
   }
 }
 
@@ -101,55 +138,96 @@ export function applyPendingCameraSwipeMovement(
   camera: PerspectiveCamera,
   deltaSeconds: number = 0,
 ): void {
-  if (deltaSeconds <= 0) return;
-  const cameraConfig = getFieldConfig().camera;
-  const frameDelta = Math.min(deltaSeconds, cameraConfig.swipeFrameDeltaMaxSec);
+  if (!Number.isFinite(deltaSeconds) || deltaSeconds <= 0) return;
 
+  const cameraConfig = getFieldConfig().camera;
+  const maxFrameDelta = cameraConfig.swipeFrameDeltaMaxSec;
+  const frameDelta =
+    Number.isFinite(maxFrameDelta) && maxFrameDelta > 0
+      ? Math.min(deltaSeconds, maxFrameDelta)
+      : Math.min(deltaSeconds, 1 / 30);
+
+  // Follow the gesture directly. Exponential lag here made the committed
+  // position trail the finger and caused a backwards snap when the gesture
+  // ended. The gesture itself is already sampled by the animation frame loop.
   if (activeSwipe !== null) {
-    const follow = 1 - Math.exp(-cameraConfig.swipeFollowResponse * frameDelta);
-    activeSwipe.renderedDistance +=
-      (activeSwipe.path.distance - activeSwipe.renderedDistance) * follow;
-    camera.position.copy(positionAt(activeSwipe.path, activeSwipe.renderedDistance));
+    camera.position.copy(positionAt(activeSwipe.path, activeSwipe.path.distance));
+    return;
   }
 
   if (inertia === null) return;
-  inertia.elapsedSeconds += frameDelta;
-  const dragLog = Math.log(cameraConfig.swipeInertiaDrag);
-  const simulatedDistance =
-    (inertia.velocity * (Math.pow(cameraConfig.swipeInertiaDrag, inertia.elapsedSeconds) - 1)) /
-    dragLog;
-  const frameDistance = simulatedDistance - inertia.path.distance;
-  const appliedDistance = clampDistance(inertia.path, frameDistance);
-  inertia.path.distance += appliedDistance;
-  camera.position.copy(positionAt(inertia.path, inertia.path.distance));
 
-  const speed = Math.abs(
-    inertia.velocity * Math.pow(cameraConfig.swipeInertiaDrag, inertia.elapsedSeconds),
-  );
-  if (appliedDistance !== frameDistance || speed < cameraConfig.swipeInertiaStopSpeed) {
+  const drag = cameraConfig.swipeInertiaDrag;
+  // drag is an exponential per-second multiplier and must be in (0, 1).
+  if (!Number.isFinite(drag) || drag <= 0 || drag >= 1) {
     const finalPosition = positionAt(inertia.path, inertia.path.distance);
     inertia = null;
-    useFieldCameraControlStore.getState().setPosition(finalPosition);
+    camera.position.copy(finalPosition);
+    commitPosition(finalPosition);
+    return;
+  }
+
+  inertia.elapsedSeconds += frameDelta;
+
+  // Analytic integration of v(t) = v0 * drag^t. This makes the coast
+  // independent of frame rate rather than accumulating per-frame decay error.
+  const decay = Math.pow(drag, inertia.elapsedSeconds);
+  const dragLog = Math.log(drag);
+  const totalDistance = (inertia.velocity * (decay - 1)) / dragLog;
+  const requestedDelta = totalDistance - inertia.path.distance;
+  const appliedDelta = clampDistanceDelta(inertia.path, requestedDelta);
+  inertia.path.distance += appliedDelta;
+
+  const position = positionAt(inertia.path, inertia.path.distance);
+  camera.position.copy(position);
+
+  const speed = Math.abs(inertia.velocity * decay);
+  if (
+    appliedDelta !== requestedDelta ||
+    !Number.isFinite(speed) ||
+    speed < cameraConfig.swipeInertiaStopSpeed
+  ) {
+    inertia = null;
+    commitPosition(position);
   }
 }
 
 export function finishCameraSwipe(velocityY: number = 0): void {
   if (activeSwipe === null) return;
-  const { path, renderedDistance, velocity: lastGestureVelocity } = activeSwipe;
+
+  const { path, velocityY: lastGestureVelocity, worldUnitsPerPoint } = activeSwipe;
   activeSwipe = null;
-  const finalPosition = positionAt(path, renderedDistance);
-  useFieldCameraControlStore.getState().setPosition(finalPosition);
+
+  // Commit the exact final gesture position. There is no separately smoothed
+  // position to drift out of sync with the rendered camera.
+  const finalPosition = positionAt(path, path.distance);
+  commitPosition(finalPosition);
 
   const releaseVelocity =
     Number.isFinite(velocityY) && velocityY !== 0 ? velocityY : lastGestureVelocity;
   const cameraConfig = getFieldConfig().camera;
+  const speedScale = cameraConfig.swipeInertiaSpeedScale;
+  const maxSpeed = cameraConfig.swipeInertiaMaxSpeed;
+  if (
+    !Number.isFinite(releaseVelocity) ||
+    !Number.isFinite(speedScale) ||
+    speedScale <= 0 ||
+    !Number.isFinite(maxSpeed) ||
+    maxSpeed <= 0
+  ) {
+    inertia = null;
+    return;
+  }
+
   const scaledVelocity =
-    releaseVelocity * cameraConfig.swipeInertiaSpeedScale * cameraConfig.moveStepPx;
-  const velocity = Math.max(
-    -cameraConfig.swipeInertiaMaxSpeed,
-    Math.min(cameraConfig.swipeInertiaMaxSpeed, scaledVelocity),
-  );
-  if (Math.abs(velocity) < cameraConfig.swipeInertiaStopSpeed) return;
+    releaseVelocity * speedScale * worldUnitsPerPoint;
+  const velocity = Math.max(-maxSpeed, Math.min(maxSpeed, scaledVelocity));
+  const stopSpeed = cameraConfig.swipeInertiaStopSpeed;
+
+  if (!Number.isFinite(velocity) || !Number.isFinite(stopSpeed) || Math.abs(velocity) < stopSpeed) {
+    inertia = null;
+    return;
+  }
 
   inertia = {
     path: { ...path, origin: finalPosition, distance: 0 },
@@ -157,3 +235,4 @@ export function finishCameraSwipe(velocityY: number = 0): void {
     elapsedSeconds: 0,
   };
 }
+

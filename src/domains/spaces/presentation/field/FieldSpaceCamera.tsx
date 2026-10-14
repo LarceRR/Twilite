@@ -5,7 +5,10 @@ import { MathUtils, PerspectiveCamera, Vector3 } from 'three';
 import { useFieldCameraControlStore } from './fieldCameraControlStore';
 import { FIELD_CAMERA_DEFAULT_POSE, fieldCameraOpticsFromConfig } from './fieldCameraFraming';
 import { cameraNeedsProjectionUpdate } from './fieldCameraMotion';
-import { applyPendingCameraSwipeMovement } from './fieldCameraSwipeMotion';
+import {
+  applyPendingCameraSwipeMovement,
+  cancelCameraSwipeMotion,
+} from './fieldCameraSwipeMotion';
 import { FIELD_WORLD_UP } from './fieldGridConfig';
 
 const FIELD_CAMERA_FOV = FIELD_CAMERA_DEFAULT_POSE.fov;
@@ -64,6 +67,12 @@ export function FieldSpaceCamera(): ReactElement | null {
       applyLockedDefault(camera);
     }
     appliedRevision.current = useFieldCameraControlStore.getState().revision;
+
+    return () => {
+      if (camera instanceof PerspectiveCamera) {
+        cancelCameraSwipeMotion(camera.position);
+      }
+    };
   }, [camera]);
 
   useFrame((_, delta) => {
