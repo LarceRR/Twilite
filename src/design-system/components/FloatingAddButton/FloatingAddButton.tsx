@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { memo, type ReactElement, useEffect } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { useThemeColors } from '../../colors/themeStore';
@@ -8,9 +8,8 @@ import { icons } from '../../icons/icons';
 import { durations } from '../../motion/durations';
 import { reanimatedEasing } from '../../motion/easings';
 import { radius } from '../../radius/radius';
-import { shadows } from '../../shadows/shadows';
 import { layout } from '../../spacing/spacing';
-import { GlassSurface, isLiquidGlassSurfaceAvailable } from '../GlassSurface/GlassSurface';
+import { GlassSurface } from '../GlassSurface/GlassSurface';
 import { usePressFeedback } from '../Pressable/usePressFeedback';
 
 export type FloatingAddButtonProps = {
@@ -61,25 +60,10 @@ function FloatingAddButtonComponent({
 
   const dimensions = { width: size, height: size, borderRadius: radius.pill };
 
-  const surface = isLiquidGlassSurfaceAvailable() ? (
+  const surface = (
     <GlassSurface cornerRadius={radius.pill} interactive style={dimensions}>
       <View style={[styles.center, dimensions]}>{glyph}</View>
     </GlassSurface>
-  ) : (
-    <View
-      style={[
-        styles.center,
-        dimensions,
-        Platform.OS === 'ios' ? null : shadows.medium,
-        {
-          backgroundColor: theme.glassFillAndroid,
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: theme.glassRimAndroid,
-        },
-      ]}
-    >
-      {glyph}
-    </View>
   );
 
   return (
