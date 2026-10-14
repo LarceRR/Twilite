@@ -26,6 +26,15 @@ describe('field pixel circle geometry', () => {
     }
   });
 
+  it('allows increasing pixel density without changing the circular footprint', () => {
+    const lowDensity = createPixelCircleMask(24);
+    const highDensity = createPixelCircleMask(48);
+
+    expect(lowDensity).toHaveLength(24);
+    expect(highDensity).toHaveLength(48);
+    expect(highDensity.every((row) => row.length === 48)).toBe(true);
+  });
+
   it('extrudes the same circular footprint to the configured platform height', () => {
     const geometry = createPixelCirclePlatformGeometry(60, 16, 24);
     geometry.computeBoundingBox();
