@@ -5,11 +5,31 @@ import {
   registerFieldGridWaveMaterial,
   resetFieldGridWaveScene,
   syncFieldGridPixelLights,
+  syncFieldGridWaveSceneConfig,
   triggerFieldGridWaveOnScene,
   syncFieldGridWaveSceneTime,
 } from './fieldGridWaveMaterial';
+import { useFieldConfigStore } from './fieldConfigStore';
 
 describe('fieldGridWaveMaterial', () => {
+  it('updates pixel-glow size on every registered material after a config change', () => {
+    const material = createFieldGridWaveMaterial();
+    const unregister = registerFieldGridWaveMaterial(material);
+    try {
+      useFieldConfigStore.getState().setSection('lighting', {
+        objectGlow: { pixelOverlay: { pixelSizePx: 13 } },
+      });
+      syncFieldGridWaveSceneConfig();
+      expect(material.uniforms.uLightPixelSize.value).toBe(13);
+    } finally {
+      useFieldConfigStore.getState().reset();
+      syncFieldGridWaveSceneConfig();
+      unregister();
+      material.dispose();
+      resetFieldGridWaveScene();
+    }
+  });
+
   it('uses one shared pixel-light uniform set for registered surfaces', () => {
     const material = createFieldGridWaveMaterial();
     const unregister = registerFieldGridWaveMaterial(material);
