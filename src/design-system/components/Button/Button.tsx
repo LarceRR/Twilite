@@ -20,6 +20,8 @@ export type ButtonProps = {
   readonly disabled?: boolean;
   readonly loading?: boolean;
   readonly compact?: boolean;
+  /** Stretch the button to the width of its parent. */
+  readonly block?: boolean;
   readonly icon?: IconName;
   readonly accessibilityLabel?: string;
   readonly accessibilityHint?: string;
@@ -60,6 +62,7 @@ function ButtonComponent({
   disabled = false,
   loading = false,
   compact = false,
+  block = false,
   icon,
   accessibilityLabel,
   accessibilityHint,
@@ -92,6 +95,7 @@ function ButtonComponent({
           style={[
             styles.surface,
             compact ? styles.compact : styles.regular,
+            block && styles.block,
             variant === 'secondary' && {
               borderWidth: StyleSheet.hairlineWidth,
               borderColor: theme.surfaceDivider,
@@ -132,6 +136,9 @@ const styles = StyleSheet.create({
   compact: {
     minHeight: layout.controlHeightCompact,
     paddingHorizontal: spacing.lg,
+  },
+  block: {
+    width: '100%',
   },
   inactive: {
     opacity: 0.45,
