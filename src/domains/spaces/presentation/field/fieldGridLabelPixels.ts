@@ -152,6 +152,7 @@ function drawGridLines(
   config: FieldGridConfig,
   line: Rgba,
 ): void {
+  if (config.showDividers === false) return;
   const { width, height } = fieldGridWorldSize(config);
   const pitch = fieldGridCellPitch(config);
   for (let c = 0; c < config.cols; c += 1) {
