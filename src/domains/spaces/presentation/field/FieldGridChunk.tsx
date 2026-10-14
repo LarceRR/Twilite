@@ -143,6 +143,7 @@ function FieldGridChunkComponent({
         ref={meshRef}
         geometry={planeGeometry}
         material={material}
+        renderOrder={0}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
