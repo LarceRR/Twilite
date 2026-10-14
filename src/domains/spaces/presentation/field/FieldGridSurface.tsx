@@ -190,7 +190,7 @@ function warmChunkPrefetch(
 /** Streams field chunks along +X; camera pose is polled in useFrame (no React bind). */
 export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElement {
   const showToast = useUiStore((s) => s.showToast);
-  const { surface, surfaceRaised, surfaceDivider } = useThemeColors();
+  const { surface, surfaceDivider } = useThemeColors();
   const fieldConfig = useFieldConfig();
   const showActiveCells = useSettingsStore((s) => s.developerShowActiveCells);
   const showActiveCenters = useSettingsStore((s) => s.developerShowActiveCellCenters);
@@ -242,7 +242,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
         fill: themeColorToRgbaTuple(surface),
         line: themeColorToRgbaTuple(compositeThemeColorOver(surfaceDivider, surface)),
         text: hexToRgba(fieldLabelTextHex()),
-        activeFill: themeColorToRgbaTuple(surfaceRaised),
+        activeFill: hexToRgba(fieldConfig.activeCells.fillHex),
         activeCenter: fieldActiveCenterRgba(),
       },
       layers: { showActiveCells, showActiveCenters, showCellLabels },
@@ -253,7 +253,6 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
       config.dividerWidth,
       config.showDividers,
       surface,
-      surfaceRaised,
       surfaceDivider,
       showActiveCells,
       showActiveCenters,
