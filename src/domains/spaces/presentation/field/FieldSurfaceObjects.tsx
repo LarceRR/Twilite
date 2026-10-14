@@ -155,7 +155,9 @@ export function FieldSurfaceObjects({
         continue;
       }
 
-      const z = item.platformHeight + item.lightHeightAbovePlatform;
+      const platformTopZ = item.platformHeight * progress;
+      const z = platformTopZ + item.lightHeightAbovePlatform;
+      if (light.position.z !== z) light.position.z = z;
       if (!lightVisibility.intersects(item.centerX, item.centerY, z, lightConfig.distance)) {
         light.visible = false;
         continue;
@@ -166,7 +168,7 @@ export function FieldSurfaceObjects({
         (camera.position.y - item.centerY) ** 2 +
         (camera.position.z - z) ** 2;
       item.pixelLight.z = z;
-      item.pixelLight.platformTopZ = item.platformHeight;
+      item.pixelLight.platformTopZ = platformTopZ;
       item.pixelLight.platformHalfSize = item.platformSize / 2;
       item.pixelLight.intensity = intensity;
       candidates.push(item);
