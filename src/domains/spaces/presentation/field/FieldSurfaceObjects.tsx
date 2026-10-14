@@ -216,6 +216,7 @@ export function FieldSurfaceObjects({
           false,
           shadowConfig.localShadowMapSizePx,
           shadowConfig.filterRadius,
+          shadowConfig.localShadowIntensity,
         );
         continue;
       }
@@ -230,6 +231,7 @@ export function FieldSurfaceObjects({
           false,
           shadowConfig.localShadowMapSizePx,
           shadowConfig.filterRadius,
+          shadowConfig.localShadowIntensity,
         );
         continue;
       }
