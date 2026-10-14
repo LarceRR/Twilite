@@ -28,7 +28,7 @@ import type { FieldGridWaveMaterial } from './fieldGridWaveMaterial';
 
 export type FieldChunkBindInput = {
   readonly chunkIndex: number;
-  readonly base: Pick<FieldGridConfig, 'rows' | 'cellSize' | 'dividerWidth'>;
+  readonly base: Pick<FieldGridConfig, 'rows' | 'cellSize' | 'dividerWidth' | 'showDividers'>;
   readonly layers: FieldGridLayerFlags;
   readonly surface: string;
   readonly surfaceRaised: string;
@@ -52,7 +52,7 @@ export function resolveFieldChunkTexture(input: FieldChunkBindInput): Texture {
 
 export function writeFieldChunkLineGeometry(
   chunkIndex: number,
-  base: Pick<FieldGridConfig, 'rows' | 'cellSize' | 'dividerWidth'>,
+  base: Pick<FieldGridConfig, 'rows' | 'cellSize' | 'dividerWidth' | 'showDividers'>,
   lineGeometry: BufferGeometry,
 ): void {
   const spec = createFieldGridChunkSpec(chunkIndex, base);
