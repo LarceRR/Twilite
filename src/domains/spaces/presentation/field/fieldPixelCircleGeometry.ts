@@ -168,6 +168,65 @@ export function createPixelCirclePlatformGeometry(
   return toGeometry(vertices);
 }
 
+/** Side-wall-only geometry for a transparent local-light overlay. */
+export function createPixelCircleSideGeometry(
+  size: number,
+  height: number,
+  resolution = PLATFORM_PIXEL_CIRCLE_STEPS,
+): BufferGeometry {
+  const mask = createPixelCircleMask(resolution);
+  const steps = mask.length;
+  const lowerZ = -height / 2;
+  const upperZ = height / 2;
+  const vertices: Vertex[] = [];
+
+  for (let row = 0; row < steps; row += 1) {
+    const span = findRowSpan(mask, row);
+    if (span === null) continue;
+
+    for (let column = span.start; column < span.end; column += 1) {
+      if (column === 0 || !mask[row]![column - 1]) {
+        pushQuad(
+          vertices,
+          pixelVertex(size, steps, column, row, lowerZ),
+          pixelVertex(size, steps, column, row, upperZ),
+          pixelVertex(size, steps, column, row + 1, upperZ),
+          pixelVertex(size, steps, column, row + 1, lowerZ),
+        );
+      }
+      if (column === steps - 1 || !mask[row]![column + 1]) {
+        pushQuad(
+          vertices,
+          pixelVertex(size, steps, column + 1, row, lowerZ),
+          pixelVertex(size, steps, column + 1, row + 1, lowerZ),
+          pixelVertex(size, steps, column + 1, row + 1, upperZ),
+          pixelVertex(size, steps, column + 1, row, upperZ),
+        );
+      }
+      if (row === 0 || !mask[row - 1]![column]) {
+        pushQuad(
+          vertices,
+          pixelVertex(size, steps, column, row, lowerZ),
+          pixelVertex(size, steps, column + 1, row, lowerZ),
+          pixelVertex(size, steps, column + 1, row, upperZ),
+          pixelVertex(size, steps, column, row, upperZ),
+        );
+      }
+      if (row === steps - 1 || !mask[row + 1]![column]) {
+        pushQuad(
+          vertices,
+          pixelVertex(size, steps, column, row + 1, lowerZ),
+          pixelVertex(size, steps, column, row + 1, upperZ),
+          pixelVertex(size, steps, column + 1, row + 1, upperZ),
+          pixelVertex(size, steps, column + 1, row + 1, lowerZ),
+        );
+      }
+    }
+  }
+
+  return toGeometry(vertices);
+}
+
 /** Top-only matching geometry clips the overlay to the same pixel circle. */
 export function createPixelCircleTopGeometry(
   size: number,
