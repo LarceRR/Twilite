@@ -47,7 +47,7 @@ function validateValue(value: unknown, schema: unknown, path: string): unknown {
   if (typeof value === 'number' && !Number.isFinite(value)) {
     throw new Error(`"${path}" must be a finite number.`);
   }
-  if (typeof schema === 'string' && typeof value === 'string' && path.toLowerCase().includes('color')) {
+  if (typeof schema === 'string' && typeof value === 'string' && (path.toLowerCase().includes('color') || path.toLowerCase().endsWith('hex'))) {
     if (!/^#[0-9a-f]{6}$/i.test(value)) {
       throw new Error(`"${path}" must be a HEX color in #RRGGBB format.`);
     }
