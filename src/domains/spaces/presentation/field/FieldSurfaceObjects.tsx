@@ -18,7 +18,11 @@ import { useThemeColors } from '@/design-system/colors/colors';
 import { FieldSurfaceObjectArtwork } from './FieldSurfaceObjectArtwork';
 import { cellCenterOnPlane } from './fieldGridCells';
 import type { FieldConfig } from './fieldConfig';
-import { FIELD_LOCAL_LIGHT_LAYER, type FieldGridConfig } from './fieldGridConfig';
+import {
+  FIELD_GRID_OVERLAY_RENDER_ORDER,
+  FIELD_LOCAL_LIGHT_LAYER,
+  type FieldGridConfig,
+} from './fieldGridConfig';
 import {
   createFieldGridWaveMaterial,
   registerFieldGridWaveMaterial,
@@ -341,7 +345,7 @@ function FieldSurfaceObjectColumn({
         ref={waveOverlay}
         visible={initialProgress > 0}
         position={[0, 0, platformHeight * initialProgress + 0.2]}
-        renderOrder={0}
+        renderOrder={FIELD_GRID_OVERLAY_RENDER_ORDER}
       >
         <planeGeometry args={[platformSize, platformSize]} />
         <primitive object={waveMaterial} attach="material" />
