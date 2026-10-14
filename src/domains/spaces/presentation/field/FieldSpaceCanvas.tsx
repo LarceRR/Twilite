@@ -43,7 +43,7 @@ export function FieldSpaceCanvas({
             far: pose.far,
           }}
           gl={{ antialias: true }}
-          shadows="soft"
+          shadows="percentage"
         >
           <color attach="background" args={[scene.background]} />
           <FieldSpaceCamera />
