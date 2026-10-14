@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useState, type ReactElement, type ReactNode } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { useThemeColors } from '@/design-system/colors/colors';
@@ -318,7 +318,7 @@ function applyCameraConfig(config: FieldConfig): void {
   });
 }
 
-export function FieldConfigExplorer(): ReactElement {
+export function FieldConfigExplorer({ children }: { readonly children?: ReactNode }): ReactElement {
   const theme = useThemeColors();
   const config = useFieldConfig();
   const patchOverrides = useFieldConfigStore((state) => state.patchOverrides);
@@ -458,6 +458,7 @@ export function FieldConfigExplorer(): ReactElement {
         ) : null}
       </View>
 
+      {children}
       {visibleGroups.length === 0 ? (
         <BlurCard>
           <Text variant="bodyStrong">Параметры не найдены</Text>
