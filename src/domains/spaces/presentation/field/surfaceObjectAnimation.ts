@@ -33,6 +33,11 @@ export function easeOutCubic(progress: number): number {
   return 1 - (1 - bounded) ** 3;
 }
 
+/** Returns the platform's eased rise progress for elapsed time, including negative stagger delays. */
+export function surfaceObjectRiseProgress(elapsedMs: number): number {
+  return easeOutCubic(elapsedMs / SURFACE_OBJECT_ANIMATION_CONFIG.riseDurationMs);
+}
+
 export function advanceSpritePlayback(
   cursor: SpritePlaybackCursor,
   frames: readonly SurfaceSpriteFrame[],

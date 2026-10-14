@@ -81,7 +81,7 @@ describe('fieldGridLabelPixels', () => {
     expect(isLabelGlyphPixelOn('1', 2, 0)).toBe(true);
   });
 
-  it('fills the active center band with #fdba2f and a pink center mark', () => {
+  it('fills the active center band with the theme accent and a center mark', () => {
     const { data, width } = buildFieldGridLabelPixels(config, COLORS);
     // Active cell (col0,row10): x∈[1,61), data y∈[611,671).
     expect(sample(data, width, 20, 620)).toEqual(ACTIVE_FILL);
@@ -100,7 +100,7 @@ describe('fieldGridLabelPixels', () => {
     expect(sample(data, width, 30, 640)).toEqual(ACTIVE_CENTER);
   });
 
-  it('skips yellow active fills when showActiveCells is off', () => {
+  it('skips theme-accent active fills when showActiveCells is off', () => {
     const { data, width } = buildFieldGridLabelPixels(config, COLORS, {
       showActiveCells: false,
     });
@@ -142,6 +142,6 @@ describe('fieldGridLabelPixels', () => {
   it('parses hex colors', () => {
     expect(hexToRgba('#112233')).toEqual([17, 34, 51, 255]);
     expect(hexToRgba('#abc', 128)).toEqual([170, 187, 204, 128]);
-    expect(hexToRgba(FIELD_ACTIVE_FILL_HEX)).toEqual([253, 186, 47, 255]);
+    expect(hexToRgba(FIELD_ACTIVE_FILL_HEX)).toEqual(ACTIVE_FILL);
   });
 });

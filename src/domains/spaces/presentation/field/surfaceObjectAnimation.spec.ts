@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   advanceSpritePlayback,
   easeOutCubic,
+  surfaceObjectRiseProgress,
   SURFACE_OBJECT_ANIMATION_CONFIG,
   staggerAppearanceDelays,
 } from './surfaceObjectAnimation';
@@ -13,6 +14,13 @@ describe('surfaceObjectAnimation', () => {
     expect(easeOutCubic(0.5)).toBeGreaterThan(0.5);
     expect(easeOutCubic(1)).toBe(1);
     expect(easeOutCubic(2)).toBe(1);
+  });
+
+  it('keeps a platform fully hidden until its stagger delay has elapsed', () => {
+    expect(surfaceObjectRiseProgress(-SURFACE_OBJECT_ANIMATION_CONFIG.staggerDelayMs * 3)).toBe(0);
+    expect(surfaceObjectRiseProgress(0)).toBe(0);
+    expect(surfaceObjectRiseProgress(1)).toBeGreaterThan(0);
+    expect(surfaceObjectRiseProgress(SURFACE_OBJECT_ANIMATION_CONFIG.riseDurationMs)).toBe(1);
   });
 
   it('advances variable-duration frames and loops without losing elapsed time', () => {

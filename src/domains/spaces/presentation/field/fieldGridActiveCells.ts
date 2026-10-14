@@ -1,11 +1,13 @@
+import { currentThemeColors } from '@/design-system/colors/colors';
+
 import { DEFAULT_FIELD_CONFIG, hexToRgbaTuple } from './fieldConfig';
 import { getFieldConfig } from './fieldConfigStore';
 
 /** How many cells on each side of the center row are active. */
 export const FIELD_ACTIVE_SIDE_SPAN = DEFAULT_FIELD_CONFIG.activeCells.sideSpan;
 
-/** Active cell fill (#fdba2f). */
-export const FIELD_ACTIVE_FILL_HEX = DEFAULT_FIELD_CONFIG.activeCells.fillHex;
+/** Initial active-cell fill, matching the current theme accent. */
+export const FIELD_ACTIVE_FILL_HEX = currentThemeColors().accent;
 export const FIELD_ACTIVE_FILL_RGBA = hexToRgbaTuple(FIELD_ACTIVE_FILL_HEX);
 
 /** Bright pink mark at the center of each active cell (#ff1493). */
@@ -43,7 +45,7 @@ export function isActiveFieldGridCell(
 }
 
 export function fieldActiveFillRgba(): readonly [number, number, number, number] {
-  return hexToRgbaTuple(getFieldConfig().activeCells.fillHex);
+  return hexToRgbaTuple(currentThemeColors().accent);
 }
 
 export function fieldActiveCenterRgba(): readonly [number, number, number, number] {
