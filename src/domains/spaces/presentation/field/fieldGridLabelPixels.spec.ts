@@ -78,6 +78,15 @@ describe('fieldGridLabelPixels', () => {
     expect(sample(data, width, 61, 30)).toEqual(LINE);
   });
 
+  it('omits grid divider pixels when divider visibility is disabled', () => {
+    const hidden = createFieldGridConfig(50, 21, 60, 1, false);
+    const { data, width } = buildFieldGridLabelPixels(hidden, COLORS);
+    expect(sample(data, width, 0, 30)).toEqual(TRANSPARENT);
+    expect(sample(data, width, 61, 30)).toEqual(TRANSPARENT);
+    // Disabling visual lines does not change the logical cell pitch.
+    expect(width).toBe(3050);
+  });
+
   it('paints small cell-1 ink raised in the camera bottom-right corner', () => {
     const { data, width } = buildFieldGridLabelPixels(config, COLORS);
     // Cell (0,0): raised ~LABEL_PADDING+LABEL_RAISE along data x, low data y-in-cell.
