@@ -18,7 +18,7 @@ import { useFieldConfig } from './useFieldConfig';
 type FieldGridChunkProps = {
   /** Null hides this recycled slot without tearing down GPU resources. */
   readonly chunkIndex: number | null;
-  readonly base: Pick<FieldGridConfig, 'rows' | 'cellSize' | 'dividerWidth'>;
+  readonly base: Pick<FieldGridConfig, 'rows' | 'cellSize' | 'dividerWidth' | 'showDividers'>;
   readonly onMaterialReady: (chunkIndex: number, material: FieldGridWaveMaterial) => void;
   readonly onMaterialDispose: (chunkIndex: number, material: FieldGridWaveMaterial) => void;
   readonly onPointerDown: (event: ThreeEvent<PointerEvent>) => void;
@@ -149,7 +149,7 @@ function FieldGridChunkComponent({
         onPointerCancel={onPointerCancel}
         onPointerLeave={onPointerLeave}
       />
-      <lineSegments geometry={lineGeometry}>
+      <lineSegments geometry={lineGeometry} visible={base.showDividers ?? true}>
         <lineBasicMaterial color={gridLineColor} toneMapped={false} />
       </lineSegments>
     </group>
