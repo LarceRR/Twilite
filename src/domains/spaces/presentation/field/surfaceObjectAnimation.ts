@@ -7,8 +7,6 @@ export const SURFACE_OBJECT_ANIMATION_CONFIG = {
   riseDurationMs: 760,
   staggerDelayMs: 80,
   completionBufferMs: 100,
-  /** Fixed platform thickness in field world units (1 unit = 1 logical pixel). */
-  platformHeight: 6,
   artworkOffset: 0.01,
 } as const;
 

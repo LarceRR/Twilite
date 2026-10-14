@@ -409,13 +409,8 @@ function FieldSurfaceObjectColumn({
     };
   }, [item, register]);
 
-  useEffect(
-    () => () => {
-      platformGeometry.dispose();
-      platformTopGeometry.dispose();
-    },
-    [platformGeometry, platformTopGeometry],
-  );
+  useEffect(() => () => platformGeometry.dispose(), [platformGeometry]);
+  useEffect(() => () => platformTopGeometry.dispose(), [platformTopGeometry]);
 
   useEffect(() => () => waveMaterial.dispose(), [waveMaterial]);
 
@@ -448,7 +443,7 @@ function FieldSurfaceObjectColumn({
         visible={initialProgress > 0}
         position={[0, 0, (platformHeight * initialProgress) / 2]}
         scale={[1, 1, initialProgress]}
-      geometry={platformGeometry}
+        geometry={platformGeometry}
       >
         <meshLambertMaterial color={platformColor} />
       </mesh>
