@@ -19,6 +19,7 @@ import {
 } from './fieldGridWaveMaterial';
 import {
   resolveSceneShadowIntensity,
+  resolveSurfaceObjectLightConfig,
   SurfaceObjectLightVisibility,
   type SurfaceObjectLightingIdentity,
 } from './surfaceObjectLighting';
@@ -76,10 +77,14 @@ function FieldSceneLighting({
     () =>
       objects.flatMap((object) => {
         const sprite = object.pixelObject;
-        const source = sprite?.light;
-        if (sprite === null || sprite === undefined || source == null) return [];
+        const source = resolveSurfaceObjectLightConfig(
+          sprite?.light ?? null,
+          lighting.objectGlow,
+        );
+        if (source === null) return [];
         const center = cellCenterOnPlane(object.cell.x, object.cell.y, config);
-        const artworkHeight = config.cellSize * (sprite.canvas.height / sprite.canvas.width);
+        const artworkHeight =
+          sprite === null ? 0 : config.cellSize * (sprite.canvas.height / sprite.canvas.width);
         return [{
           id: object.id,
           light: source,
@@ -93,7 +98,7 @@ function FieldSceneLighting({
           distanceSquared: Number.POSITIVE_INFINITY,
         }];
       }),
-    [objects, config],
+    [objects, config, lighting.objectGlow],
   );
   const lightVisibility = useMemo(() => new SurfaceObjectLightVisibility(), []);
   const candidateLightSources = useRef<PositionedShadowLight[]>([]);
@@ -138,6 +143,7 @@ function FieldSceneLighting({
     light.shadow.intensity = resolveSceneShadowIntensity(
       visible,
       clock.elapsedTime * 1000,
+      lighting,
     );
   });
 
@@ -151,16 +157,16 @@ function FieldSceneLighting({
         castShadow
         position={[...lighting.directionalPosition]}
         intensity={lighting.directionalIntensity}
-        shadow-mapSize-width={256}
-        shadow-mapSize-height={256}
-        shadow-camera-left={-1200}
-        shadow-camera-right={1200}
-        shadow-camera-top={700}
-        shadow-camera-bottom={-700}
-        shadow-camera-near={0.1}
-        shadow-camera-far={4000}
-        shadow-bias={-0.0005}
-        shadow-normalBias={0.02}
+        shadow-mapSize-width={lighting.shadows.mapSizePx}
+        shadow-mapSize-height={lighting.shadows.mapSizePx}
+        shadow-camera-left={lighting.shadows.cameraLeft}
+        shadow-camera-right={lighting.shadows.cameraRight}
+        shadow-camera-top={lighting.shadows.cameraTop}
+        shadow-camera-bottom={lighting.shadows.cameraBottom}
+        shadow-camera-near={lighting.shadows.cameraNear}
+        shadow-camera-far={lighting.shadows.cameraFar}
+        shadow-bias={lighting.shadows.bias}
+        shadow-normalBias={lighting.shadows.normalBias}
       />
     </>
   );
