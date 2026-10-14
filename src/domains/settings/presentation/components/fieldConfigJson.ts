@@ -146,6 +146,7 @@ function validateConfigConstraints(config: FieldConfig): void {
 
 /** Create a portable, versioned JSON document from the active merged configuration. */
 export function serializeFieldConfigJson(config: FieldConfig): string {
+  validateConfigConstraints(config);
   return JSON.stringify(
     {
       format: FIELD_CONFIG_JSON_FORMAT,
