@@ -4,6 +4,7 @@ import {
   FIELD_ACTIVE_CENTER_RGBA,
   FIELD_ACTIVE_FILL_HEX,
   FIELD_ACTIVE_FILL_RGBA,
+  lightenThemeColor,
   themeColorToRgbaTuple,
 } from './fieldGridActiveCells';
 import { createFieldGridConfig } from './fieldGridConfig';
@@ -82,7 +83,7 @@ describe('fieldGridLabelPixels', () => {
     expect(isLabelGlyphPixelOn('1', 2, 0)).toBe(true);
   });
 
-  it('fills the active center band with the theme accent and a center mark', () => {
+  it('fills the active center band with lightened accentSoft and a center mark', () => {
     const { data, width } = buildFieldGridLabelPixels(config, COLORS);
     // Active cell (col0,row10): x∈[1,61), data y∈[611,671).
     expect(sample(data, width, 20, 620)).toEqual(ACTIVE_FILL);
@@ -101,7 +102,7 @@ describe('fieldGridLabelPixels', () => {
     expect(sample(data, width, 30, 640)).toEqual(ACTIVE_CENTER);
   });
 
-  it('skips theme-accent active fills when showActiveCells is off', () => {
+  it('skips lightened accentSoft active fills when showActiveCells is off', () => {
     const { data, width } = buildFieldGridLabelPixels(config, COLORS, {
       showActiveCells: false,
     });
@@ -138,6 +139,12 @@ describe('fieldGridLabelPixels', () => {
     // Absolute col 10 / row 0 → label "11,1" ink in local cell (0,0).
     const textPixels = countColorInRect(data, width, 10, 40, 1202, 1250, TEXT);
     expect(textPixels).toBeGreaterThan(5);
+  });
+
+  it('lightens the accentSoft hue and returns an opaque color', () => {
+    expect(lightenThemeColor('rgba(100, 150, 200, 0.18)')).toBe('#9ABBDB');
+    expect(lightenThemeColor('#FFFFFF')).toBe('#ffffff');
+    expect(lightenThemeColor('rgb(0, 0, 0)', 0.5)).toBe('#808080');
   });
 
   it('converts all CSS color formats accepted for theme accents', () => {

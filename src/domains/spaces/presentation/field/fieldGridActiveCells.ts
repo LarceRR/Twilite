@@ -6,8 +6,8 @@ import { getFieldConfig } from './fieldConfigStore';
 /** How many cells on each side of the center row are active. */
 export const FIELD_ACTIVE_SIDE_SPAN = DEFAULT_FIELD_CONFIG.activeCells.sideSpan;
 
-/** Initial active-cell fill, matching the current theme accent. */
-export const FIELD_ACTIVE_FILL_HEX = currentThemeColors().accent;
+/** Initial active-cell fill: a lighter, opaque shade derived from accentSoft. */
+export const FIELD_ACTIVE_FILL_HEX = lightenThemeColor(currentThemeColors().accentSoft);
 export const FIELD_ACTIVE_FILL_RGBA = themeColorToRgbaTuple(FIELD_ACTIVE_FILL_HEX);
 
 /** Bright pink mark at the center of each active cell (#ff1493). */
@@ -45,7 +45,23 @@ export function isActiveFieldGridCell(
 }
 
 export function fieldActiveFillRgba(): readonly [number, number, number, number] {
-  return themeColorToRgbaTuple(currentThemeColors().accent);
+  return themeColorToRgbaTuple(lightenThemeColor(currentThemeColors().accentSoft));
+}
+
+/**
+ * Lightens a theme CSS color by mixing its RGB channels with white.
+ * Theme accentSoft can be translucent; use its hue but return an opaque shade
+ * so the 3D platform and baked grid texture share the same appearance.
+ */
+export function lightenThemeColor(color: string, amount = 0.35): string {
+  const [red, green, blue] = themeColorToRgbaTuple(color);
+  const mix = Number.isFinite(amount) ? Math.max(0, Math.min(1, amount)) : 0.35;
+  const toHex = (channel: number): string =>
+    Math.round(channel + (255 - channel) * mix)
+      .toString(16)
+      .padStart(2, '0');
+
+  return `#${toHex(red)}${toHex(green)}${toHex(blue)}`;
 }
 
 /** Converts the CSS color formats allowed by theme packs to a pixel RGBA tuple. */
