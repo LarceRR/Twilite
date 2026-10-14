@@ -63,7 +63,7 @@ function FieldGridChunkComponent({
   onPointerCancel,
   onPointerLeave,
 }: FieldGridChunkProps): ReactElement {
-  const { surface, surfaceRaised, surfaceDivider } = useThemeColors();
+  const { surface, surfaceDivider } = useThemeColors();
   const gridLineColor = compositeThemeColorOver(surfaceDivider, surface);
   const fieldConfig = useFieldConfig();
   const showActiveCells = useSettingsStore((s) => s.developerShowActiveCells);
@@ -101,7 +101,7 @@ function FieldGridChunkComponent({
         base,
         layers: { showActiveCells, showActiveCenters, showCellLabels },
         surface,
-        surfaceRaised,
+        activeFill: fieldConfig.activeCells.fillHex,
         surfaceDivider,
       },
       material,
