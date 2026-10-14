@@ -6,7 +6,7 @@ export const FIELD_ACTIVE_SIDE_SPAN = DEFAULT_FIELD_CONFIG.activeCells.sideSpan;
 
 /** Default active-cell fill color; the developer config can override it at runtime. */
 export const FIELD_ACTIVE_FILL_HEX = DEFAULT_FIELD_CONFIG.activeCells.fillHex;
-export const FIELD_ACTIVE_FILL_RGBA = themeColorToRgbaTuple(FIELD_ACTIVE_FILL_HEX);
+export const FIELD_ACTIVE_FILL_RGBA = hexToRgbaTuple(FIELD_ACTIVE_FILL_HEX);
 
 /** Default color for the center mark of each active cell. */
 export const FIELD_ACTIVE_CENTER_HEX = DEFAULT_FIELD_CONFIG.activeCells.centerHex;
