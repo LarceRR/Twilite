@@ -58,6 +58,7 @@ type RuntimeObject = {
   readonly artHeight: number;
   readonly lightConfig: PixelObjectLightDto | null;
   readonly flickerConfig: FieldConfig['lighting']['objectGlow']['flicker'];
+  readonly minimumVisibleIntensity: number;
   readonly waveMaterial: FieldGridWaveMaterial;
   unregisterWaveMaterial: (() => void) | null;
   readonly pixelLight: FieldGridPixelLight | null;
@@ -144,7 +145,7 @@ export function FieldSurfaceObjects({
           item.flickerConfig,
         ) * progress;
       if (light.intensity !== intensity) light.intensity = intensity;
-      if (intensity <= 0.005) {
+      if (intensity <= item.minimumVisibleIntensity) {
         light.visible = false;
         continue;
       }
@@ -224,9 +225,10 @@ function FieldSurfaceObjectColumn({
       ? 0
       : platformSize * (object.pixelObject.canvas.height / object.pixelObject.canvas.width);
   const center = cellCenterOnPlane(object.cell.x, object.cell.y, config);
-  const lightConfig = resolveSurfaceObjectLightConfig(
-    object.pixelObject?.light ?? null,
-    objectGlowConfig,
+  const backendLightConfig = object.pixelObject?.light ?? null;
+  const lightConfig = useMemo(
+    () => resolveSurfaceObjectLightConfig(backendLightConfig, objectGlowConfig),
+    [backendLightConfig, objectGlowConfig],
   );
   const waveMaterial = useMemo(() => createFieldGridWaveMaterial(), []);
   const initialElapsedMs =
@@ -251,6 +253,7 @@ function FieldSurfaceObjectColumn({
       artHeight,
       lightConfig,
       flickerConfig: objectGlowConfig.flicker,
+      minimumVisibleIntensity: objectGlowConfig.minimumVisibleIntensity,
       pixelLight: lightConfig === null
         ? null
         : {
