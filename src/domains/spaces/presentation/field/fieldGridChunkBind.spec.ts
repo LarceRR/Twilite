@@ -8,6 +8,7 @@ import {
   writeFieldChunkLineGeometry,
 } from './fieldGridChunkBind';
 import { createFieldGridWaveMaterial } from './fieldGridWaveMaterial';
+import { FIELD_LOCAL_LIGHT_LAYER } from './fieldGridConfig';
 
 describe('fieldGridChunkBind', () => {
   beforeEach(() => {
@@ -55,6 +56,7 @@ describe('fieldGridChunkBind', () => {
     expect(mesh.position.x).toBe(300);
     expect(mesh.position.z).toBeCloseTo(0.2);
     expect(surfaceMesh.position.toArray()).toEqual([300, 0, 0]);
+    expect(surfaceMesh.layers.isEnabled(FIELD_LOCAL_LIGHT_LAYER)).toBe(true);
     material.dispose();
     lines.dispose();
     mesh.geometry.dispose();

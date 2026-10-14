@@ -106,6 +106,7 @@ function FieldSceneLighting({
     if (light === null) return;
 
     const shadowCamera = light.shadow.camera;
+    light.shadow.radius = lighting.shadows.filterRadius;
     shadowCamera.up.set(0, 0, 1);
     shadowCamera.left = lighting.shadows.cameraLeft;
     shadowCamera.right = lighting.shadows.cameraRight;
@@ -130,6 +131,7 @@ function FieldSceneLighting({
     );
   }, [
     lighting.shadows.mapSizePx,
+    lighting.shadows.filterRadius,
     lighting.shadows.cameraLeft,
     lighting.shadows.cameraRight,
     lighting.shadows.cameraTop,

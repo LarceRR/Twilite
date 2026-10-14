@@ -58,7 +58,7 @@ describe('surfaceObjectLighting', () => {
     expect(Math.max(...sequence)).toBeLessThanOrEqual(1.11);
   });
 
-  it('raises shared shadow contrast with brighter emitters and uses a neutral baseline without lights', () => {
+  it('lets brighter local emitters fill the global shadow while retaining a baseline without lights', () => {
     const withoutLights = resolveSceneShadowIntensity([], 800);
     const oneLight = resolveSceneShadowIntensity(
       [{ id: 'same-light', light: { intensity: 1 } }],
@@ -74,8 +74,8 @@ describe('surfaceObjectLighting', () => {
     );
     const baseline = DEFAULT_FIELD_CONFIG.lighting.shadows.baselineIntensity;
     expect(withoutLights).toBe(baseline);
-    expect(oneLight).toBeGreaterThan(baseline);
-    expect(oneLight).toBeLessThanOrEqual(0.82);
-    expect(dimLight).toBeLessThan(brightLight);
+    expect(oneLight).toBeLessThan(baseline);
+    expect(oneLight).toBeGreaterThanOrEqual(DEFAULT_FIELD_CONFIG.lighting.shadows.minIntensity);
+    expect(brightLight).toBeLessThan(dimLight);
   });
 });

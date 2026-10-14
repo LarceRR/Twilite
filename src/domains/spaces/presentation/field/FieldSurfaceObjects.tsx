@@ -85,6 +85,7 @@ function setLocalShadowCasting(
   item: RuntimeObject,
   enabled: boolean,
   mapSizePx: number,
+  filterRadius: number,
 ): void {
   const light = item.light.current;
   if (light === null) {
@@ -103,7 +104,7 @@ function setLocalShadowCasting(
   }
   shadow.bias = -0.0008;
   shadow.normalBias = 0.025;
-  shadow.radius = 2;
+  shadow.radius = filterRadius;
 
   if (item.castsLocalShadow !== enabled) {
     item.castsLocalShadow = enabled;
@@ -173,7 +174,12 @@ export function FieldSurfaceObjects({
       const lightConfig = item.lightConfig;
       const light = item.light.current;
       if (lightConfig === null || light === null || item.pixelLight === null) {
-        setLocalShadowCasting(item, false, shadowConfig.localShadowMapSizePx);
+        setLocalShadowCasting(
+          item,
+          false,
+          shadowConfig.localShadowMapSizePx,
+          shadowConfig.filterRadius,
+        );
         if (light !== null) light.visible = false;
         continue;
       }
@@ -189,7 +195,12 @@ export function FieldSurfaceObjects({
       if (light.intensity !== intensity) light.intensity = intensity;
       if (intensity <= item.minimumVisibleIntensity) {
         light.visible = false;
-        setLocalShadowCasting(item, false, shadowConfig.localShadowMapSizePx);
+        setLocalShadowCasting(
+          item,
+          false,
+          shadowConfig.localShadowMapSizePx,
+          shadowConfig.filterRadius,
+        );
         continue;
       }
 
@@ -198,7 +209,12 @@ export function FieldSurfaceObjects({
       if (light.position.z !== z) light.position.z = z;
       if (!lightVisibility.intersects(item.centerX, item.centerY, z, lightConfig.distance)) {
         light.visible = false;
-        setLocalShadowCasting(item, false, shadowConfig.localShadowMapSizePx);
+        setLocalShadowCasting(
+          item,
+          false,
+          shadowConfig.localShadowMapSizePx,
+          shadowConfig.filterRadius,
+        );
         continue;
       }
 
@@ -224,6 +240,7 @@ export function FieldSurfaceObjects({
         item,
         isActive && index < shadowConfig.localShadowLights,
         shadowConfig.localShadowMapSizePx,
+        shadowConfig.filterRadius,
       );
       if (isActive && item.pixelLight !== null) pixelLights.push(item.pixelLight);
     }
@@ -384,6 +401,7 @@ function FieldSurfaceObjectColumn({
     <group position={[center[0], center[1], 0]}>
       <mesh
         ref={column}
+        castShadow
         receiveShadow
         visible={initialProgress > 0}
         position={[0, 0, (platformHeight * initialProgress) / 2]}

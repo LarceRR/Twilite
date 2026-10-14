@@ -88,7 +88,7 @@ export function candleFlickerMultiplier(
   return Math.round(value * config.roundingScale) / config.roundingScale;
 }
 
-/** Shared key-light shadow contrast follows emitter strength and configured flicker. */
+/** Nearby local emitters gently fill the global directional shadow; each local light keeps its own spatial shadow map. */
 export function resolveSceneShadowIntensity(
   lights: readonly SurfaceObjectLightingIdentity[],
   elapsedMs: number,
@@ -116,7 +116,7 @@ export function resolveSceneShadowIntensity(
     config.shadows.minIntensity,
     Math.min(
       config.shadows.maxIntensity,
-      config.shadows.baselineIntensity +
+      config.shadows.baselineIntensity -
         averageFlicker * config.shadows.contrastScale * emissionStrength,
     ),
   );
