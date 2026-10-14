@@ -97,6 +97,7 @@ export type FieldConfig = {
       readonly fallbackIntensity: number;
       readonly fallbackDistance: number;
       readonly decay: number;
+      readonly minimumVisibleIntensity: number;
       readonly flicker: {
         readonly minMultiplier: number;
         readonly slowAmplitude: number;
@@ -230,6 +231,7 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
       fallbackIntensity: 1.4,
       fallbackDistance: 240,
       decay: 2,
+      minimumVisibleIntensity: 0.005,
       flicker: {
         minMultiplier: 0.58,
         slowAmplitude: 0.22,
