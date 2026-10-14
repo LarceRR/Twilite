@@ -21,6 +21,8 @@ export type FieldConfig = {
     readonly cellSizePx: number;
     /** Width of the line separating cells, in logical pixels. */
     readonly dividerWidthPx: number;
+    /** Show or hide the divider lines without changing grid spacing. */
+    readonly showDividers: boolean;
     /** Number of columns in the central field band. */
     readonly centerCols: number;
     /** Number of additional columns added to each side of the central band. */
@@ -170,6 +172,8 @@ export type FieldConfig = {
       readonly fallbackIntensity: number;
       /** Distance in world units at which the fallback PointLight's contribution reaches zero. */
       readonly fallbackDistance: number;
+      /** Height of local light sources above the platform top, in world units. */
+      readonly heightAbovePlatform: number;
       /** PointLight distance-decay exponent; 2 is the physically conventional inverse-square-style falloff. */
       readonly decay: number;
       /** Sources at or below this flickered intensity are hidden to avoid negligible light updates. */
@@ -255,6 +259,7 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
   grid: {
     cellSizePx: 60,
     dividerWidthPx: 1,
+    showDividers: true,
     centerCols: 10,
     sideExtraCols: 20,
     rows: 15,
@@ -336,6 +341,7 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
       fallbackColor: '#FFAE00',
       fallbackIntensity: 1.4,
       fallbackDistance: 240,
+      heightAbovePlatform: 1.5,
       decay: 2,
       minimumVisibleIntensity: 0.005,
       flicker: {
