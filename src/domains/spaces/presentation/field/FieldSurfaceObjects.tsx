@@ -3,6 +3,7 @@ import type { ReactElement, RefObject } from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Color,
+  DoubleSide,
   Vector3,
   type Group,
   type Mesh,
@@ -64,6 +65,7 @@ type RuntimeObject = {
   readonly flickerSeed: number;
   readonly platformHeight: number;
   readonly platformSize: number;
+  readonly platformPixelResolution: number;
   readonly lightHeightAbovePlatform: number;
   readonly artHeight: number;
   readonly lightConfig: PixelObjectLightDto | null;
@@ -133,6 +135,7 @@ export function FieldSurfaceObjects({
   const { surfaceRaised } = useThemeColors();
   const fieldConfig = useFieldConfig();
   const lightingConfig = fieldConfig.lighting;
+  const platformPixelResolution = fieldConfig.platform.pixelResolution;
   const platformColor = useMemo(
     () =>
       new Color(surfaceRaised).lerp(
@@ -281,6 +284,7 @@ export function FieldSurfaceObjects({
           config={config}
           headers={headers}
           platformHeight={fieldConfig.platform.height}
+          platformPixelResolution={platformPixelResolution}
           objectGlowConfig={objectGlowConfig}
           platformColor={platformColor}
           key={object.id}
@@ -300,12 +304,14 @@ function FieldSurfaceObjectColumn({
   objectGlowConfig,
   platformColor,
   platformHeight,
+  platformPixelResolution,
   register,
 }: {
   readonly object: SurfaceObject;
   readonly config: FieldGridConfig;
   readonly headers: AuthenticatedAssetHeaders;
   readonly platformHeight: number;
+  readonly platformPixelResolution: number;
   readonly objectGlowConfig: FieldConfig['lighting']['objectGlow'];
   readonly appearanceDelayMs: number | null;
   readonly platformColor: Color;
@@ -317,12 +323,12 @@ function FieldSurfaceObjectColumn({
   const waveOverlay = useRef<Mesh>(null);
   const platformSize = config.cellSize;
   const platformGeometry = useMemo(
-    () => createPixelCirclePlatformGeometry(platformSize, platformHeight),
-    [platformSize, platformHeight],
+    () => createPixelCirclePlatformGeometry(platformSize, platformHeight, platformPixelResolution),
+    [platformSize, platformHeight, platformPixelResolution],
   );
   const platformTopGeometry = useMemo(
-    () => createPixelCircleTopGeometry(platformSize),
-    [platformSize],
+    () => createPixelCircleTopGeometry(platformSize, platformPixelResolution),
+    [platformSize, platformPixelResolution],
   );
   const artHeight =
     object.pixelObject === null
@@ -360,6 +366,7 @@ function FieldSurfaceObjectColumn({
       flickerSeed: surfaceObjectFlickerSeed(object.id),
       platformHeight,
       platformSize,
+      platformPixelResolution,
       lightHeightAbovePlatform: objectGlowConfig.heightAbovePlatform,
       artHeight,
       lightConfig,
@@ -394,6 +401,7 @@ function FieldSurfaceObjectColumn({
       object,
       platformHeight,
       platformSize,
+      platformPixelResolution,
       lightConfig,
       objectGlowConfig,
       waveMaterial,
@@ -445,7 +453,7 @@ function FieldSurfaceObjectColumn({
         scale={[1, 1, initialProgress]}
         geometry={platformGeometry}
       >
-        <meshLambertMaterial color={platformColor} />
+        <meshLambertMaterial color={platformColor} side={DoubleSide} />
       </mesh>
       <mesh
         ref={waveOverlay}
