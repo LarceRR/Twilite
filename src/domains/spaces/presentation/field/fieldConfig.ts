@@ -34,6 +34,8 @@ export type FieldConfig = {
   readonly platform: {
     /** Vertical extrusion of each platform, in world units. */
     readonly height: number;
+    /** Number of square pixel steps across the circle's diameter. */
+    readonly pixelResolution: number;
   };
   /** Controls streamed chunks and how much field geometry is kept around the camera. */
   readonly chunks: {
@@ -283,6 +285,7 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
   },
   platform: {
     height: 6,
+    pixelResolution: 48,
   },
   chunks: {
     cols: 10,
