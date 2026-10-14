@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import { useThemeColors } from '../../colors/themeStore';
-import { icons, type IconName } from '../../icons/icons';
+import type { IconName } from '../../icons/icons';
 import { radius } from '../../radius/radius';
 import { layout, spacing } from '../../spacing/spacing';
 import { usePressFeedback } from '../Pressable/usePressFeedback';
