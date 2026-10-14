@@ -36,6 +36,7 @@ describe('field pixel circle geometry', () => {
     expect(geometry.boundingBox?.max.y).toBe(30);
     expect(geometry.boundingBox?.min.z).toBe(-8);
     expect(geometry.boundingBox?.max.z).toBe(8);
+    expect(geometry.getAttribute('position').count).toBeLessThan(1_000);
 
     geometry.dispose();
   });
@@ -50,6 +51,7 @@ describe('field pixel circle geometry', () => {
     expect(geometry.boundingBox?.max.y).toBe(40);
     expect(geometry.boundingBox?.min.z).toBe(0);
     expect(geometry.boundingBox?.max.z).toBe(0);
+    expect(geometry.getAttribute('position').count).toBeLessThan(200);
 
     geometry.dispose();
   });

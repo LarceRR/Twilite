@@ -3,6 +3,7 @@ import { BufferGeometry, Float32BufferAttribute } from 'three';
 export const PLATFORM_PIXEL_CIRCLE_STEPS = 24;
 
 type Vertex = readonly [x: number, y: number, z: number, u: number, v: number];
+type RowSpan = { readonly start: number; readonly end: number };
 
 /**
  * A symmetric circle mask on a square pixel grid. Pixel centers are tested
@@ -16,23 +17,31 @@ export function createPixelCircleMask(
     ? Math.max(4, Math.floor(resolution))
     : PLATFORM_PIXEL_CIRCLE_STEPS;
   const radius = steps / 2;
-  const center = radius;
 
   return Array.from({ length: steps }, (_, row) =>
     Array.from({ length: steps }, (_, column) => {
-      const x = column + 0.5 - center;
-      const y = row + 0.5 - center;
+      const x = column + 0.5 - radius;
+      const y = row + 0.5 - radius;
       return x * x + y * y <= radius * radius;
     }),
   );
 }
 
-function pushTriangle(
-  vertices: Vertex[],
-  a: Vertex,
-  b: Vertex,
-  c: Vertex,
-): void {
+function findRowSpan(mask: readonly (readonly boolean[])[], row: number): RowSpan | null {
+  const cells = mask[row]!;
+  let start = -1;
+  let end = -1;
+
+  for (let column = 0; column < cells.length; column += 1) {
+    if (!cells[column]) continue;
+    if (start < 0) start = column;
+    end = column + 1;
+  }
+
+  return start < 0 ? null : { start, end };
+}
+
+function pushTriangle(vertices: Vertex[], a: Vertex, b: Vertex, c: Vertex): void {
   vertices.push(a, b, c);
 }
 
@@ -85,7 +94,7 @@ function pixelVertex(
   ];
 }
 
-/** Builds a hard-edged, symmetric pixel circle with a vertical extruded side wall. */
+/** Builds a hard-edged pixel circle with a closed vertical extrusion. */
 export function createPixelCirclePlatformGeometry(
   size: number,
   height: number,
@@ -98,23 +107,25 @@ export function createPixelCirclePlatformGeometry(
   const vertices: Vertex[] = [];
 
   for (let row = 0; row < steps; row += 1) {
-    for (let column = 0; column < steps; column += 1) {
-      if (!mask[row]![column]) continue;
+    const span = findRowSpan(mask, row);
+    if (span === null) continue;
 
-      const bl = pixelVertex(size, steps, column, row, upperZ);
-      const br = pixelVertex(size, steps, column + 1, row, upperZ);
-      const tr = pixelVertex(size, steps, column + 1, row + 1, upperZ);
-      const tl = pixelVertex(size, steps, column, row + 1, upperZ);
-      // Top points upward.
-      pushQuad(vertices, bl, br, tr, tl);
+    // One rectangle per row covers the same pixel footprint as the mask,
+    // reducing the top/bottom mesh from hundreds of quads to O(resolution).
+    const topBl = pixelVertex(size, steps, span.start, row, upperZ);
+    const topBr = pixelVertex(size, steps, span.end, row, upperZ);
+    const topTr = pixelVertex(size, steps, span.end, row + 1, upperZ);
+    const topTl = pixelVertex(size, steps, span.start, row + 1, upperZ);
+    pushQuad(vertices, topBl, topBr, topTr, topTl);
 
-      const bottomBl = pixelVertex(size, steps, column, row, lowerZ);
-      const bottomBr = pixelVertex(size, steps, column + 1, row, lowerZ);
-      const bottomTr = pixelVertex(size, steps, column + 1, row + 1, lowerZ);
-      const bottomTl = pixelVertex(size, steps, column, row + 1, lowerZ);
-      // Reverse winding for the underside.
-      pushQuad(vertices, bottomBl, bottomTl, bottomTr, bottomBr);
+    const bottomBl = pixelVertex(size, steps, span.start, row, lowerZ);
+    const bottomBr = pixelVertex(size, steps, span.end, row, lowerZ);
+    const bottomTr = pixelVertex(size, steps, span.end, row + 1, lowerZ);
+    const bottomTl = pixelVertex(size, steps, span.start, row + 1, lowerZ);
+    // Reverse winding for the underside.
+    pushQuad(vertices, bottomBl, bottomTl, bottomTr, bottomBr);
 
+    for (let column = span.start; column < span.end; column += 1) {
       if (column === 0 || !mask[row]![column - 1]) {
         pushQuad(
           vertices,
@@ -157,7 +168,7 @@ export function createPixelCirclePlatformGeometry(
   return toGeometry(vertices);
 }
 
-/** Top-only matching geometry clips the pixel-light/wave overlay to the same circle. */
+/** Top-only matching geometry clips the overlay to the same pixel circle. */
 export function createPixelCircleTopGeometry(
   size: number,
   resolution = PLATFORM_PIXEL_CIRCLE_STEPS,
@@ -167,14 +178,15 @@ export function createPixelCircleTopGeometry(
   const vertices: Vertex[] = [];
 
   for (let row = 0; row < steps; row += 1) {
-    for (let column = 0; column < steps; column += 1) {
-      if (!mask[row]![column]) continue;
-      const bl = pixelVertex(size, steps, column, row, 0);
-      const br = pixelVertex(size, steps, column + 1, row, 0);
-      const tr = pixelVertex(size, steps, column + 1, row + 1, 0);
-      const tl = pixelVertex(size, steps, column, row + 1, 0);
-      pushQuad(vertices, bl, br, tr, tl);
-    }
+    const span = findRowSpan(mask, row);
+    if (span === null) continue;
+    pushQuad(
+      vertices,
+      pixelVertex(size, steps, span.start, row, 0),
+      pixelVertex(size, steps, span.end, row, 0),
+      pixelVertex(size, steps, span.end, row + 1, 0),
+      pixelVertex(size, steps, span.start, row + 1, 0),
+    );
   }
 
   return toGeometry(vertices);
