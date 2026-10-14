@@ -52,7 +52,7 @@ describe('fieldConfigJson', () => {
           config: {},
         }),
       ),
-    ).toThrow(/version/);
+    ).toThrow(/версия/i);
 
     expect(() =>
       parseFieldConfigJson(
