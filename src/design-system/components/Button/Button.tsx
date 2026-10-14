@@ -1,6 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { memo, type ReactElement } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  type PressableProps,
+  type StyleProp,
+  StyleSheet,
+  View,
+  type ViewStyle,
+} from 'react-native';
 import Animated from 'react-native-reanimated';
 
 import { useThemeColors } from '../../colors/themeStore';
@@ -13,19 +21,29 @@ import { Text } from '../Text/Text';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
-export type ButtonProps = {
+/** The shared glass button keeps native Pressable callbacks available to callers. */
+export type ButtonProps = Omit<
+  PressableProps,
+  | 'children'
+  | 'style'
+  | 'onPress'
+  | 'onPressIn'
+  | 'onPressOut'
+  | 'accessibilityRole'
+  | 'accessibilityState'
+> & {
   readonly label: string;
-  readonly onPress: () => void;
+  readonly onPress: NonNullable<PressableProps['onPress']>;
+  readonly onPressIn?: PressableProps['onPressIn'];
+  readonly onPressOut?: PressableProps['onPressOut'];
   readonly variant?: ButtonVariant;
-  readonly disabled?: boolean;
   readonly loading?: boolean;
   readonly compact?: boolean;
   /** Stretch the button to the width of its parent. */
   readonly block?: boolean;
   readonly icon?: IconName;
-  readonly accessibilityLabel?: string;
-  readonly accessibilityHint?: string;
-  readonly testID?: string;
+  /** Style for the button container without overriding its native event handling. */
+  readonly containerStyle?: StyleProp<ViewStyle>;
 };
 
 function tintFor(variant: ButtonVariant, theme: ReturnType<typeof useThemeColors>): string {
@@ -52,21 +70,23 @@ function labelColorFor(variant: ButtonVariant, theme: ReturnType<typeof useTheme
 }
 
 /**
- * Cross-platform action control. iOS 26+ uses native Liquid Glass, older iOS
- * uses themed system blur and Android uses the design-system glass fill.
+ * iOS 26+ uses system Liquid Glass, older iOS uses the themed blur fallback,
+ * and Android uses its own themed surface fill.
  */
 function ButtonComponent({
   label,
   onPress,
+  onPressIn,
+  onPressOut,
   variant = 'primary',
   disabled = false,
   loading = false,
   compact = false,
   block = false,
   icon,
-  accessibilityLabel,
-  accessibilityHint,
-  testID,
+  hitSlop = layout.hitSlop,
+  containerStyle,
+  ...pressableProps
 }: ButtonProps): ReactElement {
   const feedback = usePressFeedback();
   const theme = useThemeColors();
@@ -74,22 +94,23 @@ function ButtonComponent({
   const labelColor = labelColorFor(variant, theme);
 
   return (
-    <Animated.View style={feedback.animatedStyle}>
+    <Animated.View style={[feedback.animatedStyle, block && styles.block, containerStyle]}>
       <Pressable
+        {...pressableProps}
         accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel ?? label}
         accessibilityState={{ disabled: inactive, busy: loading }}
-        {...(accessibilityHint === undefined ? {} : { accessibilityHint })}
-        {...(testID === undefined ? {} : { testID })}
         disabled={inactive}
-        hitSlop={layout.hitSlop}
+        hitSlop={hitSlop}
         onPress={onPress}
-        onPressIn={feedback.onPressIn}
-        onPressOut={feedback.onPressOut}
-        style={[
-          block ? styles.block : undefined,
-          inactive ? styles.inactive : undefined,
-        ]}
+        onPressIn={(event) => {
+          feedback.onPressIn();
+          onPressIn?.(event);
+        }}
+        onPressOut={(event) => {
+          feedback.onPressOut();
+          onPressOut?.(event);
+        }}
+        style={inactive ? styles.inactive : undefined}
       >
         <GlassSurface
           cornerRadius={radius.pill}
