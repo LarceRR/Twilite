@@ -288,6 +288,7 @@ function setPixelLightsOnMaterial(
 
 export type FieldGridWaveMaterialOptions = {
   readonly depthWrite?: boolean;
+  readonly depthTest?: boolean;
   readonly receivesPixelLights?: boolean;
 };
 
@@ -326,6 +327,7 @@ export function createFieldGridWaveMaterial(
     side: DoubleSide,
     transparent: true,
     depthWrite: options.depthWrite ?? false,
+    depthTest: options.depthTest ?? true,
     blending: NormalBlending,
     toneMapped: false,
   }) as FieldGridWaveMaterial;

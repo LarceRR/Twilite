@@ -41,7 +41,7 @@ function useChunkSlotResources(width: number, height: number) {
   );
   const lineGeometry = useMemo(() => new BufferGeometry(), []);
   const material = useMemo(
-    () => createFieldGridWaveMaterial(null, { receivesPixelLights: false }),
+    () => createFieldGridWaveMaterial(null, { depthTest: false, receivesPixelLights: false }),
     [],
   );
 
@@ -56,7 +56,7 @@ function useChunkSlotResources(width: number, height: number) {
   return { planeGeometry, lineGeometry, material };
 }
 
-/** The lit base receives shadows; its transparent overlay renders pixels and waves. */
+/** Transparent overlay for dividers, cell labels, active markers, and interaction waves. */
 function FieldGridChunkComponent({
   chunkIndex,
   base,

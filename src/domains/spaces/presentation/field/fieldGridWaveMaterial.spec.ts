@@ -69,7 +69,7 @@ describe('fieldGridWaveMaterial', () => {
   });
 
   it('keeps local pixel lights off the transparent grid overlay', () => {
-    const material = createFieldGridWaveMaterial(null, { receivesPixelLights: false });
+    const material = createFieldGridWaveMaterial(null, { depthTest: false, receivesPixelLights: false });
     const unregister = registerFieldGridWaveMaterial(material);
     try {
       syncFieldGridPixelLights([
@@ -83,6 +83,7 @@ describe('fieldGridWaveMaterial', () => {
         },
       ]);
       expect(material.receivesPixelLights).toBe(false);
+      expect(material.depthTest).toBe(false);
       expect(material.uniforms.uLightParams.value.every((params) => params.x === 0)).toBe(true);
     } finally {
       unregister();
