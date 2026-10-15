@@ -19,6 +19,8 @@ import { useFieldConfig, useFieldGridConfig } from './useFieldConfig';
  * instead of directly under the camera, so every visible tile receives shadows.
  */
 const SHADOW_FOCUS_AHEAD = 900;
+/** Refresh the shared shadow map only after a meaningful camera shift. */
+const SHADOW_REFRESH_DISTANCE = 120;
 
 /** One directional shadow map follows the currently visible field. */
 export function FieldSpaceScene({
@@ -47,10 +49,15 @@ function FieldSceneLighting(): ReactElement {
   const { lighting } = useFieldConfig();
   const lightRef = useRef<DirectionalLight>(null);
   const target = useMemo(() => new Object3D(), []);
+  const lastShadowFocusX = useRef(Number.NaN);
   useLayoutEffect(() => {
     const light = lightRef.current;
     if (light === null) return;
 
+    // The field is mostly static. Rendering a moving 1024² shadow map on every
+    // frame wastes GPU time and battery, especially during screen recording.
+    light.shadow.autoUpdate = false;
+    light.shadow.needsUpdate = true;
     const shadowCamera = light.shadow.camera;
     light.shadow.radius = lighting.shadows.filterRadius;
     light.shadow.intensity = lighting.shadows.baselineIntensity;
@@ -76,6 +83,7 @@ function FieldSceneLighting(): ReactElement {
       lighting.shadows.mapSizePx,
       lighting.shadows.mapSizePx,
     );
+    light.shadow.needsUpdate = true;
   }, [
     lighting.shadows.mapSizePx,
     lighting.shadows.filterRadius,
@@ -92,6 +100,15 @@ function FieldSceneLighting(): ReactElement {
     const light = lightRef.current;
     if (light === null) return;
     const focusX = camera.position.x + SHADOW_FOCUS_AHEAD;
+    const previousFocusX = lastShadowFocusX.current;
+    if (
+      Number.isFinite(previousFocusX) &&
+      Math.abs(focusX - previousFocusX) < SHADOW_REFRESH_DISTANCE
+    ) {
+      return;
+    }
+
+    lastShadowFocusX.current = focusX;
     target.position.set(focusX, 0, 0);
     light.position.set(
       focusX + lighting.directionalPosition[0],
@@ -100,6 +117,7 @@ function FieldSceneLighting(): ReactElement {
     );
     target.updateMatrixWorld();
     light.target.updateMatrixWorld();
+    light.shadow.needsUpdate = true;
   });
 
   return (
