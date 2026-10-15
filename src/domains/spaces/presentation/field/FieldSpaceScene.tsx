@@ -49,7 +49,11 @@ export function FieldSpaceScene({
   );
 }
 
-function FieldSceneLighting({ objects }: { readonly objects: readonly SurfaceObject[] }): ReactElement {
+function FieldSceneLighting({
+  objects,
+}: {
+  readonly objects: readonly SurfaceObject[];
+}): ReactElement {
   const { lighting, platform } = useFieldConfig();
   const tileWorldSeed = useFieldTileStore((s) => s.worldSeed);
   const tileMinHeight = useFieldTileStore((s) => s.tileMinHeight);
@@ -73,7 +77,7 @@ function FieldSceneLighting({ objects }: { readonly objects: readonly SurfaceObj
     const light = lightRef.current;
     if (light === null) return;
 
-    // The field is mostly static. Rendering a moving 1024² shadow map on every
+    // The field is mostly static. Rendering a moving shadow map on every
     // frame wastes GPU time and battery, especially during screen recording.
     light.shadow.autoUpdate = false;
     light.shadow.needsUpdate = true;
