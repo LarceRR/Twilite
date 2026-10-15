@@ -246,14 +246,6 @@ export type FieldConfig = {
       readonly normalBias: number;
       /** Shadow intensity used when no active local object lights are visible. */
       readonly baselineIntensity: number;
-      /** Lower bound that keeps shared shadow intensity from becoming fully absent. */
-      readonly minIntensity: number;
-      /** Upper bound that prevents the shared shadow effect from becoming overly dark. */
-      readonly maxIntensity: number;
-      /** Total visible emitter intensity at which the shadow response reaches its maximum scaling factor. */
-      readonly emitterSaturationIntensity: number;
-      /** Strength of the shadow-intensity response to average flicker and total emitter strength. */
-      readonly contrastScale: number;
     };
   };
 };
@@ -393,10 +385,6 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
       bias: -0.0005,
       normalBias: 0.02,
       baselineIntensity: 0.42,
-      minIntensity: 0.16,
-      maxIntensity: 0.48,
-      emitterSaturationIntensity: 3.0,
-      contrastScale: 0.22,
     },
   },
 };
