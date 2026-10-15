@@ -65,6 +65,7 @@ import {
   type FieldGridWaveMaterial,
 } from './fieldGridWaveMaterial';
 import { useFieldConfig } from './useFieldConfig';
+import { recordFieldCpuWork } from './fieldPerformanceDiagnostics';
 
 type FieldGridSurfaceProps = {
   readonly config: FieldGridConfig;
@@ -314,6 +315,7 @@ export function FieldGridSurface({ config, objects }: FieldGridSurfaceProps): Re
   }, [fieldConfig.wave, fieldConfig.lighting.objectGlow.pixelOverlay]);
 
   useFrame(({ clock, gl, camera }) => {
+    const frameWorkStart = performance.now();
     timeRef.current = clock.elapsedTime;
     const bakeNow = bakeRef.current;
 
@@ -395,6 +397,7 @@ export function FieldGridSurface({ config, objects }: FieldGridSurfaceProps): Re
     }
 
     syncFieldGridWaveSceneTime(clock.elapsedTime);
+    recordFieldCpuWork('grid', performance.now() - frameWorkStart);
   });
 
   const cancelPress = useCallback((): void => {
