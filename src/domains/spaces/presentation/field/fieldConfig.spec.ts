@@ -27,6 +27,7 @@ describe('fieldConfig', () => {
     const merged = mergeFieldConfig({
       grid: { cellSizePx: 80, rows: 21 },
       wave: { maxAlpha: 0.5 },
+      fireflies: { pixelSize: 1.5, kinds: { scout: { speed: 2 } } },
       camera: { position: { x: -100 }, swipeInertiaSpeedScale: 0.5 },
     });
     expect(merged.grid.cellSizePx).toBe(80);
@@ -34,6 +35,9 @@ describe('fieldConfig', () => {
     expect(merged.grid.centerCols).toBe(DEFAULT_FIELD_CONFIG.grid.centerCols);
     expect(merged.wave.maxAlpha).toBe(0.5);
     expect(merged.wave.durationSec).toBe(DEFAULT_FIELD_CONFIG.wave.durationSec);
+    expect(merged.fireflies.pixelSize).toBe(1.5);
+    expect(merged.fireflies.kinds.scout.speed).toBe(2);
+    expect(merged.fireflies.kinds.drifter.speed).toBe(DEFAULT_FIELD_CONFIG.fireflies.kinds.drifter.speed);
     expect(merged.camera.position).toEqual({
       x: -100,
       y: DEFAULT_FIELD_CONFIG.camera.position.y,
