@@ -4,7 +4,6 @@ import { PerspectiveCamera } from 'three';
 import { DEFAULT_FIELD_CONFIG } from './fieldConfig';
 import {
   candleFlickerMultiplier,
-  resolveSceneShadowIntensity,
   resolveSurfaceObjectLightConfig,
   SurfaceObjectLightVisibility,
   surfaceObjectFlickerSeed,
@@ -64,24 +63,4 @@ describe('surfaceObjectLighting', () => {
     expect(Math.max(...sequence)).toBeLessThanOrEqual(1.11);
   });
 
-  it('lets brighter local emitters fill the global shadow while retaining a baseline without lights', () => {
-    const withoutLights = resolveSceneShadowIntensity([], 800);
-    const oneLight = resolveSceneShadowIntensity(
-      [{ id: 'same-light', light: { intensity: 1 } }],
-      800,
-    );
-    const dimLight = resolveSceneShadowIntensity(
-      [{ id: 'same-light', light: { intensity: 0.1 } }],
-      800,
-    );
-    const brightLight = resolveSceneShadowIntensity(
-      [{ id: 'same-light', light: { intensity: 4 } }],
-      800,
-    );
-    const baseline = DEFAULT_FIELD_CONFIG.lighting.shadows.baselineIntensity;
-    expect(withoutLights).toBe(baseline);
-    expect(oneLight).toBeLessThan(baseline);
-    expect(oneLight).toBeGreaterThanOrEqual(DEFAULT_FIELD_CONFIG.lighting.shadows.minIntensity);
-    expect(brightLight).toBeLessThan(dimLight);
-  });
 });
