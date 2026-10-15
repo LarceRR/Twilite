@@ -232,6 +232,8 @@ export function createFirefly(
   const homeY = cluster.y + homeOffsetY;
   const homeZ = cluster.z + homeOffsetZ;
   const wanderMultiplier = kind === 'scout' ? 2.8 : kind === 'wanderer' ? 1.75 : 1.05;
+  const minimumWanderDistance =
+    cellSize * (kind === 'scout' ? 8 : kind === 'wanderer' ? 2 : 0.45);
   const baseIntensity = (kind === 'scout' ? 0.95 : kind === 'wanderer' ? 0.68 : 0.5) *
     clamp(cluster.intensity / 1.8, 0.55, 1.15);
   const lifetimeSec = Math.min(
@@ -247,7 +249,7 @@ export function createFirefly(
     homeOffsetX,
     homeOffsetY,
     homeOffsetZ,
-    wanderRadius: Math.max(cellSize * 0.45, cluster.radius * wanderMultiplier),
+    wanderRadius: Math.max(minimumWanderDistance, cluster.radius * wanderMultiplier),
     phase: random() * Math.PI * 2,
     lifetimeSec,
     baseIntensity,
