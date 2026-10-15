@@ -1,8 +1,9 @@
-export const FIREFLY_MAX_COUNT = 32;
-export const FIREFLY_MAX_LIFETIME_SEC = 10;
-export const FIREFLY_CLUSTER_REFRESH_SEC = 0.3;
-export const FIREFLY_SPAWN_DISTANCE = 900;
-export const FIREFLY_CLUSTER_MAX_EMITTERS = 256;
+import type { FieldConfig } from './fieldConfig';
+
+/** Fixed GPU buffer capacity; the active count is configured in FieldConfig. */
+export const FIREFLY_BUFFER_CAPACITY = 32;
+
+export type FireflyConfig = FieldConfig['fireflies'];
 
 export type FireflyEmitter = {
   readonly id: string;
@@ -65,6 +66,10 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
+function safeDivisor(value: number): number {
+  return Math.max(value, 0.0001);
+}
+
 function makeRandom(seed: number): () => number {
   let state = seed >>> 0;
   return () => {
@@ -89,33 +94,39 @@ function clusterIdFor(emitters: readonly FireflyEmitter[]): string {
   return 'firefly-' + hashText(emitters.map((emitter) => emitter.id).sort().join('|')).toString(36);
 }
 
-function parseHexColor(value: string): readonly [number, number, number] {
+function parseHexColor(value: string, fallbackColor: string): readonly [number, number, number] {
   const normalized = value.trim().replace(/^#/, '');
   const hex =
     normalized.length === 3
       ? normalized.split('').map((part) => part + part).join('')
-      : normalized.padEnd(6, '0').slice(0, 6);
+      : normalized;
+  if (!/^[0-9a-f]{6}$/i.test(hex)) {
+    if (value !== fallbackColor) return parseHexColor(fallbackColor, fallbackColor);
+    return [255, 174, 0];
+  }
   const numeric = Number.parseInt(hex, 16);
-  if (!Number.isFinite(numeric)) return [1, 0.68, 0.12];
   return [(numeric >> 16) & 255, (numeric >> 8) & 255, numeric & 255];
 }
 
-function averageColor(emitters: readonly FireflyEmitter[]): string {
+function averageColor(
+  emitters: readonly FireflyEmitter[],
+  config: FireflyConfig,
+): string {
   let red = 0;
   let green = 0;
   let blue = 0;
   let totalWeight = 0;
 
   for (const emitter of emitters) {
-    const color = parseHexColor(emitter.color);
-    const weight = clamp(emitter.intensity, 0.1, 8);
+    const color = parseHexColor(emitter.color, config.fallbackColor);
+    const weight = clamp(emitter.intensity, config.emitterWeightMin, config.emitterWeightMax);
     red += color[0] * weight;
     green += color[1] * weight;
     blue += color[2] * weight;
     totalWeight += weight;
   }
 
-  if (totalWeight <= 0) return '#FFAE00';
+  if (totalWeight <= 0) return config.fallbackColor;
   const channel = (value: number) => clamp(Math.round(value / totalWeight), 0, 255)
     .toString(16).padStart(2, '0');
   return ('#' + channel(red) + channel(green) + channel(blue)).toUpperCase();
@@ -128,6 +139,7 @@ function averageColor(emitters: readonly FireflyEmitter[]): string {
 export function buildFireflyClusters(
   emitters: readonly FireflyEmitter[],
   cellSize: number,
+  config: FireflyConfig,
 ): FireflyCluster[] {
   const valid = emitters
     .filter((emitter) =>
@@ -137,10 +149,13 @@ export function buildFireflyClusters(
       Number.isFinite(emitter.intensity) &&
       emitter.intensity > 0,
     )
-    .slice(0, FIREFLY_CLUSTER_MAX_EMITTERS);
+    .slice(0, config.clusterMaxEmitters);
   if (valid.length === 0) return [];
 
-  const neighbourDistance = Math.max(1, cellSize * 1.55);
+  const neighbourDistance = Math.max(
+    config.minimumClusterNeighbourDistance,
+    cellSize * config.clusterNeighbourDistanceMultiplier,
+  );
   const neighbourDistanceSq = neighbourDistance * neighbourDistance;
   const visited = new Uint8Array(valid.length);
   const clusters: FireflyCluster[] = [];
@@ -174,7 +189,7 @@ export function buildFireflyClusters(
     let intensity = 0;
     let distance = 0;
     for (const emitter of group) {
-      const weight = clamp(emitter.intensity, 0.1, 8);
+      const weight = clamp(emitter.intensity, config.emitterWeightMin, config.emitterWeightMax);
       weightedX += emitter.x * weight;
       weightedY += emitter.y * weight;
       weightedZ += emitter.z * weight;
@@ -197,10 +212,22 @@ export function buildFireflyClusters(
       x,
       y,
       z,
-      radius: clamp(spread + cellSize * 0.42, cellSize * 0.55, cellSize * 3.5),
-      color: averageColor(group),
-      intensity: clamp(intensity / group.length, 0.1, 4),
-      distance: clamp(distance, cellSize, cellSize * 4),
+      radius: clamp(
+        spread + cellSize * config.clusterRadiusOffsetCellMultiplier,
+        cellSize * config.clusterRadiusMinCellMultiplier,
+        cellSize * config.clusterRadiusMaxCellMultiplier,
+      ),
+      color: averageColor(group, config),
+      intensity: clamp(
+        intensity / group.length,
+        config.clusterIntensityMin,
+        config.clusterIntensityMax,
+      ),
+      distance: clamp(
+        distance,
+        cellSize * config.clusterDistanceMinCellMultiplier,
+        cellSize * config.clusterDistanceMaxCellMultiplier,
+      ),
       emitterCount: group.length,
     });
   }
@@ -208,37 +235,50 @@ export function buildFireflyClusters(
   return clusters;
 }
 
-export function fireflyTargetCount(cluster: FireflyCluster): number {
-  return clamp(2 + Math.round(cluster.emitterCount * 1.6), 2, 12);
+export function fireflyTargetCount(cluster: FireflyCluster, config: FireflyConfig): number {
+  return clamp(
+    config.targetBaseCount + Math.round(cluster.emitterCount * config.targetPerEmitter),
+    config.targetMinCount,
+    config.targetMaxCount,
+  );
 }
 
 export function createFirefly(
   id: number,
   cluster: FireflyCluster,
   cellSize: number,
+  config: FireflyConfig,
 ): Firefly {
   const seed = (Math.imul(id + 1, 0x9e3779b1) ^ hashText(cluster.id)) >>> 0;
   const random = makeRandom(seed);
   const kindRoll = random();
-  // About 3% are rare scouts. They roam farther and carry a slightly stronger light.
   const kind: FireflyKind =
-    kindRoll < 0.03 ? 'scout' : kindRoll < 0.26 ? 'wanderer' : 'drifter';
+    kindRoll < config.scoutChance
+      ? 'scout'
+      : kindRoll < config.scoutChance + config.wandererChance
+        ? 'wanderer'
+        : 'drifter';
+  const kindConfig = config.kinds[kind];
   const angle = random() * Math.PI * 2;
   const radialDistance = Math.sqrt(random()) * cluster.radius;
   const homeOffsetX = Math.cos(angle) * radialDistance;
   const homeOffsetY = Math.sin(angle) * radialDistance;
-  const homeOffsetZ = 5 + random() * Math.min(22, cellSize * 0.45);
+  const homeOffsetZ =
+    config.spawnHeightMin +
+    random() * Math.min(config.spawnHeightRange, cellSize * config.spawnHeightCellMultiplier);
   const homeX = cluster.x + homeOffsetX;
   const homeY = cluster.y + homeOffsetY;
   const homeZ = cluster.z + homeOffsetZ;
-  const wanderMultiplier = kind === 'scout' ? 2.8 : kind === 'wanderer' ? 1.75 : 1.05;
-  const minimumWanderDistance =
-    cellSize * (kind === 'scout' ? 8 : kind === 'wanderer' ? 2 : 0.45);
-  const baseIntensity = (kind === 'scout' ? 0.95 : kind === 'wanderer' ? 0.68 : 0.5) *
-    clamp(cluster.intensity / 1.8, 0.55, 1.15);
+  const baseIntensity =
+    kindConfig.baseIntensity *
+    clamp(
+      cluster.intensity / config.intensityScaleDivisor,
+      config.intensityMultiplierMin,
+      config.intensityMultiplierMax,
+    );
   const lifetimeSec = Math.min(
-    FIREFLY_MAX_LIFETIME_SEC,
-    3.2 + random() * 6.5,
+    config.maxLifetimeSec,
+    config.minLifetimeSec + random() * config.lifetimeVariationSec,
   );
 
   return {
@@ -249,7 +289,10 @@ export function createFirefly(
     homeOffsetX,
     homeOffsetY,
     homeOffsetZ,
-    wanderRadius: Math.max(minimumWanderDistance, cluster.radius * wanderMultiplier),
+    wanderRadius: Math.max(
+      cellSize * kindConfig.minimumWanderCellMultiplier,
+      cluster.radius * kindConfig.wanderRadiusMultiplier,
+    ),
     phase: random() * Math.PI * 2,
     lifetimeSec,
     baseIntensity,
@@ -257,9 +300,9 @@ export function createFirefly(
       x: homeX,
       y: homeY,
       z: homeZ,
-      color: kind === 'scout' ? '#FFF0B0' : cluster.color,
+      color: kind === 'scout' && config.differentiateScoutColor ? config.scoutColor : cluster.color,
       intensity: 0,
-      distance: cellSize * (kind === 'scout' ? 2.2 : 1.7),
+      distance: cellSize * kindConfig.lightDistanceMultiplier,
     },
     ageSec: 0,
     x: homeX,
@@ -268,43 +311,65 @@ export function createFirefly(
     homeX,
     homeY,
     homeZ,
-    vx: (random() - 0.5) * 5,
-    vy: (random() - 0.5) * 5,
-    vz: (random() - 0.5) * 1.5,
+    vx: (random() - 0.5) * config.motion.initialVelocityXYRange,
+    vy: (random() - 0.5) * config.motion.initialVelocityXYRange,
+    vz: (random() - 0.5) * config.motion.initialVelocityZRange,
     retireInSec: null,
   };
 }
 
-/** Smooth, bounded 3D wandering with different ranges for the three behaviour types. */
-export function advanceFirefly(fly: Firefly, deltaSec: number): void {
-  const delta = clamp(Number.isFinite(deltaSec) ? deltaSec : 0, 0, 0.05);
+/** Smooth, bounded 3D wandering with separate configurable profiles per behaviour type. */
+export function advanceFirefly(
+  fly: Firefly,
+  deltaSec: number,
+  config: FireflyConfig,
+): void {
+  const motion = config.motion;
+  const kindConfig = config.kinds[fly.kind];
+  const delta = clamp(Number.isFinite(deltaSec) ? deltaSec : 0, 0, motion.maxDeltaSec);
   if (delta <= 0) return;
 
   fly.ageSec += delta;
   const time = fly.ageSec;
-  const speed = fly.kind === 'scout' ? 1.35 : fly.kind === 'wanderer' ? 0.95 : 0.65;
+  const speed = kindConfig.speed;
   const wave = time * speed + fly.phase;
-  const secondary = time * (speed * 0.43) + fly.phase * 1.73;
+  const secondary =
+    time * (speed * motion.secondarySpeedMultiplier) + fly.phase * motion.phaseMultiplier;
   const targetX =
     fly.homeX +
     Math.sin(wave) * fly.wanderRadius +
-    Math.sin(secondary) * fly.wanderRadius * 0.32;
+    Math.sin(secondary) * fly.wanderRadius * motion.targetXSecondaryAmplitude;
   const targetY =
     fly.homeY +
-    Math.cos(wave * 0.79) * fly.wanderRadius * 0.78 +
-    Math.sin(secondary * 0.83) * fly.wanderRadius * 0.3;
+    Math.cos(wave * motion.targetYFrequencyMultiplier) *
+      fly.wanderRadius * motion.targetYAmplitudeMultiplier +
+    Math.sin(secondary * motion.targetYSecondaryFrequencyMultiplier) *
+      fly.wanderRadius * motion.targetYSecondaryAmplitudeMultiplier;
   const targetZ =
     fly.homeZ +
-    Math.sin(wave * 1.9) * Math.min(12, fly.wanderRadius * 0.28) +
-    Math.sin(secondary * 1.37) * 3.5;
+    Math.sin(wave * motion.targetZFrequencyMultiplier) *
+      Math.min(
+        motion.targetZMaxAmplitude,
+        fly.wanderRadius * motion.targetZAmplitudeWanderMultiplier,
+      ) +
+    Math.sin(secondary * motion.targetZSecondaryFrequencyMultiplier) *
+      motion.targetZSecondaryAmplitude;
 
-  const pull = fly.kind === 'scout' ? 1.7 : fly.kind === 'wanderer' ? 2.4 : 3.1;
-  const turbulence = fly.kind === 'scout' ? 24 : fly.kind === 'wanderer' ? 14 : 8;
-  fly.vx += ((targetX - fly.x) * pull + Math.sin(wave * 2.7) * turbulence) * delta;
-  fly.vy += ((targetY - fly.y) * pull + Math.cos(secondary * 2.4) * turbulence) * delta;
-  fly.vz += ((targetZ - fly.z) * pull * 0.55 + Math.sin(secondary * 3.1) * turbulence * 0.14) * delta;
+  fly.vx += (
+    (targetX - fly.x) * kindConfig.pull +
+    Math.sin(wave * motion.turbulenceXFrequencyMultiplier) * kindConfig.turbulence
+  ) * delta;
+  fly.vy += (
+    (targetY - fly.y) * kindConfig.pull +
+    Math.cos(secondary * motion.turbulenceYFrequencyMultiplier) * kindConfig.turbulence
+  ) * delta;
+  fly.vz += (
+    (targetZ - fly.z) * kindConfig.pull * motion.verticalPullMultiplier +
+    Math.sin(secondary * motion.turbulenceZFrequencyMultiplier) *
+      kindConfig.turbulence * motion.turbulenceZMultiplier
+  ) * delta;
 
-  const damping = Math.exp(-2.05 * delta);
+  const damping = Math.exp(-motion.damping * delta);
   fly.vx *= damping;
   fly.vy *= damping;
   fly.vz *= damping;
@@ -312,21 +377,25 @@ export function advanceFirefly(fly: Firefly, deltaSec: number): void {
   fly.y += fly.vy * delta;
   fly.z += fly.vz * delta;
 
-  const progress = clamp(fly.ageSec / fly.lifetimeSec, 0, 1);
-  const fadeIn = clamp(progress / 0.12, 0, 1);
-  const fadeOut = clamp((1 - progress) / 0.2, 0, 1);
-  const retireFade = fly.retireInSec === null ? 1 : clamp(fly.retireInSec / 0.8, 0, 1);
+  const progress = clamp(fly.ageSec / safeDivisor(fly.lifetimeSec), 0, 1);
+  const fadeIn = clamp(progress / safeDivisor(motion.fadeInProgress), 0, 1);
+  const fadeOut = clamp((1 - progress) / safeDivisor(motion.lightFadeOutProgress), 0, 1);
+  const retireFade = fly.retireInSec === null
+    ? 1
+    : clamp(fly.retireInSec / safeDivisor(config.retireDurationSec), 0, 1);
   fly.light.x = fly.x;
   fly.light.y = fly.y;
   fly.light.z = fly.z;
   fly.light.intensity = fly.baseIntensity * fadeIn * fadeOut * retireFade;
 }
 
-export function fireflyVisualOpacity(fly: Firefly): number {
-  const progress = clamp(fly.ageSec / fly.lifetimeSec, 0, 1);
-  const fadeIn = clamp(progress / 0.09, 0, 1);
-  const fadeOut = clamp((1 - progress) / 0.18, 0, 1);
-  const retireFade = fly.retireInSec === null ? 1 : clamp(fly.retireInSec / 0.8, 0, 1);
+export function fireflyVisualOpacity(fly: Firefly, config: FireflyConfig): number {
+  const progress = clamp(fly.ageSec / safeDivisor(fly.lifetimeSec), 0, 1);
+  const fadeIn = clamp(progress / safeDivisor(config.motion.visualFadeInProgress), 0, 1);
+  const fadeOut = clamp((1 - progress) / safeDivisor(config.motion.visualFadeOutProgress), 0, 1);
+  const retireFade = fly.retireInSec === null
+    ? 1
+    : clamp(fly.retireInSec / safeDivisor(config.retireDurationSec), 0, 1);
   return fadeIn * fadeOut * retireFade;
 }
 
