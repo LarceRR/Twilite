@@ -155,6 +155,7 @@ export function FieldSurfaceObjects({
   const lightVisibility = useMemo(() => new SurfaceObjectLightVisibility(), []);
   const lightCandidates = useRef<RuntimeObject[]>([]);
   const activePixelLights = useRef<FieldGridPixelLight[]>([]);
+  const pixelLightSyncElapsed = useRef(0);
   const fireflyEmitters = useRef<FireflyEmitter[]>([]);
   const activeFireflyLights = useRef<Firefly[]>([]);
   const visibleFireflyClusters = useRef<FireflyCluster[]>([]);
@@ -190,6 +191,10 @@ export function FieldSurfaceObjects({
     geometry.setAttribute('instanceFireflyColor', colors);
     return geometry;
   }, []);
+  useLayoutEffect(() => {
+    fireflyMesh.current?.instanceMatrix.setUsage(DynamicDrawUsage);
+  }, []);
+
   const fireflyOpacityAttribute = fireflyGeometry.getAttribute(
     'instanceOpacity',
   ) as InstancedBufferAttribute;
@@ -481,7 +486,6 @@ export function FieldSurfaceObjects({
 
     const mesh = fireflyMesh.current;
     if (mesh !== null) {
-      mesh.instanceMatrix.setUsage(DynamicDrawUsage);
       const opacityValues = fireflyOpacityAttribute.array as Float32Array;
       const colorValues = fireflyColorAttribute.array as Float32Array;
       const flyLights = activeFireflyLights.current;
@@ -544,7 +548,13 @@ export function FieldSurfaceObjects({
       }
     }
 
-    syncFieldGridPixelLights(pixelLights);
+    // Uniform writes are expensive on mobile GL. Keep moving sprites at the
+    // display frame rate, but refresh shared lighting uniforms at 30 Hz.
+    pixelLightSyncElapsed.current += delta;
+    if (pixelLightSyncElapsed.current >= 1 / 30) {
+      pixelLightSyncElapsed.current %= 1 / 30;
+      syncFieldGridPixelLights(pixelLights);
+    }
     recordFieldCpuWork('objects', performance.now() - frameWorkStart);
   });
 
