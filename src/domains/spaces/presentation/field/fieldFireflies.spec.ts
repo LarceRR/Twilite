@@ -66,6 +66,33 @@ describe('fieldFireflies', () => {
     expect(fly.lifetimeSec).toBeLessThanOrEqual(fireflyConfig.maxLifetimeSec);
   });
 
+  it('uses the configured scout color only when scout differentiation is enabled', () => {
+    const [cluster] = buildFireflyClusters([emitter('color-test', 0)], 60, fireflyConfig);
+    expect(cluster).toBeDefined();
+
+    let scout = undefined;
+    for (let id = 0; id < 1000; id += 1) {
+      const candidate = createFirefly(id, cluster!, 60, fireflyConfig);
+      if (candidate.kind === 'scout') {
+        scout = candidate;
+        break;
+      }
+    }
+    expect(scout).toBeDefined();
+    expect(scout!.light.color).toBe(fireflyConfig.scoutColor);
+
+    const sameColorConfig = {
+      ...fireflyConfig,
+      differentiateScoutColor: false,
+    };
+    expect(createFirefly(
+      scout!.id,
+      cluster!,
+      60,
+      sameColorConfig,
+    ).light.color).toBe(cluster!.color);
+  });
+
   it('moves in 3D and updates a finite, fading local light', () => {
     const [cluster] = buildFireflyClusters(
       [emitter('moment-a', 0), emitter('moment-b', 61)],
@@ -85,6 +112,6 @@ describe('fieldFireflies', () => {
     expect(Number.isFinite(fly.light.intensity)).toBe(true);
     expect(fly.light.intensity).toBeGreaterThan(0);
     expect(fireflyVisualOpacity(fly, fireflyConfig)).toBeGreaterThan(0);
-    expect(fireflyVisualOpacity(fly)).toBeLessThanOrEqual(1);
+    expect(fireflyVisualOpacity(fly, fireflyConfig)).toBeLessThanOrEqual(1);
   });
 });
