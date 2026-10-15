@@ -24,7 +24,12 @@ type ResourceCounts = {
   readonly shaderPrograms: number;
 };
 
-function resourceCounts(gl: { readonly info: { readonly memory: { readonly geometries: number; readonly textures: number }; readonly programs?: readonly unknown[] | null } }): ResourceCounts {
+function resourceCounts(gl: {
+  readonly info: {
+    readonly memory: { readonly geometries: number; readonly textures: number };
+    readonly programs?: readonly unknown[] | null;
+  };
+}): ResourceCounts {
   return {
     geometries: gl.info.memory.geometries,
     textures: gl.info.memory.textures,
