@@ -21,7 +21,10 @@ import {
   pickFieldWaveSlot,
 } from './fieldGridWave';
 
-export const FIELD_GRID_MAX_PIXEL_LIGHTS = 12;
+export const FIELD_GRID_MAX_OBJECT_PIXEL_LIGHTS = 12;
+export const FIELD_GRID_MAX_FIREFLY_LIGHTS = 8;
+export const FIELD_GRID_MAX_PIXEL_LIGHTS =
+  FIELD_GRID_MAX_OBJECT_PIXEL_LIGHTS + FIELD_GRID_MAX_FIREFLY_LIGHTS;
 const vertexShader = /* glsl */ `
 precision highp float;
 
