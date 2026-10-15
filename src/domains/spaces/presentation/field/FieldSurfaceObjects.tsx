@@ -46,6 +46,7 @@ import {
 } from './surfaceObjectAnimation';
 import { useFieldConfig } from './useFieldConfig';
 import { recordFieldCpuWork } from './fieldPerformanceDiagnostics';
+import { requestFieldShadowUpdate } from './fieldShadowInvalidation';
 import { objectPlatformHeight } from './fieldTileGeneration';
 import { useFieldTileStore } from './fieldTileStore';
 import {
@@ -218,9 +219,11 @@ export function FieldSurfaceObjects({
 
   const register = useCallback((item: RuntimeObject): (() => void) => {
     runtime.current.set(item.object.id, item);
+    requestFieldShadowUpdate();
     return () => {
       if (runtime.current.get(item.object.id) === item) {
         runtime.current.delete(item.object.id);
+        requestFieldShadowUpdate();
       }
     };
   }, []);
@@ -253,6 +256,7 @@ export function FieldSurfaceObjects({
       advanceArtwork(item, deltaMs, billboardCameraPosition, cameraMoved);
 
       const progress = surfaceObjectRiseProgress(item.elapsedMs);
+      if (progress < 1) requestFieldShadowUpdate();
       if (item.artworkMaterial !== null && item.artworkMaterial.opacity !== progress) {
         item.artworkMaterial.opacity = progress;
       }
