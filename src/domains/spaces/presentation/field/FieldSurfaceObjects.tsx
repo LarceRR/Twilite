@@ -211,15 +211,6 @@ export function FieldSurfaceObjects({
   );
   const fireflyColor = useMemo(() => new Color(), []);
 
-  useEffect(
-    () => () => {
-      fireflyGeometry.dispose();
-      fireflyMaterial.dispose();
-      fireflySimulation.current.flies.length = 0;
-    },
-    [fireflyGeometry, fireflyMaterial],
-  );
-
   const register = useCallback((item: RuntimeObject): (() => void) => {
     runtime.current.set(item.object.id, item);
     return () => {
@@ -334,9 +325,10 @@ export function FieldSurfaceObjects({
       simulation.clusters = buildFireflyClusters(emitters, config.cellSize);
       simulation.refreshElapsedSec = 0;
       simulation.initialized = true;
-      const clustersById = new Map(
-        simulation.clusters.map((cluster) => [cluster.id, cluster]),
-      );
+      const clustersById = new Map<string, FireflyCluster>();
+      for (const cluster of simulation.clusters) {
+        clustersById.set(cluster.id, cluster);
+      }
       for (const fly of simulation.flies) {
         const cluster = clustersById.get(fly.clusterId);
         if (cluster === undefined) {
