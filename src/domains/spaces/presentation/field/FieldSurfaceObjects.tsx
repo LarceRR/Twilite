@@ -7,13 +7,12 @@ import {
   type Group,
   type Mesh,
   type MeshBasicMaterial,
-  type PointLight,
+  type MeshStandardMaterial,
   type Texture,
 } from 'three';
 
 import type { AuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAssetHeaders';
 import type { SurfaceObject } from '@/domains/spaces/domain/entities/SurfaceObject';
-import type { PixelObjectLightDto } from '@/shared/contracts';
 import { useThemeColors } from '@/design-system/colors/colors';
 
 import { FieldSurfaceObjectArtwork } from './FieldSurfaceObjectArtwork';
@@ -34,9 +33,9 @@ import {
 import {
   candleFlickerMultiplier,
   resolveSurfaceObjectLightConfig,
-  resolveThreePointLightIntensity,
   surfaceObjectFlickerSeed,
   SurfaceObjectLightVisibility,
+  type SurfaceObjectLightConfig,
 } from './surfaceObjectLighting';
 import {
   advanceSpritePlayback,
@@ -46,8 +45,8 @@ import {
   staggerAppearanceDelays,
 } from './surfaceObjectAnimation';
 import {
-  createPixelCirclePlatformGeometry,
-  createPixelCircleTopGeometry,
+  createRoundedSquarePlatformGeometry,
+  createRoundedSquareTopGeometry,
 } from './fieldPixelCircleGeometry';
 import { useFieldConfig } from './useFieldConfig';
 
@@ -56,20 +55,20 @@ const billboardCameraPosition = new Vector3();
 type RuntimeObject = {
   readonly column: RefObject<Mesh | null>;
   readonly artwork: RefObject<Group | null>;
-  readonly light: RefObject<PointLight | null>;
   readonly waveOverlay: RefObject<Mesh | null>;
+  readonly platformMaterial: RefObject<MeshStandardMaterial | null>;
   readonly object: SurfaceObject;
   readonly centerX: number;
   readonly centerY: number;
   readonly flickerSeed: number;
   readonly platformHeight: number;
   readonly platformSize: number;
-  readonly lightHeightAbovePlatform: number;
+  readonly platformEmissionIntensity: number;
+  readonly fallbackEmissionColor: string;
   readonly artHeight: number;
-  readonly lightConfig: PixelObjectLightDto | null;
+  readonly lightConfig: SurfaceObjectLightConfig | null;
   readonly flickerConfig: FieldConfig['lighting']['objectGlow']['flicker'];
   readonly minimumVisibleIntensity: number;
-  castsLocalShadow: boolean;
   readonly waveMaterial: FieldGridWaveMaterial;
   unregisterWaveMaterial: (() => void) | null;
   readonly pixelLight: FieldGridPixelLight | null;
@@ -86,39 +85,6 @@ function compareLightDistance(left: RuntimeObject, right: RuntimeObject): number
   return left.lightDistanceSquared - right.lightDistanceSquared;
 }
 
-function setLocalShadowCasting(
-  item: RuntimeObject,
-  enabled: boolean,
-  mapSizePx: number,
-  filterRadius: number,
-  shadowIntensity: number,
-): void {
-  const light = item.light.current;
-  if (light === null) {
-    item.castsLocalShadow = false;
-    return;
-  }
-
-  const shadow = light.shadow;
-  if (shadow.mapSize.width !== mapSizePx || shadow.mapSize.height !== mapSizePx) {
-    shadow.mapSize.set(mapSizePx, mapSizePx);
-  }
-  if (shadow.camera.near !== 1 || shadow.camera.far !== light.distance) {
-    shadow.camera.near = 1;
-    shadow.camera.far = Math.max(2, light.distance);
-    shadow.camera.updateProjectionMatrix();
-  }
-  shadow.bias = -0.0008;
-  shadow.normalBias = 0.025;
-  shadow.radius = filterRadius;
-  shadow.intensity = shadowIntensity;
-
-  if (item.castsLocalShadow !== enabled) {
-    item.castsLocalShadow = enabled;
-    light.castShadow = enabled;
-  }
-}
-
 export function FieldSurfaceObjects({
   objects,
   config,
@@ -133,7 +99,9 @@ export function FieldSurfaceObjects({
   const { surfaceRaised } = useThemeColors();
   const fieldConfig = useFieldConfig();
   const lightingConfig = fieldConfig.lighting;
-  const platformPixelResolution = fieldConfig.platform.pixelResolution;
+  const platformCornerRadius = fieldConfig.platform.cornerRadius;
+  const platformEdgeBevel = fieldConfig.platform.edgeBevel;
+  const platformEmissionIntensity = fieldConfig.platform.emissiveIntensity;
   const platformColor = useMemo(
     () =>
       new Color(surfaceRaised).lerp(
@@ -147,7 +115,6 @@ export function FieldSurfaceObjects({
     ],
   );
   const objectGlowConfig = lightingConfig.objectGlow;
-  const shadowConfig = lightingConfig.shadows;
   const lastBillboardCameraXY = useRef({ x: Number.NaN, y: Number.NaN });
   const lightVisibility = useMemo(() => new SurfaceObjectLightVisibility(), []);
   const lightCandidates = useRef<RuntimeObject[]>([]);
@@ -175,6 +142,7 @@ export function FieldSurfaceObjects({
     candidates.length = 0;
     const pixelLights = activePixelLights.current;
     pixelLights.length = 0;
+
     for (const item of runtime.current.values()) {
       advanceColumn(item, delta * 1000);
       advanceArtwork(item, delta * 1000, billboardCameraPosition, cameraMoved);
@@ -192,54 +160,36 @@ export function FieldSurfaceObjects({
         item.unregisterWaveMaterial = null;
       }
 
-      const lightConfig = item.lightConfig;
-      const light = item.light.current;
-      if (lightConfig === null || light === null || item.pixelLight === null) {
-        setLocalShadowCasting(
-          item,
-          false,
-          shadowConfig.localShadowMapSizePx,
-          shadowConfig.filterRadius,
-          shadowConfig.localShadowIntensity,
-        );
-        if (light !== null) light.visible = false;
-        continue;
-      }
-
       const progress = surfaceObjectRiseProgress(item.elapsedMs);
-      const intensity =
-        lightConfig.intensity *
-        candleFlickerMultiplier(
-          clock.elapsedTime * 1000,
-          item.flickerSeed,
-          item.flickerConfig,
-        ) * progress;
-      const physicalIntensity = resolveThreePointLightIntensity(intensity);
-      if (light.intensity !== physicalIntensity) light.intensity = physicalIntensity;
-      if (intensity <= item.minimumVisibleIntensity) {
-        light.visible = false;
-        setLocalShadowCasting(
-          item,
-          false,
-          shadowConfig.localShadowMapSizePx,
-          shadowConfig.filterRadius,
-          shadowConfig.localShadowIntensity,
-        );
-        continue;
+      const flicker = candleFlickerMultiplier(
+        clock.elapsedTime * 1000,
+        item.flickerSeed,
+        item.flickerConfig,
+      );
+      const material = item.platformMaterial.current;
+      if (material !== null) {
+        const emissiveIntensity = item.platformEmissionIntensity * flicker * progress;
+        if (material.emissiveIntensity !== emissiveIntensity) {
+          material.emissiveIntensity = emissiveIntensity;
+        }
+        const emissionColor = item.lightConfig?.color ?? item.fallbackEmissionColor;
+        if (material.emissive.getHexString() !== emissionColor.replace('#', '').toLowerCase()) {
+          material.emissive.set(emissionColor);
+        }
       }
 
+      const lightConfig = item.lightConfig;
+      const pixelLight = item.pixelLight;
+      if (lightConfig === null || pixelLight === null) continue;
+
+      const intensity = lightConfig.intensity * flicker * progress;
+      if (intensity <= item.minimumVisibleIntensity) continue;
+
+      // The tile surface is the emitter. This virtual source drives only the
+      // shared pixel-light shader; the scene contains no separate lamp object.
       const platformTopZ = item.platformHeight * progress;
-      const z = platformTopZ + item.lightHeightAbovePlatform;
-      if (light.position.z !== z) light.position.z = z;
+      const z = platformTopZ + 0.25;
       if (!lightVisibility.intersects(item.centerX, item.centerY, z, lightConfig.distance)) {
-        light.visible = false;
-        setLocalShadowCasting(
-          item,
-          false,
-          shadowConfig.localShadowMapSizePx,
-          shadowConfig.filterRadius,
-          shadowConfig.localShadowIntensity,
-        );
         continue;
       }
 
@@ -247,31 +197,23 @@ export function FieldSurfaceObjects({
         (camera.position.x - item.centerX) ** 2 +
         (camera.position.y - item.centerY) ** 2 +
         (camera.position.z - z) ** 2;
-      item.pixelLight.z = z;
-      item.pixelLight.platformTopZ = platformTopZ;
-      item.pixelLight.platformHalfSize = item.platformSize / 2;
-      item.pixelLight.intensity = intensity;
+      pixelLight.z = z;
+      pixelLight.platformTopZ = platformTopZ;
+      pixelLight.platformHalfSize = item.platformSize / 2;
+      pixelLight.intensity = intensity;
       candidates.push(item);
     }
 
-    // Prioritize the nearest sources whose falloff spheres can affect this view.
     candidates.sort(compareLightDistance);
-    for (let index = 0; index < candidates.length; index += 1) {
+    for (
+      let index = 0;
+      index < candidates.length && index < FIELD_GRID_MAX_PIXEL_LIGHTS;
+      index += 1
+    ) {
       const item = candidates[index]!;
-      const light = item.light.current;
-      const isActive = index < FIELD_GRID_MAX_PIXEL_LIGHTS;
-      if (light !== null) light.visible = isActive;
-      setLocalShadowCasting(
-        item,
-        isActive && index < shadowConfig.localShadowLights,
-        shadowConfig.localShadowMapSizePx,
-        shadowConfig.filterRadius,
-        shadowConfig.localShadowIntensity,
-      );
-      if (isActive && item.pixelLight !== null) pixelLights.push(item.pixelLight);
+      if (item.pixelLight !== null) pixelLights.push(item.pixelLight);
     }
 
-    // One bounded uniform array updates all visible field and platform overlays.
     syncFieldGridPixelLights(pixelLights);
   });
 
@@ -283,7 +225,9 @@ export function FieldSurfaceObjects({
           config={config}
           headers={headers}
           platformHeight={fieldConfig.platform.height}
-          platformPixelResolution={platformPixelResolution}
+          platformCornerRadius={platformCornerRadius}
+          platformEdgeBevel={platformEdgeBevel}
+          platformEmissionIntensity={platformEmissionIntensity}
           objectGlowConfig={objectGlowConfig}
           platformColor={platformColor}
           key={object.id}
@@ -303,14 +247,18 @@ function FieldSurfaceObjectColumn({
   objectGlowConfig,
   platformColor,
   platformHeight,
-  platformPixelResolution,
+  platformCornerRadius,
+  platformEdgeBevel,
+  platformEmissionIntensity,
   register,
 }: {
   readonly object: SurfaceObject;
   readonly config: FieldGridConfig;
   readonly headers: AuthenticatedAssetHeaders;
   readonly platformHeight: number;
-  readonly platformPixelResolution: number;
+  readonly platformCornerRadius: number;
+  readonly platformEdgeBevel: number;
+  readonly platformEmissionIntensity: number;
   readonly objectGlowConfig: FieldConfig['lighting']['objectGlow'];
   readonly appearanceDelayMs: number | null;
   readonly platformColor: Color;
@@ -318,16 +266,24 @@ function FieldSurfaceObjectColumn({
 }): ReactElement {
   const column = useRef<Mesh>(null);
   const artwork = useRef<Group>(null);
-  const light = useRef<PointLight>(null);
   const waveOverlay = useRef<Mesh>(null);
+  const platformMaterial = useRef<MeshStandardMaterial>(null);
   const platformSize = config.cellSize;
   const platformGeometry = useMemo(
-    () => createPixelCirclePlatformGeometry(platformSize, platformHeight, platformPixelResolution),
-    [platformSize, platformHeight, platformPixelResolution],
+    () => createRoundedSquarePlatformGeometry(
+      platformSize,
+      platformHeight,
+      platformCornerRadius,
+      platformEdgeBevel,
+    ),
+    [platformSize, platformHeight, platformCornerRadius, platformEdgeBevel],
   );
   const platformTopGeometry = useMemo(
-    () => createPixelCircleTopGeometry(platformSize, platformPixelResolution),
-    [platformSize, platformPixelResolution],
+    () => createRoundedSquareTopGeometry(
+      Math.max(0.001, platformSize - platformEdgeBevel * 2),
+      Math.max(0, platformCornerRadius - platformEdgeBevel),
+    ),
+    [platformSize, platformCornerRadius, platformEdgeBevel],
   );
   const artHeight =
     object.pixelObject === null
@@ -345,13 +301,14 @@ function FieldSurfaceObjectColumn({
       ? SURFACE_OBJECT_ANIMATION_CONFIG.riseDurationMs
       : -appearanceDelayMs;
   const initialProgress = surfaceObjectRiseProgress(initialElapsedMs);
+  const emissionColor = lightConfig?.color ?? objectGlowConfig.fallbackColor;
 
   const item = useMemo<RuntimeObject>(
     () => ({
       column,
       artwork,
-      light,
       waveOverlay,
+      platformMaterial,
       object,
       waveMaterial,
       unregisterWaveMaterial: null,
@@ -360,12 +317,12 @@ function FieldSurfaceObjectColumn({
       flickerSeed: surfaceObjectFlickerSeed(object.id),
       platformHeight,
       platformSize,
-      lightHeightAbovePlatform: objectGlowConfig.heightAbovePlatform,
+      platformEmissionIntensity,
+      fallbackEmissionColor: objectGlowConfig.fallbackColor,
       artHeight,
       lightConfig,
       flickerConfig: objectGlowConfig.flicker,
       minimumVisibleIntensity: objectGlowConfig.minimumVisibleIntensity,
-      castsLocalShadow: false,
       pixelLight: lightConfig === null
         ? null
         : {
@@ -394,6 +351,7 @@ function FieldSurfaceObjectColumn({
       object,
       platformHeight,
       platformSize,
+      platformEmissionIntensity,
       lightConfig,
       objectGlowConfig,
       waveMaterial,
@@ -442,7 +400,15 @@ function FieldSurfaceObjectColumn({
         scale={[1, 1, initialProgress]}
         geometry={platformGeometry}
       >
-        <meshStandardMaterial color={platformColor} roughness={1} metalness={0} flatShading />
+        <meshStandardMaterial
+          ref={platformMaterial}
+          color={platformColor}
+          emissive={emissionColor}
+          emissiveIntensity={platformEmissionIntensity * initialProgress}
+          roughness={0.82}
+          metalness={0.04}
+          flatShading
+        />
       </mesh>
       <mesh
         ref={waveOverlay}
@@ -462,17 +428,6 @@ function FieldSurfaceObjectColumn({
           sprite={object.pixelObject}
         />
       </group>
-      {lightConfig === null ? null : (
-        <pointLight
-          ref={light}
-          position={[0, 0, platformHeight + objectGlowConfig.heightAbovePlatform]}
-          color={lightConfig.color}
-          intensity={resolveThreePointLightIntensity(lightConfig.intensity)}
-          distance={lightConfig.distance}
-          decay={objectGlowConfig.decay}
-          castShadow={false}
-        />
-      )}
     </group>
   );
 }
