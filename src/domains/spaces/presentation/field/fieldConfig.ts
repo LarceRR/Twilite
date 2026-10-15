@@ -205,7 +205,7 @@ export type FieldConfig = {
     readonly minVisibleLightIntensity: number;
     readonly visibleClusterRadiusMultiplier: number;
     readonly visibleClusterCellMultiplier: number;
-    /** Maximum local tile-light shader slots reserved for moving fireflies; hard limit 8. */
+    /** Maximum local tile-light shader slots reserved for moving fireflies; hard limit 4. */
     readonly maxLocalLights: number;
     readonly opacityDiscardThreshold: number;
     readonly fallbackColor: string;
