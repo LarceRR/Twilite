@@ -188,7 +188,7 @@ export function FieldSurfaceObjects({
       // The tile surface is the emitter. This virtual source drives only the
       // shared pixel-light shader; the scene contains no separate lamp object.
       const platformTopZ = item.platformHeight * progress;
-      const z = platformTopZ + 0.25;
+      const z = platformTopZ;
       if (!lightVisibility.intersects(item.centerX, item.centerY, z, lightConfig.distance)) {
         continue;
       }
@@ -198,8 +198,6 @@ export function FieldSurfaceObjects({
         (camera.position.y - item.centerY) ** 2 +
         (camera.position.z - z) ** 2;
       pixelLight.z = z;
-      pixelLight.platformTopZ = platformTopZ;
-      pixelLight.platformHalfSize = item.platformSize / 2;
       pixelLight.intensity = intensity;
       candidates.push(item);
     }
@@ -332,8 +330,6 @@ function FieldSurfaceObjectColumn({
             color: lightConfig.color,
             intensity: 0,
             distance: lightConfig.distance,
-            platformTopZ: platformHeight,
-            platformHalfSize: platformSize / 2,
           },
       lightDistanceSquared: Number.POSITIVE_INFINITY,
       artworkMaterial: null,
