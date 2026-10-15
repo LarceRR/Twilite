@@ -244,7 +244,7 @@ export type FieldConfig = {
       readonly bias: number;
       /** Additional normal-based depth bias used to reduce shadow acne on sloped surfaces. */
       readonly normalBias: number;
-      /** Shadow intensity used when no active local object lights are visible. */
+      /** Opacity multiplier of the shared directional shadow map. */
       readonly baselineIntensity: number;
     };
   };
