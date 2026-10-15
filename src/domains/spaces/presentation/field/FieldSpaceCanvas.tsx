@@ -5,6 +5,7 @@ import type { AuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAsse
 import { useSceneColors } from '@/design-system/colors/colors';
 import type { SurfaceObject } from '@/domains/spaces/domain/entities/SurfaceObject';
 import { FieldCameraSwipeControls } from './FieldCameraSwipeControls';
+import { FieldPerformanceOverlay } from './FieldPerformanceOverlay';
 import { FieldSpaceCamera } from './FieldSpaceCamera';
 import { FieldSpaceScene } from './FieldSpaceScene';
 import { fieldCameraOpticsFromConfig } from './fieldCameraFraming';
@@ -53,6 +54,7 @@ export function FieldSpaceCanvas({
           <FieldSpaceScene headers={headers} objects={objects} />
         </Canvas>
       </FieldCameraSwipeControls>
+      <FieldPerformanceOverlay />
     </View>
   );
 }
