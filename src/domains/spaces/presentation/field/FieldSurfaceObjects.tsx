@@ -155,6 +155,9 @@ export function FieldSurfaceObjects({
   const activePixelLights = useRef<FieldGridPixelLight[]>([]);
   const fireflyEmitters = useRef<FireflyEmitter[]>([]);
   const activeFireflyLights = useRef<Firefly[]>([]);
+  const visibleFireflyClusters = useRef<FireflyCluster[]>([]);
+  const fireflyTargetCounts = useRef(new Map<string, number>());
+  const fireflyCurrentCounts = useRef(new Map<string, number>());
   const fireflySimulation = useRef<FireflySimulation>({
     flies: [],
     clusters: [],
@@ -194,9 +197,7 @@ export function FieldSurfaceObjects({
   const fireflyMaterial = useMemo(
     () =>
       new ShaderMaterial({
-        uniforms: {
-          uOpacityDiscardThreshold: { value: fireflyConfig.opacityDiscardThreshold },
-        },
+        uniforms: { uOpacityDiscardThreshold: { value: fireflyConfig.opacityDiscardThreshold } },
         vertexShader: fireflyVertexShader,
         fragmentShader: fireflyFragmentShader,
         side: DoubleSide,
@@ -206,8 +207,12 @@ export function FieldSurfaceObjects({
         blending: AdditiveBlending,
         toneMapped: false,
       }),
-    [fireflyConfig.opacityDiscardThreshold],
+    [],
   );
+  useEffect(() => {
+    fireflyMaterial.uniforms.uOpacityDiscardThreshold!.value =
+      fireflyConfig.opacityDiscardThreshold;
+  }, [fireflyMaterial, fireflyConfig.opacityDiscardThreshold]);
   const fireflyColor = useMemo(() => new Color(), []);
 
   const register = useCallback((item: RuntimeObject): (() => void) => {
@@ -382,8 +387,10 @@ export function FieldSurfaceObjects({
       }
     }
 
-    const visibleClusters = simulation.clusters
-      .filter((cluster) =>
+    const visibleClusters = visibleFireflyClusters.current;
+    visibleClusters.length = 0;
+    for (const cluster of simulation.clusters) {
+      if (
         lightVisibility.intersects(
           cluster.x,
           cluster.y,
@@ -392,21 +399,25 @@ export function FieldSurfaceObjects({
             cluster.radius * fireflyConfig.visibleClusterRadiusMultiplier,
             config.cellSize * fireflyConfig.visibleClusterCellMultiplier,
           ),
-        ),
-      )
-      .sort((left, right) => {
-        const leftDistance =
-          (billboardCameraPosition.x - left.x) ** 2 +
-          (billboardCameraPosition.y - left.y) ** 2 +
-          (billboardCameraPosition.z - left.z) ** 2;
-        const rightDistance =
-          (billboardCameraPosition.x - right.x) ** 2 +
-          (billboardCameraPosition.y - right.y) ** 2 +
-          (billboardCameraPosition.z - right.z) ** 2;
-        return leftDistance - rightDistance;
-      });
+        )
+      ) {
+        visibleClusters.push(cluster);
+      }
+    }
+    visibleClusters.sort((left, right) => {
+      const leftDistance =
+        (billboardCameraPosition.x - left.x) ** 2 +
+        (billboardCameraPosition.y - left.y) ** 2 +
+        (billboardCameraPosition.z - left.z) ** 2;
+      const rightDistance =
+        (billboardCameraPosition.x - right.x) ** 2 +
+        (billboardCameraPosition.y - right.y) ** 2 +
+        (billboardCameraPosition.z - right.z) ** 2;
+      return leftDistance - rightDistance;
+    });
 
-    const targetCounts = new Map<string, number>();
+    const targetCounts = fireflyTargetCounts.current;
+    targetCounts.clear();
     let targetTotal = 0;
     for (const cluster of visibleClusters) {
       const target = Math.min(
@@ -418,7 +429,8 @@ export function FieldSurfaceObjects({
       targetTotal += target;
     }
 
-    const currentCounts = new Map<string, number>();
+    const currentCounts = fireflyCurrentCounts.current;
+    currentCounts.clear();
     for (const fly of simulation.flies) {
       if (fly.retireInSec !== null) continue;
       currentCounts.set(fly.clusterId, (currentCounts.get(fly.clusterId) ?? 0) + 1);
@@ -502,9 +514,13 @@ export function FieldSurfaceObjects({
         }
       }
 
-      mesh.instanceMatrix.needsUpdate = true;
-      fireflyOpacityAttribute.needsUpdate = true;
-      fireflyColorAttribute.needsUpdate = true;
+      const hasVisibleParticles = simulation.flies.length > 0;
+      mesh.visible = fireflyConfig.enabled && hasVisibleParticles;
+      if (hasVisibleParticles) {
+        mesh.instanceMatrix.needsUpdate = true;
+        fireflyOpacityAttribute.needsUpdate = true;
+        fireflyColorAttribute.needsUpdate = true;
+      }
 
       flyLights.sort(
         (left, right) =>
