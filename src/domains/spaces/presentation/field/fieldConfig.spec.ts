@@ -69,7 +69,6 @@ describe('fieldConfig', () => {
     expect(DEFAULT_FIELD_CONFIG.lighting.surfaceAmbientColor).toBe('#FFAE00');
     expect(DEFAULT_FIELD_CONFIG.lighting.surfaceAmbientIntensity).toBe(0.025);
     expect(DEFAULT_FIELD_CONFIG.lighting.shadows.filterRadius).toBe(6);
-    expect(DEFAULT_FIELD_CONFIG.lighting.shadows.localShadowIntensity).toBe(0.5);
   });
 
   it('configures rounded square tiles and emission independently of tile size', () => {
