@@ -492,6 +492,7 @@ export function FieldConfigExplorer({ children }: { readonly children?: ReactNod
     try {
       const imported = await importFieldConfigFile();
       if (imported === null) return;
+      clearPendingSettingChanges();
       hydrate(imported);
       applyCameraConfig(imported);
       Alert.alert('Конфигурация импортирована', 'Настройки поля обновлены.');
