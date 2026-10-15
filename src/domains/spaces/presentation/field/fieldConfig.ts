@@ -187,10 +187,6 @@ export type FieldConfig = {
       readonly fallbackIntensity: number;
       /** Distance in world units at which the fallback PointLight's contribution reaches zero. */
       readonly fallbackDistance: number;
-      /** Height of local light sources above the platform top, in world units. */
-      readonly heightAbovePlatform: number;
-      /** PointLight distance-decay exponent; 2 is the physically conventional inverse-square-style falloff. */
-      readonly decay: number;
       /** Sources at or below this flickered intensity are hidden to avoid negligible light updates. */
       readonly minimumVisibleIntensity: number;
       /** Controls the irregular brightness modulation shared by the local light and pixel-glow overlay. */
@@ -372,8 +368,6 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
       fallbackColor: '#FFAE00',
       fallbackIntensity: 2.1,
       fallbackDistance: 300,
-      heightAbovePlatform: 44,
-      decay: 2,
       minimumVisibleIntensity: 0.005,
       flicker: {
         minMultiplier: 0.62,
