@@ -119,7 +119,7 @@ function LoadedArtwork({
   if (texture === null) return null;
 
   return (
-    <mesh castShadow renderOrder={FIELD_OBJECT_ARTWORK_RENDER_ORDER}>
+    <mesh renderOrder={FIELD_OBJECT_ARTWORK_RENDER_ORDER}>
       <planeGeometry args={[width, height]} />
       <meshBasicMaterial
         ref={onMaterialReady}
