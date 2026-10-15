@@ -35,7 +35,6 @@ Sentry.init({
   // Re-enable replay only after profiling the 3D scene's thermal budget.
   replaysSessionSampleRate: 0,
   replaysOnErrorSampleRate: 0,
-  integrations: [],
 
   // uncomment the line below to enable Spotlight (https://spotlightjs.com)
   // spotlight: __DEV__,
