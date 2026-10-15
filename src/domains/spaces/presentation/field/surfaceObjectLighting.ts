@@ -9,12 +9,6 @@ export type SurfaceObjectLightConfig = {
   readonly distance: number;
 };
 
-/** Identity and optional source metadata used to modulate the shared shadow layer. */
-export type SurfaceObjectLightingIdentity = {
-  readonly id: string;
-  readonly light: Pick<SurfaceObjectLightConfig, 'intensity'> | null;
-};
-
 /** Return API settings when available; otherwise use the development glow override. */
 export function resolveSurfaceObjectLightConfig(
   backendLight: SurfaceObjectLightConfig | null | undefined,
@@ -86,38 +80,4 @@ export function candleFlickerMultiplier(
     medium * config.mediumAmplitude +
     fast * config.fastAmplitude;
   return Math.round(value * config.roundingScale) / config.roundingScale;
-}
-
-/** Nearby local emitters gently fill the global directional shadow; each local light keeps its own spatial shadow map. */
-export function resolveSceneShadowIntensity(
-  lights: readonly SurfaceObjectLightingIdentity[],
-  elapsedMs: number,
-  config: FieldConfig['lighting'] = DEFAULT_FIELD_CONFIG.lighting,
-): number {
-  let weightedFlicker = 0;
-  let totalIntensity = 0;
-  for (const item of lights) {
-    if (item.light === null || !Number.isFinite(item.light.intensity)) continue;
-    const sourceIntensity = Math.max(0, item.light.intensity);
-    if (sourceIntensity === 0) continue;
-    weightedFlicker +=
-      candleFlickerMultiplier(
-        elapsedMs,
-        surfaceObjectFlickerSeed(item.id),
-        config.objectGlow.flicker,
-      ) * sourceIntensity;
-    totalIntensity += sourceIntensity;
-  }
-  if (totalIntensity === 0) return config.shadows.baselineIntensity;
-
-  const averageFlicker = weightedFlicker / totalIntensity;
-  const emissionStrength = Math.min(1, totalIntensity / config.shadows.emitterSaturationIntensity);
-  return Math.max(
-    config.shadows.minIntensity,
-    Math.min(
-      config.shadows.maxIntensity,
-      config.shadows.baselineIntensity -
-        averageFlicker * config.shadows.contrastScale * emissionStrength,
-    ),
-  );
 }
