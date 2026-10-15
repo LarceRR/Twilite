@@ -140,7 +140,7 @@ void main() {
 
   // The baked surface texture bypasses Three.js lighting, so give dark pixels a
   // low, warm ambient floor without washing out brighter grid lines or highlights.
-  if (alpha > 0.001 && uAmbientIntensity > 0.0) {
+  if (alpha > 0.001 && (uAmbientIntensity + uTileEmissiveIntensity) > 0.0) {
     float baseBrightness = max(max(color.r, color.g), color.b);
     float ambientRoom = 1.0 - clamp(baseBrightness, 0.0, 1.0);
     color = min(vec3(1.0), color + uAmbientColor * ((uAmbientIntensity + uTileEmissiveIntensity) * ambientRoom));
