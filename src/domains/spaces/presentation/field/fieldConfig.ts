@@ -177,17 +177,17 @@ export type FieldConfig = {
     readonly surfaceAmbientColor: string;
     /** Strength of the warm base reflectance tint, separate from actual scene lights. */
     readonly surfaceAmbientIntensity: number;
-    /** Per-object glow configuration, including the temporary API-independent testing mode. */
+    /** Color emission and pixel-light contribution of platform tiles. */
     readonly objectGlow: {
-      /** Forces every object to use the fallback light settings until the backend supplies per-object light metadata. */
+      /** Makes every platform contribute pixel light using the fallback settings, even without backend emission metadata. */
       readonly forceAllObjectsForTesting: boolean;
-      /** Default RGB hex color used for an object's light while the testing override is enabled. */
+      /** Default RGB hex color for a tile when backend emission color is unavailable. */
       readonly fallbackColor: string;
-      /** Base pixel-light energy before flicker modulation. */
+      /** Base energy added to the pixel-light shader before flicker modulation. */
       readonly fallbackIntensity: number;
-      /** Distance in world units at which fallback pixel-light energy reaches zero. */
+      /** Maximum distance in world units where fallback tile emission affects the surface shader. */
       readonly fallbackDistance: number;
-      /** Sources at or below this flickered intensity are hidden to avoid negligible light updates. */
+      /** Pixel-light contributions at or below this flickered energy are skipped. */
       readonly minimumVisibleIntensity: number;
       /** Controls the irregular brightness modulation shared by the local light and pixel-glow overlay. */
       readonly flicker: {
