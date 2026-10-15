@@ -57,7 +57,6 @@ uniform float uFadeOutStart;
 uniform vec3 uLightPositions[LIGHT_COUNT];
 uniform vec3 uLightColors[LIGHT_COUNT];
 uniform vec2 uLightParams[LIGHT_COUNT];
-uniform vec2 uLightOccluders[LIGHT_COUNT];
 uniform float uLightPixelSize;
 uniform float uLightIntensityScale;
 uniform float uLightAlphaScale;
@@ -119,27 +118,6 @@ vec4 samplePixelLight() {
     float distanceToSource = length(delta);
     float attenuation = saturate(1.0 - distanceToSource / distanceLimit);
     attenuation *= attenuation;
-
-    // A platform blocks rays from a light above its top face to lower surfaces.
-    // The crossing point creates a diagonal, physically motivated pixel-shadow edge.
-    float platformTopZ = uLightOccluders[i].x;
-    float platformHalfSize = uLightOccluders[i].y;
-    float sourceZ = uLightPositions[i].z;
-    float verticalSpan = sourceZ - vWorldZ;
-    if (
-      platformHalfSize > 0.0 &&
-      vWorldZ < platformTopZ - 0.001 &&
-      sourceZ > platformTopZ &&
-      verticalSpan > 0.001
-    ) {
-      float fractionAtPlatformTop = (sourceZ - platformTopZ) / verticalSpan;
-      vec2 crossing = mix(uLightPositions[i].xy, pixelWorld, fractionAtPlatformTop);
-      vec2 crossingOffset = abs(crossing - uLightPositions[i].xy);
-      float edgeDistance = max(crossingOffset.x, crossingOffset.y) - platformHalfSize;
-      float softness = max(uLightPixelSize * 2.0, 10.0);
-      // Fade the occlusion at the platform edge instead of cutting the light off abruptly.
-      attenuation *= smoothstep(-softness, softness, edgeDistance);
-    }
 
     accumulated += uLightColors[i] * intensity * attenuation * uLightIntensityScale;
   }
@@ -212,10 +190,6 @@ function createLightParams(): Vector2[] {
   return Array.from({ length: FIELD_GRID_MAX_PIXEL_LIGHTS }, () => new Vector2(0, 0));
 }
 
-function createLightOccluders(): Vector2[] {
-  return Array.from({ length: FIELD_GRID_MAX_PIXEL_LIGHTS }, () => new Vector2(0, 0));
-}
-
 const transparentPixelTexture = new DataTexture(
   new Uint8Array([0, 0, 0, 0]),
   1,
@@ -235,8 +209,6 @@ export type FieldGridPixelLight = {
   color: string;
   intensity: number;
   distance: number;
-  platformTopZ: number;
-  platformHalfSize: number;
 };
 
 export type FieldGridWaveMaterial = ShaderMaterial & {
@@ -254,7 +226,6 @@ export type FieldGridWaveMaterial = ShaderMaterial & {
     uLightPositions: { value: Vector3[] };
     uLightColors: { value: Color[] };
     uLightParams: { value: Vector2[] };
-    uLightOccluders: { value: Vector2[] };
     uLightPixelSize: { value: number };
     uLightIntensityScale: { value: number };
     uLightAlphaScale: { value: number };
@@ -287,7 +258,6 @@ function setPixelLightsOnMaterial(
     const position = material.uniforms.uLightPositions.value[index]!;
     const color = material.uniforms.uLightColors.value[index]!;
     const params = material.uniforms.uLightParams.value[index]!;
-    const occluder = material.uniforms.uLightOccluders.value[index]!;
 
     if (
       light !== undefined &&
@@ -297,20 +267,15 @@ function setPixelLightsOnMaterial(
       Number.isFinite(light.intensity) &&
       light.intensity > 0 &&
       Number.isFinite(light.distance) &&
-      light.distance > 0 &&
-      Number.isFinite(light.platformTopZ) &&
-      Number.isFinite(light.platformHalfSize) &&
-      light.platformHalfSize > 0
+      light.distance > 0
     ) {
       position.set(light.x, light.y, light.z);
       color.set(light.color);
       params.set(light.intensity, light.distance);
-      occluder.set(light.platformTopZ, light.platformHalfSize);
     } else {
       position.set(0, 0, 0);
       color.setRGB(0, 0, 0);
       params.set(0, 0);
-      occluder.set(0, 0);
     }
   }
 }
@@ -336,7 +301,6 @@ export function createFieldGridWaveMaterial(
       uLightPositions: { value: createLightPositions() },
       uLightColors: { value: createLightColors() },
       uLightParams: { value: createLightParams() },
-      uLightOccluders: { value: createLightOccluders() },
       uLightPixelSize: { value: pixelGlow.pixelSizePx },
       uLightIntensityScale: { value: pixelGlow.intensityScale },
       uLightAlphaScale: { value: pixelGlow.alphaScale },
