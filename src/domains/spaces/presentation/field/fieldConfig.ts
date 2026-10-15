@@ -30,7 +30,7 @@ export type FieldConfig = {
     /** Number of rows in the field grid along the depth axis. */
     readonly rows: number;
   };
-  /** Shape and physical thickness of the raised pixel-art platforms. */
+  /** Shape, edge finish and emissive appearance of the platform tiles. */
   readonly platform: {
     /** Vertical thickness of each platform tile, in world units. */
     readonly height: number;
@@ -183,9 +183,9 @@ export type FieldConfig = {
       readonly forceAllObjectsForTesting: boolean;
       /** Default RGB hex color used for an object's light while the testing override is enabled. */
       readonly fallbackColor: string;
-      /** Base intensity of the fallback PointLight before flicker is applied. */
+      /** Base pixel-light energy before flicker modulation. */
       readonly fallbackIntensity: number;
-      /** Distance in world units at which the fallback PointLight's contribution reaches zero. */
+      /** Distance in world units at which fallback pixel-light energy reaches zero. */
       readonly fallbackDistance: number;
       /** Sources at or below this flickered intensity are hidden to avoid negligible light updates. */
       readonly minimumVisibleIntensity: number;
@@ -208,7 +208,7 @@ export type FieldConfig = {
         /** Scale used to round the resulting flicker multiplier; 100 rounds to two decimal places. */
         readonly roundingScale: number;
       };
-      /** Controls how local lights are represented as low-resolution pixels on surfaces. */
+      /** Controls how tile emission is represented as low-resolution light pixels on surfaces. */
       readonly pixelOverlay: {
         /** Width/height of each pixel-glow cell in logical world pixels. */
         readonly pixelSizePx: number;
@@ -226,7 +226,7 @@ export type FieldConfig = {
     readonly shadows: {
       /** Width and height of the square directional shadow map, in texels. */
       readonly mapSizePx: number;
-      /** Filter radius multiplier used to soften directional and point-light shadow edges. */
+      /** Filter radius multiplier used to soften directional shadow edges. */
       readonly filterRadius: number;
       /** Left clipping boundary of the directional shadow camera, in world units. */
       readonly cameraLeft: number;
