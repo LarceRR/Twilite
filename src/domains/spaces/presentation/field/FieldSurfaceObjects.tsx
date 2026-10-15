@@ -47,7 +47,7 @@ import {
 import {
   createRoundedSquarePlatformGeometry,
   createRoundedSquareTopGeometry,
-} from './fieldPixelCircleGeometry';
+} from './fieldPlatformGeometry';
 import { useFieldConfig } from './useFieldConfig';
 
 const billboardCameraPosition = new Vector3();
