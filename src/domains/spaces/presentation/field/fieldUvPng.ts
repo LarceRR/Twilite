@@ -138,10 +138,22 @@ export function createRoundedSquarePlatformUvPng(
   }
 
   // PNG scanlines: one filter byte (0 = none) before each row of pixels.
-  const raw = new Uint8Array(height * (width + 1));
+  // Use standard 8-bit RGBA instead of grayscale. This is larger, but has the
+  // broadest compatibility with iOS share targets and image editors.
+  const bytesPerPixel = 4;
+  const rowBytes = width * bytesPerPixel;
+  const raw = new Uint8Array(height * (rowBytes + 1));
   for (let y = 0; y < height; y += 1) {
-    raw[y * (width + 1)] = 0;
-    raw.set(gray.subarray(y * width, (y + 1) * width), y * (width + 1) + 1);
+    const rowOffset = y * (rowBytes + 1);
+    raw[rowOffset] = 0;
+    for (let x = 0; x < width; x += 1) {
+      const value = gray[y * width + x]!;
+      const pixelOffset = rowOffset + 1 + x * bytesPerPixel;
+      raw[pixelOffset] = value;
+      raw[pixelOffset + 1] = value;
+      raw[pixelOffset + 2] = value;
+      raw[pixelOffset + 3] = 255;
+    }
   }
 
   const ihdr = new Uint8Array(13);
@@ -149,7 +161,7 @@ export function createRoundedSquarePlatformUvPng(
   ihdrView.setUint32(0, width);
   ihdrView.setUint32(4, height);
   ihdr[8] = 8; // bit depth
-  ihdr[9] = 0; // greyscale
+  ihdr[9] = 6; // truecolour with alpha (RGBA)
   ihdr[10] = 0; // deflate
   ihdr[11] = 0; // adaptive filter
   ihdr[12] = 0; // no interlace

@@ -24,6 +24,24 @@ import {
 } from '@/domains/spaces/presentation/field/fieldTileTexture';
 import { useFieldConfig } from '@/domains/spaces/presentation/field/useFieldConfig';
 
+const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+function encodeBase64(bytes: Uint8Array): string {
+  let result = '';
+  for (let index = 0; index < bytes.length; index += 3) {
+    const a = bytes[index]!;
+    const hasB = index + 1 < bytes.length;
+    const hasC = index + 2 < bytes.length;
+    const b = hasB ? bytes[index + 1]! : 0;
+    const c = hasC ? bytes[index + 2]! : 0;
+    result += BASE64_ALPHABET[a >> 2];
+    result += BASE64_ALPHABET[((a & 0x03) << 4) | (b >> 4)];
+    result += hasB ? BASE64_ALPHABET[((b & 0x0f) << 2) | (c >> 6)] : '=';
+    result += hasC ? BASE64_ALPHABET[c & 0x3f] : '=';
+  }
+  return result;
+}
+
 export function DeveloperSceneTilesSettingsScreen(): ReactElement {
   const theme = useThemeColors();
   const settings = useFieldTileStore();
@@ -107,7 +125,14 @@ export function DeveloperSceneTilesSettingsScreen(): ReactElement {
       // Same pattern as the config export: write to the cache, then share it.
       const file = new File(Paths.cache, 'twilite-field-tile-uv-' + Date.now().toString() + '.png');
       file.create();
-      await file.write(png);
+      // Write explicit base64 through Expo's legacy API so Uint8Array cannot be
+      // accidentally coerced to text by a platform-specific file implementation.
+      await FileSystem.writeAsStringAsync(file.uri, encodeBase64(png), {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      if (file.size === 0) {
+        throw new Error('PNG-файл пуст после записи.');
+      }
 
       if (!(await Sharing.isAvailableAsync())) {
         Alert.alert(
