@@ -22,7 +22,12 @@ const TILE_EMISSIVE_FLOOR_SCALE = 0.18;
 const TILE_EMISSIVE_GAIN = 4;
 /** Candle falloff curvature: higher values concentrate the light near its source. */
 const CANDLE_INVERSE_SQUARE_SCALE = 16;
-const PROGRAM_CACHE_KEY = 'twilite-field-tile-v2';
+/**
+ * Candle light is added on top of the albedo instead of being multiplied by it.
+ * The tiles are very dark, so a pure albedo product made the light invisible.
+ */
+const CANDLE_ALBEDO_FLOOR = 0.35;
+const PROGRAM_CACHE_KEY = 'twilite-field-tile-v3';
 
 export type FieldTileMaterial = MeshStandardMaterial & FieldGridEffectMaterial;
 
@@ -132,7 +137,10 @@ const fragmentBody = /* glsl */ `
   vec3 fieldNormal = normalize( inverseTransformDirection( normal, viewMatrix ) );
   vec3 fieldAlbedo = diffuseColor.rgb;
 
-  outgoingLight += fieldAlbedo * fieldCandleIrradiance( vFieldWorldPos, fieldNormal );
+  // Candle light is added on top of the albedo, not multiplied by it, so dark
+  // tiles still visibly catch light from neighbouring candles.
+  outgoingLight += ( fieldAlbedo + vec3( ${CANDLE_ALBEDO_FLOOR.toFixed(2)} ) ) *
+    fieldCandleIrradiance( vFieldWorldPos, fieldNormal );
   outgoingLight += fieldAlbedo * uAmbientColor *
     ( ( uAmbientIntensity + uTileEmissiveIntensity ) * ${TILE_EMISSIVE_FLOOR_SCALE.toFixed(3)} );
 
