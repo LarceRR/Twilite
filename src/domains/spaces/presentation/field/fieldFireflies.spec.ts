@@ -70,6 +70,7 @@ describe('fieldFireflies', () => {
     const [cluster] = buildFireflyClusters(
       [emitter('moment-a', 0), emitter('moment-b', 61)],
       60,
+      fireflyConfig,
     );
     expect(cluster).toBeDefined();
 
