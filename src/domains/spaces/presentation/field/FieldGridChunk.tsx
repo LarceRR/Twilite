@@ -109,7 +109,7 @@ function FieldGridChunkComponent({
     cols: fieldConfig.chunks.cols,
     rows: base.rows,
     cellSize: base.cellSize,
-    dividerWidth: base.dividerWidth,
+    ...(base.dividerWidth === undefined ? {} : { dividerWidth: base.dividerWidth }),
   });
   const { planeGeometry, surfaceGeometry, lineGeometry, material } = useChunkSlotResources(width, height);
   const surfacePbrMaterial = useMemo(() => createFieldStandardMaterial('#FFFFFF'), []);

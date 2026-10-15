@@ -23,7 +23,6 @@ import {
   prefetchFieldChunk,
   prioritizeFieldChunkGpuUploads,
   pumpFieldChunkGpuUploads,
-  type FieldChunkBakeRequest,
 } from './fieldGridChunkBake';
 import { cellCenterOnPlane } from './fieldGridCells';
 import {

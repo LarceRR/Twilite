@@ -69,12 +69,12 @@ export function FieldGeneratedTiles({
     }
 
     const columnCount = fieldConfig.chunks.cols;
-    const gridConfig = {
+    const gridConfig: FieldGridConfig = {
       cols: columnCount,
       rows: base.rows,
       cellSize: base.cellSize,
-      dividerWidth: base.dividerWidth,
-      showDividers: base.showDividers,
+      ...(base.dividerWidth === undefined ? {} : { dividerWidth: base.dividerWidth }),
+      ...(base.showDividers === undefined ? {} : { showDividers: base.showDividers }),
     };
     const temp = new Object3D();
     const tileHeights = {
@@ -96,13 +96,7 @@ export function FieldGeneratedTiles({
         const variant = fieldTileVariant(settings.worldSeed, col, row, active, tileHeights);
         const renderHeight = variant.height === 0 ? 0.04 : variant.height;
 
-        const center = cellCenterOnPlane(col, row, {
-          cols: columnCount,
-          rows: base.rows,
-          cellSize: base.cellSize,
-          dividerWidth: base.dividerWidth,
-          showDividers: base.showDividers,
-        });
+        const center = cellCenterOnPlane(col, row, gridConfig);
         temp.position.set(center[0], center[1], renderHeight / 2);
         temp.rotation.set(0, 0, 0);
         temp.scale.set(1, 1, renderHeight / geometryHeight);

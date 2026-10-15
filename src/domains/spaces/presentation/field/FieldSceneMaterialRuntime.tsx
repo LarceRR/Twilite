@@ -2,7 +2,6 @@ import { Asset } from 'expo-asset';
 import { Image } from 'react-native';
 import { createContext, useContext, useEffect, useLayoutEffect, useState, type ReactElement, type ReactNode } from 'react';
 import {
-  Color,
   DoubleSide,
   FrontSide,
   MeshStandardMaterial,

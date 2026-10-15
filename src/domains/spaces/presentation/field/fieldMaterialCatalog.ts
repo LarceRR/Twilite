@@ -1,6 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { File, FileMode } from 'expo-file-system';
-import { inflateRawSync } from 'fflate';
+import { inflateSync } from 'fflate';
 
 import type {
   FieldMaterialMapKey,
@@ -313,7 +313,7 @@ function readZipEntry(
   handle.offset = entry.localHeaderOffset + 30 + nameLength + extraLength;
   const compressed = handle.readBytes(entry.compressedSize);
   if (entry.compressionMethod === 0) return compressed;
-  if (entry.compressionMethod === 8) return inflateRawSync(compressed);
+  if (entry.compressionMethod === 8) return inflateSync(compressed);
   throw new Error('Не поддерживается метод сжатия ZIP: ' + entry.compressionMethod);
 }
 

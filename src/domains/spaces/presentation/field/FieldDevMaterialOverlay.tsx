@@ -16,6 +16,8 @@ import { Switch } from '@/design-system/components/Switch/Switch';
 import { Text } from '@/design-system/components/Text/Text';
 import { spacing } from '@/design-system/spacing/spacing';
 
+import { useFieldConfig } from './useFieldConfig';
+import { useFieldConfigStore } from './fieldConfigStore';
 import { useFieldMaterialStore } from './fieldMaterialStore';
 import type { FieldMaterialPreferences } from './fieldMaterialStore';
 
