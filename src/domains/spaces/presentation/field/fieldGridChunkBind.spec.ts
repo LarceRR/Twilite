@@ -8,7 +8,6 @@ import {
   writeFieldChunkLineGeometry,
 } from './fieldGridChunkBind';
 import { createFieldGridWaveMaterial } from './fieldGridWaveMaterial';
-import { FIELD_LOCAL_LIGHT_LAYER } from './fieldGridConfig';
 
 describe('fieldGridChunkBind', () => {
   beforeEach(() => {
@@ -33,7 +32,6 @@ describe('fieldGridChunkBind', () => {
     const material = createFieldGridWaveMaterial(null);
     const lines = new BufferGeometry();
     const mesh = new Mesh(new PlaneGeometry(600, 900));
-    const surfaceMesh = new Mesh(new PlaneGeometry(600, 900));
     bindFieldChunkSlot(
       {
         chunkIndex: 0,
@@ -50,16 +48,12 @@ describe('fieldGridChunkBind', () => {
       material,
       lines,
       mesh,
-      surfaceMesh,
     );
     expect(material.uniforms.uMap.value).toBeTruthy();
     expect(mesh.position.x).toBe(300);
     expect(mesh.position.z).toBeCloseTo(0.2);
-    expect(surfaceMesh.position.toArray()).toEqual([300, 0, 0]);
-    expect(surfaceMesh.layers.isEnabled(FIELD_LOCAL_LIGHT_LAYER)).toBe(true);
     material.dispose();
     lines.dispose();
     mesh.geometry.dispose();
-    surfaceMesh.geometry.dispose();
   });
 });
