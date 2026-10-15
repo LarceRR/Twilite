@@ -9,7 +9,7 @@ import { FieldPerformanceOverlay } from './FieldPerformanceOverlay';
 import { FieldSpaceCamera } from './FieldSpaceCamera';
 import { FieldSpaceScene } from './FieldSpaceScene';
 import { fieldCameraOpticsFromConfig } from './fieldCameraFraming';
-import { useFieldConfig } from './useFieldConfig';
+import { getFieldConfig } from './fieldConfigStore';
 
 /**
  * Expo / R3F native canvas for the Field tab.
@@ -24,7 +24,8 @@ export function FieldSpaceCanvas({
 }): ReactElement {
   const scene = useSceneColors();
   const pose = fieldCameraOpticsFromConfig();
-  const fov = useFieldConfig().camera.fov;
+  // Read the initial camera setup without subscribing the Canvas root to every
+  // developer-config update. FieldSpaceCamera applies camera edits imperatively.
   const camera = useMemo(
     () => ({
       position: [pose.position.x, pose.position.y, pose.position.z] as [number, number, number],
