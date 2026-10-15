@@ -50,8 +50,8 @@ describe('fieldTileStore', () => {
       worldSeed: 'old-seed',
       tileMinHeight: 1,
       tileMaxHeight: 2,
-      objectMinHeight: 7,
-      objectMaxHeight: 10,
+      objectMinHeight: 6,
+      objectMaxHeight: 9,
     });
   });
 
