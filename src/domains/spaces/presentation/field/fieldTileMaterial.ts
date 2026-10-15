@@ -15,14 +15,21 @@ const TILE_METALNESS = 0;
  * flatten the directional shading or fill shadows completely.
  */
 const TILE_EMISSIVE_FLOOR_SCALE = 0.18;
+/**
+ * Occupied tiles are self-emissive. Their radiance is the per-instance glow
+ * colour times the configured emissive intensity, times this gain.
+ */
+const TILE_EMISSIVE_GAIN = 4;
 /** Candle falloff curvature: higher values concentrate the light near its source. */
 const CANDLE_INVERSE_SQUARE_SCALE = 16;
-const PROGRAM_CACHE_KEY = 'twilite-field-tile-v1';
+const PROGRAM_CACHE_KEY = 'twilite-field-tile-v2';
 
 export type FieldTileMaterial = MeshStandardMaterial & FieldGridEffectMaterial;
 
 const vertexDeclarations = /* glsl */ `
+attribute vec3 aGlow;
 varying vec3 vFieldWorldPos;
+varying vec3 vGlow;
 `;
 
 const vertexBody = /* glsl */ `
@@ -32,6 +39,7 @@ vec4 fieldWorldPosition = vec4( transformed, 1.0 );
 #endif
 fieldWorldPosition = modelMatrix * fieldWorldPosition;
 vFieldWorldPos = fieldWorldPosition.xyz;
+vGlow = aGlow;
 `;
 
 const fragmentDeclarations = /* glsl */ `
@@ -57,6 +65,7 @@ uniform float uAmbientIntensity;
 uniform float uTileEmissiveIntensity;
 
 varying vec3 vFieldWorldPos;
+varying vec3 vGlow;
 
 float fieldSmoother(float x) {
   return x * x * (3.0 - 2.0 * x);
@@ -86,14 +95,12 @@ float fieldSampleWave(vec2 p, vec2 origin, float startTime) {
   return (dist / radius) * uMaxAlpha * life;
 }
 
-// Local candle lights. Each surface pixel-cell is lit with a proper Lambert
-// term (N.L) and a windowed inverse-square falloff, so walls facing away stay
-// dark and areas inside the directional shadow still receive candle light.
+// Local candle lights. Each surface pixel-cell is lit with a Lambert term and a
+// windowed inverse-square falloff, so light reaches every neighbouring tile that
+// is inside the configured radius, including the faces that are in shadow.
 vec3 fieldCandleIrradiance(vec3 worldPos, vec3 worldNormal) {
   float cellSize = max(uLightPixelSize, 0.0001);
   vec3 snapped = floor(worldPos / cellSize) * cellSize + vec3(cellSize * 0.5);
-  // Project the snapped sample back onto the face plane so pixel-art light
-  // cells never slide inside or behind the tile.
   snapped -= worldNormal * dot(snapped - worldPos, worldNormal);
 
   vec3 total = vec3(0.0);
@@ -129,6 +136,10 @@ const fragmentBody = /* glsl */ `
   outgoingLight += fieldAlbedo * uAmbientColor *
     ( ( uAmbientIntensity + uTileEmissiveIntensity ) * ${TILE_EMISSIVE_FLOOR_SCALE.toFixed(3)} );
 
+  // Occupied tiles glow by themselves: albedo-independent emission, driven by
+  // the configured emissive intensity. Empty tiles carry a zero glow.
+  outgoingLight += vGlow * uTileEmissiveIntensity * ${TILE_EMISSIVE_GAIN.toFixed(1)};
+
   // Interaction waves live on the tile tops, at their real elevation.
   if ( fieldNormal.z > 0.5 ) {
     float fieldWave = 0.0;
@@ -159,8 +170,7 @@ function injectBefore(source: string, anchor: string, addition: string): string 
 /**
  * Physically lit tile material: standard PBR shading for ambient + the shared
  * directional light (with real shadow maps), extended with the field's pixel
- * candle lights and tap waves. All uniforms are shared with the effects
- * registry, so the existing sync functions drive this material too.
+ * candle lights, per-instance self-emission for occupied tiles and tap waves.
  */
 export function createFieldTileMaterial(map: Texture): FieldTileMaterial {
   const material = new MeshStandardMaterial({

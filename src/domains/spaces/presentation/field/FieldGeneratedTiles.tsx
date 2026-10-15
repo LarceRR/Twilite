@@ -1,9 +1,17 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
-import { InstancedMesh, type Mesh, Object3D, PlaneGeometry, type Texture } from 'three';
+import {
+  InstancedBufferAttribute,
+  InstancedMesh,
+  type Mesh,
+  Object3D,
+  PlaneGeometry,
+  type Texture,
+} from 'three';
 
 import { useThemeColors } from '@/design-system/colors/colors';
 
+import { hexToRgbaTuple } from './fieldConfig';
 import { createRoundedSquarePlatformGeometry } from './fieldPlatformGeometry';
 import { fieldGridCellPitch, type FieldGridConfig } from './fieldGridConfig';
 import { cellCenterOnPlane } from './fieldGridCells';
@@ -46,10 +54,9 @@ function shadeHex(hex: string, factor: number): string {
 
 /**
  * Every cell, occupied or not, is a solid column instance of the same lit tile
- * geometry. Columns always reach down to one shared ground level, so raised
- * tiles (including object platforms) never float above a hole, and their
- * walls are real geometry that receives directional light, shadows and candle
- * light. A dark lit ground plane closes the tiny gaps between rounded tiles.
+ * geometry. Occupied columns are self-emissive: their glow colour is written
+ * per instance, and the emission strength comes from the lighting config. The
+ * candle light then spreads from them onto neighbouring tiles.
  */
 export function FieldGeneratedTiles({
   chunkIndex,
@@ -69,24 +76,28 @@ export function FieldGeneratedTiles({
   // The column spans from the highest possible top down to the shared ground.
   const groundZ = -thickness;
   const columnDepth = maxTop - groundZ;
+  const columnCount = fieldConfig.chunks.cols;
+  const instanceCount = columnCount * base.rows;
+  const glowHex = fieldConfig.lighting.objectGlow.fallbackColor;
 
-  const geometry = useMemo(
-    () =>
-      createRoundedSquarePlatformGeometry(
-        tileSize,
-        columnDepth,
-        fieldConfig.platform.cornerRadius,
-        fieldConfig.platform.edgeBevel,
-        thickness,
-      ),
-    [
+  const geometry = useMemo(() => {
+    const built = createRoundedSquarePlatformGeometry(
       tileSize,
       columnDepth,
-      thickness,
       fieldConfig.platform.cornerRadius,
       fieldConfig.platform.edgeBevel,
-    ],
-  );
+      thickness,
+    );
+    built.setAttribute('aGlow', new InstancedBufferAttribute(new Float32Array(instanceCount * 3), 3));
+    return built;
+  }, [
+    tileSize,
+    columnDepth,
+    thickness,
+    instanceCount,
+    fieldConfig.platform.cornerRadius,
+    fieldConfig.platform.edgeBevel,
+  ]);
   const groundGeometry = useMemo(() => new PlaneGeometry(1, 1, 1, 1), []);
   const fallbackTexture = useMemo(
     () => createSolidTileTexture(theme.surfaceRaised),
@@ -165,7 +176,6 @@ export function FieldGeneratedTiles({
       return;
     }
 
-    const columnCount = fieldConfig.chunks.cols;
     const gridConfig: FieldGridConfig = {
       cols: columnCount,
       rows: base.rows,
@@ -178,6 +188,10 @@ export function FieldGeneratedTiles({
       tileMinHeight: settings.tileMinHeight,
       tileMaxHeight: settings.tileMaxHeight,
     };
+    const glowAttribute = geometry.getAttribute('aGlow') as InstancedBufferAttribute;
+    const glow = glowAttribute.array as Float32Array;
+    glow.fill(0);
+    const [glowR, glowG, glowB] = hexToRgbaTuple(glowHex);
     let count = 0;
 
     for (let localCol = 0; localCol < columnCount; localCol += 1) {
@@ -205,12 +219,18 @@ export function FieldGeneratedTiles({
         temp.scale.set(1, 1, 1);
         temp.updateMatrix();
         mesh.setMatrixAt(count, temp.matrix);
+        if (isOccupied) {
+          glow[count * 3] = glowR / 255;
+          glow[count * 3 + 1] = glowG / 255;
+          glow[count * 3 + 2] = glowB / 255;
+        }
         count += 1;
       }
     }
 
     mesh.count = count;
     mesh.instanceMatrix.needsUpdate = true;
+    glowAttribute.needsUpdate = true;
     mesh.computeBoundingSphere();
 
     if (ground !== null) {
@@ -228,10 +248,12 @@ export function FieldGeneratedTiles({
     base.cellSize,
     base.dividerWidth,
     base.showDividers,
+    columnCount,
     columnDepth,
+    geometry,
+    glowHex,
     groundZ,
     occupiedCellKeys,
-    fieldConfig.chunks.cols,
     settings.generatedTilesEnabled,
     settings.worldSeed,
     settings.tileMinHeight,
@@ -251,7 +273,7 @@ export function FieldGeneratedTiles({
     <>
       <instancedMesh
         ref={meshRef}
-        args={[geometry, material, fieldConfig.chunks.cols * base.rows]}
+        args={[geometry, material, instanceCount]}
         castShadow
         receiveShadow
         frustumCulled={false}
