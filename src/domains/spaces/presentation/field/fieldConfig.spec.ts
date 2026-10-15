@@ -69,6 +69,17 @@ describe('fieldConfig', () => {
     );
   });
 
+  it('reuses unchanged nested config sections when another setting changes', () => {
+    const overrides = {
+      lighting: { objectGlow: { fallbackColor: '#FF5911' } },
+      fireflies: { maxCount: 8 },
+    } as const;
+    const first = mergeFieldConfig(overrides);
+    const second = mergeFieldConfig(overrides);
+    expect(second.lighting.objectGlow).toBe(first.lighting.objectGlow);
+    expect(second.lighting.shadows).toBe(first.lighting.shadows);
+  });
+
   it('uses low warm reflectance and softened but enabled platform shadows by default', () => {
     expect(DEFAULT_FIELD_CONFIG.lighting.surfaceAmbientColor).toBe('#FFAE00');
     expect(DEFAULT_FIELD_CONFIG.lighting.surfaceAmbientIntensity).toBe(0.025);
