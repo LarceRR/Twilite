@@ -51,6 +51,7 @@ import {
   advanceFirefly,
   buildFireflyClusters,
   createFirefly,
+  FIREFLY_CLUSTER_MAX_EMITTERS,
   FIREFLY_CLUSTER_REFRESH_SEC,
   FIREFLY_MAX_COUNT,
   FIREFLY_SPAWN_DISTANCE,
@@ -65,7 +66,7 @@ import {
 const billboardCameraPosition = new Vector3();
 const FIREFLY_RETIRE_DURATION_SEC = 0.8;
 const FIREFLY_SPAWN_INTERVAL_SEC = 0.12;
-const itemMinimumFlyLightIntensity = 0.005;
+const FIREFLY_MIN_VISIBLE_LIGHT_INTENSITY = 0.005;
 
 const fireflyVertexShader = /* glsl */ `
 precision highp float;
@@ -305,6 +306,20 @@ export function FieldSurfaceObjects({
       !simulation.initialized ||
       simulation.refreshElapsedSec >= FIREFLY_CLUSTER_REFRESH_SEC
     ) {
+      if (emitters.length > FIREFLY_CLUSTER_MAX_EMITTERS) {
+        emitters.sort((left, right) => {
+          const leftDistance =
+            (billboardCameraPosition.x - left.x) ** 2 +
+            (billboardCameraPosition.y - left.y) ** 2 +
+            (billboardCameraPosition.z - left.z) ** 2;
+          const rightDistance =
+            (billboardCameraPosition.x - right.x) ** 2 +
+            (billboardCameraPosition.y - right.y) ** 2 +
+            (billboardCameraPosition.z - right.z) ** 2;
+          return leftDistance - rightDistance;
+        });
+        emitters.length = FIREFLY_CLUSTER_MAX_EMITTERS;
+      }
       simulation.clusters = buildFireflyClusters(emitters, config.cellSize);
       simulation.refreshElapsedSec = 0;
       simulation.initialized = true;
@@ -439,7 +454,7 @@ export function FieldSurfaceObjects({
         mesh.setColorAt(index, fireflyColor);
 
         if (
-          fly.light.intensity > itemMinimumFlyLightIntensity &&
+          fly.light.intensity > FIREFLY_MIN_VISIBLE_LIGHT_INTENSITY &&
           lightVisibility.intersects(
             fly.x,
             fly.y,
