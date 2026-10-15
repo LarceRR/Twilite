@@ -257,6 +257,7 @@ const sceneWaveMaterials = new Set<FieldGridEffectMaterial>();
 const sceneWaveOrigins = createOrigins();
 const sceneWaveStartTimes = createStartTimes();
 let sceneWaveTime = 0;
+let sceneWaveDurationSec = getFieldConfig().wave.durationSec;
 
 function copySceneWaveState(material: FieldGridEffectMaterial): void {
   material.uniforms.uTime.value = sceneWaveTime;
@@ -373,12 +374,13 @@ export function syncFieldGridPixelLights(
 }
 
 export function syncFieldGridWaveSceneConfig(): void {
+  sceneWaveDurationSec = getFieldConfig().wave.durationSec;
   for (const material of sceneWaveMaterials) syncFieldGridWaveConfig(material);
 }
 
 export function syncFieldGridWaveSceneTime(elapsedTimeSec: number): void {
   sceneWaveTime = elapsedTimeSec;
-  const duration = getFieldConfig().wave.durationSec;
+  const duration = sceneWaveDurationSec;
   let hasActiveWave = false;
   for (let index = 0; index < sceneWaveStartTimes.length; index += 1) {
     const start = sceneWaveStartTimes[index]!;
