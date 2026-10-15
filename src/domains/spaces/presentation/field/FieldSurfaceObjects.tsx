@@ -369,7 +369,7 @@ export function FieldSurfaceObjects({
       if (fly.retireInSec !== null) {
         fly.retireInSec = Math.max(0, fly.retireInSec - delta);
       }
-      advanceFirefly(fly, delta);
+      advanceFirefly(fly, delta, fireflyConfig);
       if (
         fly.ageSec >= fly.lifetimeSec ||
         (fly.retireInSec !== null && fly.retireInSec <= 0)
