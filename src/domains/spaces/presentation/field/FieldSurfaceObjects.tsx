@@ -118,6 +118,7 @@ type RuntimeObject = {
   readonly platformSize: number;
   readonly artHeight: number;
   readonly lightConfig: SurfaceObjectLightConfig | null;
+  readonly backendLightConfig: SurfaceObjectLightConfig | null;
   readonly flickerConfig: FieldConfig['lighting']['objectGlow']['flicker'];
   readonly minimumVisibleIntensity: number;
   readonly pixelLight: FieldGridPixelLight | null;
@@ -264,18 +265,25 @@ export function FieldSurfaceObjects({
       if (intensity <= item.minimumVisibleIntensity) continue;
 
       const topZ = item.platformHeight * progress;
+      const backendLight = item.backendLightConfig;
+      const fireflyIntensity =
+        backendLight === null ? 0 : backendLight.intensity * flicker * progress;
       const dx = billboardCameraPosition.x - item.centerX;
       const dy = billboardCameraPosition.y - item.centerY;
       const dz = billboardCameraPosition.z - topZ;
-      if (dx * dx + dy * dy + dz * dz <= FIREFLY_SPAWN_DISTANCE * FIREFLY_SPAWN_DISTANCE) {
+      if (
+        backendLight !== null &&
+        fireflyIntensity > item.minimumVisibleIntensity &&
+        dx * dx + dy * dy + dz * dz <= FIREFLY_SPAWN_DISTANCE * FIREFLY_SPAWN_DISTANCE
+      ) {
         emitters.push({
           id: item.object.id,
           x: item.centerX,
           y: item.centerY,
           z: topZ,
-          color: lightConfig.color,
-          intensity,
-          distance: lightConfig.distance,
+          color: backendLight.color,
+          intensity: fireflyIntensity,
+          distance: backendLight.distance,
         });
       }
 
@@ -569,6 +577,7 @@ function FieldSurfaceObjectColumn({
       platformSize,
       artHeight,
       lightConfig,
+      backendLightConfig,
       flickerConfig: objectGlowConfig.flicker,
       minimumVisibleIntensity: objectGlowConfig.minimumVisibleIntensity,
       pixelLight:
@@ -599,6 +608,7 @@ function FieldSurfaceObjectColumn({
       platformHeight,
       platformSize,
       lightConfig,
+      backendLightConfig,
       objectGlowConfig,
     ],
   );
