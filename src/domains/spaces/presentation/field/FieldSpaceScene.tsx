@@ -7,6 +7,7 @@ import type { AuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAsse
 import { useSettingsStore } from '@/domains/settings/presentation/stores/settingsStore';
 import type { SurfaceObject } from '@/domains/spaces/domain/entities/SurfaceObject';
 
+import { FieldPerformanceMonitor } from './FieldPerformanceMonitor';
 import { FieldGridSurface } from './FieldGridSurface';
 import { FieldSurfaceObjects } from './FieldSurfaceObjects';
 import { FieldWorldAxes } from './FieldWorldAxes';
@@ -37,6 +38,7 @@ export function FieldSpaceScene({
 
   return (
     <>
+      <FieldPerformanceMonitor />
       <FieldSceneLighting />
       <FieldGridSurface config={gridConfig} objects={objects} />
       <FieldSurfaceObjects config={gridConfig} headers={headers} objects={objects} />
