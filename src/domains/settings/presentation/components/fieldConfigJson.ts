@@ -8,6 +8,7 @@ import {
 
 const FIELD_CONFIG_JSON_FORMAT = 'twilite-field-config';
 const FIELD_CONFIG_JSON_VERSION = 1;
+const MAX_FIELD_CONFIG_JSON_LENGTH = 256 * 1024;
 
 type JsonObject = Record<string, unknown>;
 
@@ -195,6 +196,10 @@ export function serializeFieldConfigJson(config: FieldConfig): string {
  * unknown or incorrectly typed fields are rejected to avoid silent corruption.
  */
 export function parseFieldConfigJson(content: string): FieldConfig {
+  if (content.length > MAX_FIELD_CONFIG_JSON_LENGTH) {
+    throw new Error('Файл конфигурации слишком большой (лимит 256 КБ).');
+  }
+
   let decoded: unknown;
   try {
     decoded = JSON.parse(content) as unknown;
