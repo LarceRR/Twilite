@@ -85,9 +85,10 @@ precision highp float;
 
 varying vec3 vColor;
 varying float vOpacity;
+uniform float uOpacityDiscardThreshold;
 
 void main() {
-  if (vOpacity <= 0.001) discard;
+  if (vOpacity <= uOpacityDiscardThreshold) discard;
   gl_FragColor = vec4(vColor, vOpacity);
 }
 `;
@@ -193,6 +194,9 @@ export function FieldSurfaceObjects({
   const fireflyMaterial = useMemo(
     () =>
       new ShaderMaterial({
+        uniforms: {
+          uOpacityDiscardThreshold: { value: fireflyConfig.opacityDiscardThreshold },
+        },
         vertexShader: fireflyVertexShader,
         fragmentShader: fireflyFragmentShader,
         side: DoubleSide,
@@ -202,7 +206,7 @@ export function FieldSurfaceObjects({
         blending: AdditiveBlending,
         toneMapped: false,
       }),
-    [],
+    [fireflyConfig.opacityDiscardThreshold],
   );
   const fireflyColor = useMemo(() => new Color(), []);
 
