@@ -1,191 +1,94 @@
 import {
-  BufferGeometry,
   ExtrudeGeometry,
-  Float32BufferAttribute,
   Shape,
+  ShapeGeometry,
 } from 'three';
 
-export const PLATFORM_PIXEL_CIRCLE_STEPS = 24;
+export const PLATFORM_CORNER_RADIUS = 3;
+export const PLATFORM_EDGE_BEVEL = 1;
 
-type Vertex = readonly [
-  x: number,
-  y: number,
-  z: number,
-  u: number,
-  v: number,
-];
-
-type RowSpan = {
-  readonly start: number;
-  readonly end: number;
-};
-
-/**
- * Creates a symmetric circular mask on a square pixel grid.
- * Pixel centers are tested against the circle to preserve a hard-edged,
- * Minecraft-style pixel-art silhouette.
- */
-export function createPixelCircleMask(
-  resolution = PLATFORM_PIXEL_CIRCLE_STEPS,
-): readonly (readonly boolean[])[] {
-  const steps = Number.isFinite(resolution)
-    ? Math.max(4, Math.floor(resolution))
-    : PLATFORM_PIXEL_CIRCLE_STEPS;
-
-  const radius = steps / 2;
-
-  return Array.from({ length: steps }, (_, row) =>
-    Array.from({ length: steps }, (_, column) => {
-      const x = column + 0.5 - radius;
-      const y = row + 0.5 - radius;
-
-      return x * x + y * y <= radius * radius;
-    }),
-  );
-}
-
-function findRowSpan(
-  mask: readonly (readonly boolean[])[],
-  row: number,
-): RowSpan | null {
-  const cells = mask[row]!;
-
-  let start = -1;
-  let end = -1;
-
-  for (let column = 0; column < cells.length; column += 1) {
-    if (!cells[column]) continue;
-
-    if (start < 0) start = column;
-    end = column + 1;
-  }
-
-  return start < 0 ? null : { start, end };
+function safeDimension(value: number, fallback: number): number {
+  return Number.isFinite(value) ? Math.max(0.001, value) : fallback;
 }
 
 /**
- * Traces the staircase boundary of the pixel circle.
- *
- * The resulting Shape is a single closed 2D contour. ExtrudeGeometry
- * uses it to build the platform as one solid with top, bottom and side faces.
+ * Creates a square footprint with small controllable rounded corners.
+ * The sides remain straight and square; only the corner arcs are rounded.
  */
-function createPixelCircleShape(
+export function createRoundedSquareShape(
   size: number,
-  resolution: number,
+  cornerRadius: number,
 ): Shape {
-  const mask = createPixelCircleMask(resolution);
-  const steps = mask.length;
-  const spans = mask.map((_, row) => findRowSpan(mask, row));
-
-  if (spans.some((span) => span === null)) {
-    throw new Error(
-      'Pixel circle must contain at least one filled cell in every row',
-    );
-  }
-
-  const halfSize = size / 2;
-  const pixelSize = size / steps;
-
-  const xAt = (column: number): number =>
-    column * pixelSize - halfSize;
-
-  const yAt = (row: number): number =>
-    row * pixelSize - halfSize;
-
-  const first = spans[0]!;
-  const last = spans[steps - 1]!;
-
-  if (first === null || last === null) {
-    throw new Error('Pixel circle has an empty boundary row');
-  }
-
+  const safeSize = safeDimension(size, 1);
+  const half = safeSize / 2;
+  const radius = Math.min(
+    Math.max(0, Number.isFinite(cornerRadius) ? cornerRadius : 0),
+    half,
+  );
   const shape = new Shape();
 
-  // Trace the lower edge, moving from left to right.
-  shape.moveTo(xAt(first.start), yAt(0));
-  shape.lineTo(xAt(first.end), yAt(0));
-
-  // Trace the right-hand staircase from bottom to top.
-  for (let row = 0; row < steps; row += 1) {
-    const current = spans[row]!;
-
-    if (current === null) {
-      throw new Error('Pixel circle has an empty row');
-    }
-
-    shape.lineTo(xAt(current.end), yAt(row + 1));
-
-    const next = spans[row + 1];
-
-    if (
-      next !== undefined &&
-      next !== null &&
-      next.end !== current.end
-    ) {
-      shape.lineTo(xAt(next.end), yAt(row + 1));
-    }
+  if (radius <= 0) {
+    shape.moveTo(-half, -half);
+    shape.lineTo(half, -half);
+    shape.lineTo(half, half);
+    shape.lineTo(-half, half);
+    shape.closePath();
+    return shape;
   }
 
-  // Trace the upper edge.
-  shape.lineTo(xAt(last.start), yAt(steps));
-
-  // Trace the left-hand staircase from top to bottom.
-  for (let row = steps - 1; row >= 0; row -= 1) {
-    const current = spans[row]!;
-
-    if (current === null) {
-      throw new Error('Pixel circle has an empty row');
-    }
-
-    shape.lineTo(xAt(current.start), yAt(row));
-
-    const previous = spans[row - 1];
-
-    if (
-      previous !== undefined &&
-      previous !== null &&
-      previous.start !== current.start
-    ) {
-      shape.lineTo(xAt(previous.start), yAt(row));
-    }
-  }
-
+  shape.moveTo(-half + radius, -half);
+  shape.lineTo(half - radius, -half);
+  shape.quadraticCurveTo(half, -half, half, -half + radius);
+  shape.lineTo(half, half - radius);
+  shape.quadraticCurveTo(half, half, half - radius, half);
+  shape.lineTo(-half + radius, half);
+  shape.quadraticCurveTo(-half, half, -half, half - radius);
+  shape.lineTo(-half, -half + radius);
+  shape.quadraticCurveTo(-half, -half, -half + radius, -half);
   shape.closePath();
 
   return shape;
 }
 
 /**
- * Creates one closed, hard-edged pixel-circle platform.
+ * Creates one closed, bevelled square tile.
  *
- * ExtrudeGeometry generates the top, bottom and side faces from a single
- * contour, avoiding overlapping hand-built surfaces and a separate side mesh.
+ * A single ExtrudeGeometry owns the top, bottom and sides. The bevel is real
+ * geometry, not a transparent overlay, so no coplanar faces can z-fight.
  */
-export function createPixelCirclePlatformGeometry(
+export function createRoundedSquarePlatformGeometry(
   size: number,
   height: number,
-  resolution = PLATFORM_PIXEL_CIRCLE_STEPS,
+  cornerRadius = PLATFORM_CORNER_RADIUS,
+  edgeBevel = PLATFORM_EDGE_BEVEL,
 ): ExtrudeGeometry {
-  const safeSize = Number.isFinite(size)
-    ? Math.max(0.001, size)
-    : 1;
-
-  const safeHeight = Number.isFinite(height)
-    ? Math.max(0.001, height)
-    : 1;
-
-  const shape = createPixelCircleShape(safeSize, resolution);
+  const safeSize = safeDimension(size, 1);
+  const safeHeight = safeDimension(height, 1);
+  const bevel = Math.min(
+    Math.max(0, Number.isFinite(edgeBevel) ? edgeBevel : 0),
+    safeSize * 0.1,
+    safeHeight * 0.24,
+  );
+  const bevelEnabled = bevel > 0;
+  const bodyDepth = Math.max(0.001, safeHeight - bevel * 2);
+  const shapeSize = bevelEnabled ? safeSize - bevel * 2 : safeSize;
+  const shapeRadius = Math.max(
+    0,
+    Math.min(cornerRadius - bevel, shapeSize / 2),
+  );
+  const shape = createRoundedSquareShape(shapeSize, shapeRadius);
 
   const geometry = new ExtrudeGeometry(shape, {
-    depth: safeHeight,
-    bevelEnabled: false,
+    depth: bodyDepth,
+    bevelEnabled,
+    bevelSegments: bevelEnabled ? 2 : 0,
+    bevelSize: bevel,
+    bevelThickness: bevel,
     steps: 1,
-    curveSegments: 1,
+    curveSegments: 3,
   });
 
-  // Center the extrusion vertically around the platform origin.
-  geometry.translate(0, 0, -safeHeight / 2);
-
+  geometry.translate(0, 0, -safeHeight / 2 + bevel);
   geometry.computeVertexNormals();
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
@@ -193,103 +96,17 @@ export function createPixelCirclePlatformGeometry(
   return geometry;
 }
 
-function pushTriangle(
-  vertices: Vertex[],
-  a: Vertex,
-  b: Vertex,
-  c: Vertex,
-): void {
-  vertices.push(a, b, c);
-}
-
-function pushQuad(
-  vertices: Vertex[],
-  bottomLeft: Vertex,
-  bottomRight: Vertex,
-  topRight: Vertex,
-  topLeft: Vertex,
-): void {
-  pushTriangle(vertices, bottomLeft, bottomRight, topRight);
-  pushTriangle(vertices, bottomLeft, topRight, topLeft);
-}
-
-function toGeometry(
-  vertices: readonly Vertex[],
-): BufferGeometry {
-  const positions = new Float32Array(vertices.length * 3);
-  const uvs = new Float32Array(vertices.length * 2);
-
-  vertices.forEach(([x, y, z, u, v], index) => {
-    positions[index * 3] = x;
-    positions[index * 3 + 1] = y;
-    positions[index * 3 + 2] = z;
-
-    uvs[index * 2] = u;
-    uvs[index * 2 + 1] = v;
-  });
-
-  const geometry = new BufferGeometry();
-
-  geometry.setAttribute(
-    'position',
-    new Float32BufferAttribute(positions, 3),
-  );
-
-  geometry.setAttribute(
-    'uv',
-    new Float32BufferAttribute(uvs, 2),
-  );
+/** Top-only surface for the pixel-light and wave shader. */
+export function createRoundedSquareTopGeometry(
+  size: number,
+  cornerRadius = PLATFORM_CORNER_RADIUS,
+): ShapeGeometry {
+  const shape = createRoundedSquareShape(size, cornerRadius);
+  const geometry = new ShapeGeometry(shape, 3);
 
   geometry.computeVertexNormals();
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
 
   return geometry;
-}
-
-function pixelVertex(
-  size: number,
-  resolution: number,
-  column: number,
-  row: number,
-  z: number,
-): Vertex {
-  const cellSize = size / resolution;
-
-  return [
-    -size / 2 + column * cellSize,
-    -size / 2 + row * cellSize,
-    z,
-    column / resolution,
-    row / resolution,
-  ];
-}
-
-/**
- * Creates the top-only geometry used by the pixel-light and wave shader.
- * Its pixel-circle contour matches the platform footprint.
- */
-export function createPixelCircleTopGeometry(
-  size: number,
-  resolution = PLATFORM_PIXEL_CIRCLE_STEPS,
-): BufferGeometry {
-  const mask = createPixelCircleMask(resolution);
-  const steps = mask.length;
-  const vertices: Vertex[] = [];
-
-  for (let row = 0; row < steps; row += 1) {
-    const span = findRowSpan(mask, row);
-
-    if (span === null) continue;
-
-    pushQuad(
-      vertices,
-      pixelVertex(size, steps, span.start, row, 0),
-      pixelVertex(size, steps, span.end, row, 0),
-      pixelVertex(size, steps, span.end, row + 1, 0),
-      pixelVertex(size, steps, span.start, row + 1, 0),
-    );
-  }
-
-  return toGeometry(vertices);
 }
