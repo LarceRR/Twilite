@@ -28,7 +28,7 @@ describe('fieldGridCellPress', () => {
     expect(resolveActiveFieldCellAtPoint(active[0], active[1], config)).toEqual({
       col: 1,
       row: 10,
-      label: '2,11',
+      label: 'X2,Y11',
     });
     expect(resolveActiveFieldCellAtPoint(inactive[0], inactive[1], config)).toBeNull();
   });

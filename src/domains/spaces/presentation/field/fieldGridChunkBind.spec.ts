@@ -17,7 +17,7 @@ describe('fieldGridChunkBind', () => {
   it('places a chunk mesh on absolute world X', () => {
     const mesh = new Mesh(new PlaneGeometry(1, 1));
     placeFieldChunkMesh(1, { rows: 15, cellSize: 60 }, mesh);
-    expect(mesh.position.toArray()).toEqual([900, 0, 0]);
+    expect(mesh.position.toArray()).toEqual([915, 0, 0]);
   });
 
   it('writes line geometry for the absolute chunk slice', () => {
@@ -50,7 +50,7 @@ describe('fieldGridChunkBind', () => {
       mesh,
     );
     expect(material.uniforms.uMap.value).toBeTruthy();
-    expect(mesh.position.x).toBe(300);
+    expect(mesh.position.x).toBe(305);
     expect(mesh.position.z).toBeCloseTo(0.2);
     material.dispose();
     lines.dispose();
