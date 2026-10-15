@@ -6,13 +6,13 @@ import {
   resetFieldGridWaveScene,
   syncFieldGridPixelLights,
   syncFieldGridWaveSceneConfig,
-  triggerFieldGridWaveOnScene,
   syncFieldGridWaveSceneTime,
+  triggerFieldGridWaveOnScene,
 } from './fieldGridWaveMaterial';
 import { useFieldConfigStore } from './fieldConfigStore';
 
 describe('fieldGridWaveMaterial', () => {
-  it('updates pixel-glow size on every registered material after a config change', () => {
+  it('updates pixel-glow configuration on every registered material', () => {
     const material = createFieldGridWaveMaterial();
     const unregister = registerFieldGridWaveMaterial(material);
     try {
@@ -34,8 +34,11 @@ describe('fieldGridWaveMaterial', () => {
     }
   });
 
-  it('uses one shared pixel-light uniform set for registered surfaces', () => {
-    const material = createFieldGridWaveMaterial();
+  it('applies pixel lights to registered tile materials', () => {
+    const material = createFieldGridWaveMaterial(null, {
+      depthWrite: true,
+      receivesPixelLights: true,
+    });
     const unregister = registerFieldGridWaveMaterial(material);
     try {
       syncFieldGridPixelLights([
@@ -46,21 +49,41 @@ describe('fieldGridWaveMaterial', () => {
           color: '#FFAE00',
           intensity: 1.25,
           distance: 220,
-          platformTopZ: 6,
-          platformHalfSize: 30,
         },
       ]);
       expect(material.transparent).toBe(true);
-      expect(material.depthWrite).toBe(false);
+      expect(material.depthWrite).toBe(true);
       expect(material.uniforms.uLightParams.value[0]?.x).toBe(1.25);
       expect(material.uniforms.uLightParams.value[0]?.y).toBe(220);
       expect(material.uniforms.uLightColors.value[0]?.getHex()).toBe(0xffae00);
-      expect(material.uniforms.uLightOccluders.value[0]?.x).toBe(6);
-      expect(material.uniforms.uLightOccluders.value[0]?.y).toBe(30);
       expect(material.uniforms.uLightParams.value[1]?.x).toBe(0);
+      expect(material.receivesPixelLights).toBe(true);
       triggerFieldGridWaveOnScene(100, 200, 0.1);
       syncFieldGridWaveSceneTime(0.11);
       expect(material.uniforms.uStartTimes.value.some((time) => time === 0.1)).toBe(true);
+    } finally {
+      unregister();
+      material.dispose();
+      resetFieldGridWaveScene();
+    }
+  });
+
+  it('keeps local pixel lights off the transparent grid overlay', () => {
+    const material = createFieldGridWaveMaterial(null, { receivesPixelLights: false });
+    const unregister = registerFieldGridWaveMaterial(material);
+    try {
+      syncFieldGridPixelLights([
+        {
+          x: 10,
+          y: 20,
+          z: 6,
+          color: '#FF5911',
+          intensity: 2,
+          distance: 300,
+        },
+      ]);
+      expect(material.receivesPixelLights).toBe(false);
+      expect(material.uniforms.uLightParams.value.every((params) => params.x === 0)).toBe(true);
     } finally {
       unregister();
       material.dispose();
