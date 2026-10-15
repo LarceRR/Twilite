@@ -14,6 +14,11 @@ import {
   persistedFieldConfigOverrides,
   useFieldConfigStore,
 } from '@/domains/spaces/presentation/field/fieldConfigStore';
+import {
+  type FieldMaterialPreferences,
+  persistedFieldMaterialPreferences,
+  useFieldMaterialStore,
+} from '@/domains/spaces/presentation/field/fieldMaterialStore';
 import { toAppError } from '@/shared/errors';
 
 import { loadNativeTabIconSources } from '../navigation/nativeTabIconSources';
@@ -81,6 +86,16 @@ export function useBootstrap(): { readonly isReady: boolean } {
         if (fieldConfig !== null) useFieldConfigStore.getState().hydrate(fieldConfig);
       } catch (error) {
         logger.debug('Field config restore skipped', { error: String(error) });
+      }
+
+      try {
+        const fieldMaterial = await withTimeout(
+          storage.read<Partial<FieldMaterialPreferences>>(storageKeys.fieldMaterial),
+          'field material restore',
+        );
+        if (fieldMaterial !== null) useFieldMaterialStore.getState().hydrate(fieldMaterial);
+      } catch (error) {
+        logger.debug('Field material restore skipped', { error: String(error) });
       }
 
       try {
@@ -157,6 +172,40 @@ export function useBootstrap(): { readonly isReady: boolean } {
       }),
     [storage],
   );
+
+  useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    const flush = (): void => {
+      if (timeout !== null) {
+        clearTimeout(timeout);
+        timeout = null;
+      }
+      void storage.write(
+        storageKeys.fieldMaterial,
+        persistedFieldMaterialPreferences(useFieldMaterialStore.getState()),
+      );
+    };
+
+    const unsubscribe = useFieldMaterialStore.subscribe(() => {
+      if (timeout !== null) clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        timeout = null;
+        void storage.write(
+          storageKeys.fieldMaterial,
+          persistedFieldMaterialPreferences(useFieldMaterialStore.getState()),
+        );
+      }, 250);
+    });
+    const appStateSubscription = AppState.addEventListener('change', (status) => {
+      if (status !== 'active') flush();
+    });
+
+    return () => {
+      unsubscribe();
+      appStateSubscription.remove();
+      flush();
+    };
+  }, [storage]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (status) => {

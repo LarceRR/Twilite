@@ -6,6 +6,7 @@ const DEFAULTS = {
   themeMode: 'system' as const,
   reduceMotion: false,
   developerCameraControlsEnabled: false,
+  developerMaterialControlsEnabled: false,
   developerShowActiveCells: true,
   developerShowWorldAxes: true,
   developerShowCellLabels: true,
@@ -21,6 +22,8 @@ describe('settingsStore', () => {
     useSettingsStore.getState().setReduceMotion(true);
     useSettingsStore.getState().setThemeMode('dark');
     useSettingsStore.getState().setDeveloperCameraControlsEnabled(true);
+    useSettingsStore.getState().setDeveloperMaterialControlsEnabled(true);
+    expect(useSettingsStore.getState().developerCameraControlsEnabled).toBe(false);
     useSettingsStore.getState().setDeveloperShowActiveCells(false);
     useSettingsStore.getState().setDeveloperShowWorldAxes(false);
     useSettingsStore.getState().setDeveloperShowCellLabels(false);
@@ -29,7 +32,8 @@ describe('settingsStore', () => {
     expect(persistedSettings(useSettingsStore.getState())).toEqual({
       themeMode: 'dark',
       reduceMotion: true,
-      developerCameraControlsEnabled: true,
+      developerCameraControlsEnabled: false,
+      developerMaterialControlsEnabled: true,
       developerShowActiveCells: false,
       developerShowWorldAxes: false,
       developerShowCellLabels: false,
@@ -42,6 +46,7 @@ describe('settingsStore', () => {
       themeMode: 'light',
       reduceMotion: true,
       developerCameraControlsEnabled: true,
+      developerMaterialControlsEnabled: true,
       developerShowActiveCells: false,
       developerShowWorldAxes: false,
       developerShowCellLabels: false,
@@ -51,7 +56,8 @@ describe('settingsStore', () => {
     const state = useSettingsStore.getState();
     expect(state.themeMode).toBe('light');
     expect(state.reduceMotion).toBe(true);
-    expect(state.developerCameraControlsEnabled).toBe(true);
+    expect(state.developerCameraControlsEnabled).toBe(false);
+    expect(state.developerMaterialControlsEnabled).toBe(true);
     expect(state.developerShowActiveCells).toBe(false);
     expect(state.developerShowWorldAxes).toBe(false);
     expect(state.developerShowCellLabels).toBe(false);
@@ -63,6 +69,7 @@ describe('settingsStore', () => {
       themeMode: 'dark',
       reduceMotion: false,
       developerCameraControlsEnabled: false,
+      developerMaterialControlsEnabled: false,
     });
 
     const state = useSettingsStore.getState();

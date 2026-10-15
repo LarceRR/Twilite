@@ -89,6 +89,14 @@ export function createRoundedSquarePlatformGeometry(
   });
 
   geometry.translate(0, 0, -safeHeight / 2 + bevel);
+  const uv = geometry.getAttribute('uv');
+  if (uv !== undefined && geometry.getAttribute('uv1') === undefined) {
+    geometry.setAttribute('uv1', uv.clone());
+  }
+  const uv = geometry.getAttribute('uv');
+  if (uv !== undefined && geometry.getAttribute('uv1') === undefined) {
+    geometry.setAttribute('uv1', uv.clone());
+  }
   geometry.computeVertexNormals();
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();

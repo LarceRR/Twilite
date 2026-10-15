@@ -1,12 +1,20 @@
 import { type ThreeEvent } from '@react-three/fiber/native';
 import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import type { ReactElement } from 'react';
-import { BufferGeometry, Color, DoubleSide, PlaneGeometry, type Group, type Mesh } from 'three';
+import { BufferGeometry, Color, PlaneGeometry, type Group, type Mesh } from 'three';
 
 import { useThemeColors } from '@/design-system/colors/colors';
 import { useSettingsStore } from '@/domains/settings/presentation/stores/settingsStore';
 
 import { compositeThemeColorOver } from './fieldGridActiveCells';
+import { FieldGeneratedTiles } from './FieldGeneratedTiles';
+import {
+  createFieldStandardMaterial,
+  ensureFieldGeometryUvChannels,
+  updateFieldStandardMaterial,
+  useFieldSceneMaterial,
+} from './FieldSceneMaterialRuntime';
+import { useFieldMaterialStore } from './fieldMaterialStore';
 import { bindFieldChunkSlot } from './fieldGridChunkBind';
 import {
   FIELD_GRID_OVERLAY_RENDER_ORDER,
@@ -23,6 +31,7 @@ type FieldGridChunkProps = {
   /** Null hides this recycled slot without tearing down GPU resources. */
   readonly chunkIndex: number | null;
   readonly base: Pick<FieldGridConfig, 'rows' | 'cellSize' | 'dividerWidth' | 'showDividers'>;
+  readonly occupiedCellKeys: ReadonlySet<string>;
   readonly onMaterialReady: (chunkIndex: number, material: FieldGridWaveMaterial) => void;
   readonly onMaterialDispose: (chunkIndex: number, material: FieldGridWaveMaterial) => void;
   readonly onPointerDown: (event: ThreeEvent<PointerEvent>) => void;
@@ -34,7 +43,12 @@ type FieldGridChunkProps = {
 
 function useChunkSlotResources(width: number, height: number) {
   const planeGeometry = useMemo(
-    () => new PlaneGeometry(width, height, 1, 1),
+    () => ensureFieldGeometryUvChannels(new PlaneGeometry(width, height, 1, 1)),
+    [width, height],
+  );
+  // Dedicated tessellated floor geometry lets displacement maps affect the surface visibly.
+  const surfaceGeometry = useMemo(
+    () => ensureFieldGeometryUvChannels(new PlaneGeometry(width, height, 64, 64)),
     [width, height],
   );
   const lineGeometry = useMemo(() => new BufferGeometry(), []);
@@ -44,17 +58,19 @@ function useChunkSlotResources(width: number, height: number) {
     return () => {
       material.dispose();
       planeGeometry.dispose();
+      surfaceGeometry.dispose();
       lineGeometry.dispose();
     };
-  }, [material, planeGeometry, lineGeometry]);
+  }, [material, planeGeometry, surfaceGeometry, lineGeometry]);
 
-  return { planeGeometry, lineGeometry, material };
+  return { planeGeometry, surfaceGeometry, lineGeometry, material };
 }
 
 /** The lit base receives shadows; its transparent overlay renders pixels and waves. */
 function FieldGridChunkComponent({
   chunkIndex,
   base,
+  occupiedCellKeys,
   onMaterialReady,
   onMaterialDispose,
   onPointerDown,
@@ -64,6 +80,8 @@ function FieldGridChunkComponent({
   onPointerLeave,
 }: FieldGridChunkProps): ReactElement {
   const { surface, surfaceDivider } = useThemeColors();
+  const materialSettings = useFieldMaterialStore();
+  const { textures } = useFieldSceneMaterial();
   const gridLineColor = compositeThemeColorOver(surfaceDivider, surface);
   const fieldConfig = useFieldConfig();
   const surfaceMaterialColor = useMemo(
@@ -93,7 +111,20 @@ function FieldGridChunkComponent({
     cellSize: base.cellSize,
     dividerWidth: base.dividerWidth,
   });
-  const { planeGeometry, lineGeometry, material } = useChunkSlotResources(width, height);
+  const { planeGeometry, surfaceGeometry, lineGeometry, material } = useChunkSlotResources(width, height);
+  const surfacePbrMaterial = useMemo(() => createFieldStandardMaterial('#FFFFFF'), []);
+
+  useLayoutEffect(() => {
+    updateFieldStandardMaterial(
+      surfacePbrMaterial,
+      materialSettings,
+      textures,
+      base.cellSize,
+      surfaceMaterialColor.getStyle(),
+    );
+  }, [surfacePbrMaterial, materialSettings, textures, base.cellSize, surfaceMaterialColor]);
+
+  useEffect(() => () => surfacePbrMaterial.dispose(), [surfacePbrMaterial]);
 
   useLayoutEffect(() => {
     const group = groupRef.current;
@@ -152,9 +183,17 @@ function FieldGridChunkComponent({
 
   return (
     <group ref={groupRef} visible={chunkIndex != null}>
-      <mesh ref={surfaceMeshRef} geometry={planeGeometry} receiveShadow>
-        <meshLambertMaterial color={surfaceMaterialColor} side={DoubleSide} />
-      </mesh>
+      <mesh
+        ref={surfaceMeshRef}
+        geometry={surfaceGeometry}
+        material={surfacePbrMaterial}
+        receiveShadow
+      />
+      <FieldGeneratedTiles
+        chunkIndex={chunkIndex}
+        base={base}
+        occupiedCellKeys={occupiedCellKeys}
+      />
       <mesh
         ref={meshRef}
         geometry={planeGeometry}
