@@ -1,6 +1,6 @@
 import { useFrame } from '@react-three/fiber/native';
 import type { ReactElement } from 'react';
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { DirectionalLight, Object3D } from 'three';
 
 import type { AuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAssetHeaders';
@@ -12,6 +12,8 @@ import { FieldGridSurface } from './FieldGridSurface';
 import { FieldSurfaceObjects } from './FieldSurfaceObjects';
 import { FieldWorldAxes } from './FieldWorldAxes';
 import { resetFieldGridWaveScene } from './fieldGridWaveMaterial';
+import { consumeFieldShadowUpdate, requestFieldShadowUpdate } from './fieldShadowInvalidation';
+import { useFieldTileStore } from './fieldTileStore';
 import { useFieldConfig, useFieldGridConfig } from './useFieldConfig';
 
 /**
@@ -39,7 +41,7 @@ export function FieldSpaceScene({
   return (
     <>
       <FieldPerformanceMonitor />
-      <FieldSceneLighting />
+      <FieldSceneLighting objects={objects} />
       <FieldGridSurface config={gridConfig} objects={objects} />
       <FieldSurfaceObjects config={gridConfig} headers={headers} objects={objects} />
       {showWorldAxes ? <FieldWorldAxes /> : null}
@@ -47,11 +49,26 @@ export function FieldSpaceScene({
   );
 }
 
-function FieldSceneLighting(): ReactElement {
-  const { lighting } = useFieldConfig();
+function FieldSceneLighting({ objects }: { readonly objects: readonly SurfaceObject[] }): ReactElement {
+  const { lighting, platform } = useFieldConfig();
+  const tileWorldSeed = useFieldTileStore((s) => s.worldSeed);
+  const tileMinHeight = useFieldTileStore((s) => s.tileMinHeight);
+  const tileMaxHeight = useFieldTileStore((s) => s.tileMaxHeight);
+  const objectMinHeight = useFieldTileStore((s) => s.objectMinHeight);
+  const objectMaxHeight = useFieldTileStore((s) => s.objectMaxHeight);
+  const generatedTilesEnabled = useFieldTileStore((s) => s.generatedTilesEnabled);
   const lightRef = useRef<DirectionalLight>(null);
   const target = useMemo(() => new Object3D(), []);
   const lastShadowFocusX = useRef(Number.NaN);
+  const shadowRefreshElapsed = useRef(0);
+  const [appliedShadows, setAppliedShadows] = useState(lighting.shadows);
+
+  // Shadow-map settings are expensive. Apply a single coherent snapshot after
+  // the developer stops dragging a slider instead of reallocating GPU maps per tick.
+  useEffect(() => {
+    const timeout = setTimeout(() => setAppliedShadows(lighting.shadows), 180);
+    return () => clearTimeout(timeout);
+  }, [lighting.shadows]);
   useLayoutEffect(() => {
     const light = lightRef.current;
     if (light === null) return;
@@ -61,65 +78,89 @@ function FieldSceneLighting(): ReactElement {
     light.shadow.autoUpdate = false;
     light.shadow.needsUpdate = true;
     const shadowCamera = light.shadow.camera;
-    light.shadow.radius = lighting.shadows.filterRadius;
-    light.shadow.intensity = lighting.shadows.baselineIntensity;
     shadowCamera.up.set(0, 0, 1);
-    shadowCamera.left = lighting.shadows.cameraLeft;
-    shadowCamera.right = lighting.shadows.cameraRight;
-    shadowCamera.top = lighting.shadows.cameraTop;
-    shadowCamera.bottom = lighting.shadows.cameraBottom;
-    shadowCamera.near = lighting.shadows.cameraNear;
-    shadowCamera.far = lighting.shadows.cameraFar;
+    light.shadow.radius = appliedShadows.filterRadius;
+    light.shadow.intensity = appliedShadows.baselineIntensity;
+    shadowCamera.left = appliedShadows.cameraLeft;
+    shadowCamera.right = appliedShadows.cameraRight;
+    shadowCamera.top = appliedShadows.cameraTop;
+    shadowCamera.bottom = appliedShadows.cameraBottom;
+    shadowCamera.near = appliedShadows.cameraNear;
+    shadowCamera.far = appliedShadows.cameraFar;
     shadowCamera.updateProjectionMatrix();
 
     const shadowMap = light.shadow.map;
     if (
       shadowMap !== null &&
-      (shadowMap.width !== lighting.shadows.mapSizePx ||
-        shadowMap.height !== lighting.shadows.mapSizePx)
+      (shadowMap.width !== appliedShadows.mapSizePx ||
+        shadowMap.height !== appliedShadows.mapSizePx)
     ) {
       shadowMap.dispose();
       light.shadow.map = null;
     }
     light.shadow.mapSize.set(
-      lighting.shadows.mapSizePx,
-      lighting.shadows.mapSizePx,
+      appliedShadows.mapSizePx,
+      appliedShadows.mapSizePx,
     );
+    lastShadowFocusX.current = Number.NaN;
+    requestFieldShadowUpdate();
     light.shadow.needsUpdate = true;
   }, [
-    lighting.shadows.mapSizePx,
-    lighting.shadows.filterRadius,
-    lighting.shadows.cameraLeft,
-    lighting.shadows.cameraRight,
-    lighting.shadows.cameraTop,
-    lighting.shadows.cameraBottom,
-    lighting.shadows.cameraNear,
-    lighting.shadows.cameraFar,
-    lighting.shadows.baselineIntensity,
+    appliedShadows.mapSizePx,
+    appliedShadows.filterRadius,
+    appliedShadows.cameraLeft,
+    appliedShadows.cameraRight,
+    appliedShadows.cameraTop,
+    appliedShadows.cameraBottom,
+    appliedShadows.cameraNear,
+    appliedShadows.cameraFar,
+    appliedShadows.baselineIntensity,
+    lighting.directionalPosition[0],
+    lighting.directionalPosition[1],
+    lighting.directionalPosition[2],
   ]);
 
-  useFrame(({ camera }) => {
+  useEffect(() => {
+    requestFieldShadowUpdate();
+  }, [
+    objects,
+    platform.height,
+    platform.cornerRadius,
+    platform.edgeBevel,
+    tileWorldSeed,
+    tileMinHeight,
+    tileMaxHeight,
+    objectMinHeight,
+    objectMaxHeight,
+    generatedTilesEnabled,
+  ]);
+
+  useFrame(({ camera }, delta) => {
     const light = lightRef.current;
     if (light === null) return;
+    shadowRefreshElapsed.current += delta;
     const focusX = camera.position.x + SHADOW_FOCUS_AHEAD;
     const previousFocusX = lastShadowFocusX.current;
     if (
-      Number.isFinite(previousFocusX) &&
-      Math.abs(focusX - previousFocusX) < SHADOW_REFRESH_DISTANCE
+      !Number.isFinite(previousFocusX) ||
+      Math.abs(focusX - previousFocusX) >= SHADOW_REFRESH_DISTANCE
     ) {
-      return;
+      lastShadowFocusX.current = focusX;
+      target.position.set(focusX, 0, 0);
+      light.position.set(
+        focusX + lighting.directionalPosition[0],
+        lighting.directionalPosition[1],
+        lighting.directionalPosition[2],
+      );
+      target.updateMatrixWorld();
+      light.target.updateMatrixWorld();
+      requestFieldShadowUpdate();
     }
 
-    lastShadowFocusX.current = focusX;
-    target.position.set(focusX, 0, 0);
-    light.position.set(
-      focusX + lighting.directionalPosition[0],
-      lighting.directionalPosition[1],
-      lighting.directionalPosition[2],
-    );
-    target.updateMatrixWorld();
-    light.target.updateMatrixWorld();
-    light.shadow.needsUpdate = true;
+    if (shadowRefreshElapsed.current >= 0.1 && consumeFieldShadowUpdate()) {
+      light.shadow.needsUpdate = true;
+      shadowRefreshElapsed.current = 0;
+    }
   });
 
   return (
@@ -132,16 +173,16 @@ function FieldSceneLighting(): ReactElement {
         castShadow
         position={[...lighting.directionalPosition]}
         intensity={lighting.directionalIntensity}
-        shadow-mapSize-width={lighting.shadows.mapSizePx}
-        shadow-mapSize-height={lighting.shadows.mapSizePx}
-        shadow-camera-left={lighting.shadows.cameraLeft}
-        shadow-camera-right={lighting.shadows.cameraRight}
-        shadow-camera-top={lighting.shadows.cameraTop}
-        shadow-camera-bottom={lighting.shadows.cameraBottom}
-        shadow-camera-near={lighting.shadows.cameraNear}
-        shadow-camera-far={lighting.shadows.cameraFar}
-        shadow-bias={lighting.shadows.bias}
-        shadow-normalBias={lighting.shadows.normalBias}
+        shadow-mapSize-width={appliedShadows.mapSizePx}
+        shadow-mapSize-height={appliedShadows.mapSizePx}
+        shadow-camera-left={appliedShadows.cameraLeft}
+        shadow-camera-right={appliedShadows.cameraRight}
+        shadow-camera-top={appliedShadows.cameraTop}
+        shadow-camera-bottom={appliedShadows.cameraBottom}
+        shadow-camera-near={appliedShadows.cameraNear}
+        shadow-camera-far={appliedShadows.cameraFar}
+        shadow-bias={appliedShadows.bias}
+        shadow-normalBias={appliedShadows.normalBias}
       />
     </>
   );
