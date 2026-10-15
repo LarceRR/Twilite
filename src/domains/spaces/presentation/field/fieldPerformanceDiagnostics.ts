@@ -40,3 +40,10 @@ export function getFieldPerformanceSnapshot(): FieldPerformanceSnapshot | null {
     objectsCpuMs: latestObjectsCpuMs,
   };
 }
+
+export function getFieldCpuWorkDurations(): {
+  readonly gridCpuMs: number;
+  readonly objectsCpuMs: number;
+} {
+  return { gridCpuMs: latestGridCpuMs, objectsCpuMs: latestObjectsCpuMs };
+}
