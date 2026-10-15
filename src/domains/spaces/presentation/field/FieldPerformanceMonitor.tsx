@@ -3,8 +3,8 @@ import { useFrame } from '@react-three/fiber/native';
 import { useRef } from 'react';
 
 import {
+  getFieldCpuWorkDurations,
   publishFieldPerformanceSnapshot,
-  recordFieldCpuWork,
 } from './fieldPerformanceDiagnostics';
 import { pendingFieldChunkGpuUploads } from './fieldGridChunkBake';
 
@@ -78,14 +78,14 @@ export function FieldPerformanceMonitor(): null {
     const average = count > 0 ? total / count : 0;
     const p95 = count > 0 ? ordered[Math.min(count - 1, Math.floor(count * 0.95))]! : 0;
     const resources = resourceCounts(gl);
+    const cpuWork = getFieldCpuWorkDurations();
     const snapshot = {
       sampledAtMs: Date.now(),
       fps: average > 0 ? 1000 / average : 0,
       frameMsAverage: average,
       frameMsP95: p95,
       frameMsMax: maximum,
-      gridCpuMs: 0,
-      objectsCpuMs: 0,
+      ...cpuWork,
       drawCalls: gl.info.render.calls,
       triangles: gl.info.render.triangles,
       geometries: resources.geometries,
