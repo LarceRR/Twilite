@@ -70,7 +70,7 @@ describe('fieldFireflies', () => {
     const [cluster] = buildFireflyClusters([emitter('color-test', 0)], 60, fireflyConfig);
     expect(cluster).toBeDefined();
 
-    let scout = undefined;
+    let scout: ReturnType<typeof createFirefly> | undefined;
     for (let id = 0; id < 1000; id += 1) {
       const candidate = createFirefly(id, cluster!, 60, fireflyConfig);
       if (candidate.kind === 'scout') {
