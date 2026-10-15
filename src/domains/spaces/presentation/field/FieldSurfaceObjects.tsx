@@ -265,14 +265,16 @@ export function FieldSurfaceObjects({
       if (intensity <= item.minimumVisibleIntensity) continue;
 
       const topZ = item.platformHeight * progress;
-      const backendLight = item.backendLightConfig;
+      // Use the resolved light, not only the raw backend field: the resolved
+      // config also includes forceAllObjectsForTesting for development scenes.
+      const fireflySource = lightConfig;
       const fireflyIntensity =
-        backendLight === null ? 0 : backendLight.intensity * flicker * progress;
+        fireflySource === null ? 0 : fireflySource.intensity * flicker * progress;
       const dx = billboardCameraPosition.x - item.centerX;
       const dy = billboardCameraPosition.y - item.centerY;
       const dz = billboardCameraPosition.z - topZ;
       if (
-        backendLight !== null &&
+        fireflySource !== null &&
         fireflyIntensity > item.minimumVisibleIntensity &&
         dx * dx + dy * dy + dz * dz <= FIREFLY_SPAWN_DISTANCE * FIREFLY_SPAWN_DISTANCE
       ) {
@@ -281,9 +283,9 @@ export function FieldSurfaceObjects({
           x: item.centerX,
           y: item.centerY,
           z: topZ,
-          color: backendLight.color,
+          color: fireflySource.color,
           intensity: fireflyIntensity,
-          distance: backendLight.distance,
+          distance: fireflySource.distance,
         });
       }
 
