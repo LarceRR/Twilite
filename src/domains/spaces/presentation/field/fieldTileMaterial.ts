@@ -27,7 +27,7 @@ const CANDLE_INVERSE_SQUARE_SCALE = 16;
  * The tiles are very dark, so a pure albedo product made the light invisible.
  */
 const CANDLE_ALBEDO_FLOOR = 0.35;
-const PROGRAM_CACHE_KEY = 'twilite-field-tile-v3';
+const PROGRAM_CACHE_KEY = 'twilite-field-tile-v4';
 
 export type FieldTileMaterial = MeshStandardMaterial & FieldGridEffectMaterial;
 
@@ -137,16 +137,26 @@ const fragmentBody = /* glsl */ `
   vec3 fieldNormal = normalize( inverseTransformDirection( normal, viewMatrix ) );
   vec3 fieldAlbedo = diffuseColor.rgb;
 
+  // Occupied tiles: how strongly this fragment is self-emissive (0 on empty tiles).
+  float glowMax = max( vGlow.r, max( vGlow.g, vGlow.b ) );
+  float glowMask = saturate( glowMax * 8.0 );
+
   // Candle light is added on top of the albedo, not multiplied by it, so dark
   // tiles still visibly catch light from neighbouring candles.
-  outgoingLight += ( fieldAlbedo + vec3( ${CANDLE_ALBEDO_FLOOR.toFixed(2)} ) ) *
+  vec3 lit = ( fieldAlbedo + vec3( ${CANDLE_ALBEDO_FLOOR.toFixed(2)} ) ) *
     fieldCandleIrradiance( vFieldWorldPos, fieldNormal );
-  outgoingLight += fieldAlbedo * uAmbientColor *
+  lit += fieldAlbedo * uAmbientColor *
     ( ( uAmbientIntensity + uTileEmissiveIntensity ) * ${TILE_EMISSIVE_FLOOR_SCALE.toFixed(3)} );
+  // White scene light on a glowing face would wash the colour out to white-pink,
+  // so an emissive face keeps only a sliver of its lit term.
+  outgoingLight = mix( outgoingLight + lit, vec3( 0.0 ), glowMask * 0.9 ) ;
 
-  // Occupied tiles glow by themselves: albedo-independent emission, driven by
-  // the configured emissive intensity. Empty tiles carry a zero glow.
-  outgoingLight += vGlow * uTileEmissiveIntensity * ${TILE_EMISSIVE_GAIN.toFixed(1)};
+  // Emission keeps the requested hue: scale the whole colour down when a channel
+  // would clip, instead of clipping each channel to 1 independently.
+  vec3 emitted = vGlow * uTileEmissiveIntensity * ${TILE_EMISSIVE_GAIN.toFixed(1)};
+  float emittedMax = max( emitted.r, max( emitted.g, emitted.b ) );
+  if ( emittedMax > 1.0 ) emitted /= emittedMax;
+  outgoingLight += emitted;
 
   // Interaction waves live on the tile tops, at their real elevation.
   if ( fieldNormal.z > 0.5 ) {
