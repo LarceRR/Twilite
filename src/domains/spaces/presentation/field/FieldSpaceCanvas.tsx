@@ -59,11 +59,12 @@ export function FieldSpaceCanvas({
       <FieldCameraSwipeControls>
         <Canvas
           style={styles.canvas}
-          // Cap internal render resolution on high-DPI phones. A 3x screen can
-          // otherwise multiply fragment and shadow work without improving pixel art.
-          dpr={[1, 1.5]}
           camera={camera}
           gl={gl}
+          onCreated={({ gl: renderer }) => {
+            // Keep the internal framebuffer below the phone's native 3x density.
+            renderer.setPixelRatio(1.5);
+          }}
           // Tiles and pixel-art are authored as final display colors: keep sRGB
           // output but skip filmic tone mapping, which washes out the palette.
           flat
