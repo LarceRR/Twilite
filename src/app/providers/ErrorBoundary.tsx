@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react-native';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { currentThemeColors } from '@/design-system/colors/colors';
@@ -26,9 +27,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   override componentDidCatch(error: unknown, info: ErrorInfo): void {
-    // Reported through the console transport in development and Sentry in release.
-    void toAppError(error);
-    void info;
+    const appError = toAppError(error);
+    Sentry.captureException(error, {
+      extra: {
+        normalizedMessage: appError.message,
+        componentStack: info.componentStack,
+      },
+      tags: { boundary: 'root-react-error-boundary' },
+    });
   }
 
   private readonly reset = (): void => {
