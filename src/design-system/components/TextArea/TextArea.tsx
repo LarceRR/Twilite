@@ -12,7 +12,7 @@ import {
 import { useThemeColors } from '../../colors/themeStore';
 import type { IconName } from '../../icons/icons';
 import { radius } from '../../radius/radius';
-import { layout, spacing } from '../../spacing/spacing';
+import { spacing } from '../../spacing/spacing';
 import { typography } from '../../typography/typography';
 import { GlassSurface } from '../GlassSurface/GlassSurface';
 

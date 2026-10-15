@@ -33,7 +33,7 @@ class FakeWebSocket {
     this.readyState = FakeWebSocket.CLOSED;
     const handler = this.onclose;
     if (typeof handler === 'function') {
-      handler();
+      Reflect.apply(handler, this, []);
     }
   }
 
@@ -41,7 +41,7 @@ class FakeWebSocket {
     this.readyState = FakeWebSocket.OPEN;
     const handler = this.onopen;
     if (typeof handler === 'function') {
-      handler();
+      Reflect.apply(handler, this, []);
     }
   }
 }

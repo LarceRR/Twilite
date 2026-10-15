@@ -16,7 +16,7 @@ describe('fieldConfigJson', () => {
       grid: { showDividers: false, rows: 19 },
       camera: { position: { x: -250 } },
       lighting: {
-        objectGlow: { fallbackColor: '#FF5911', heightAbovePlatform: 2.5 },
+        objectGlow: { fallbackColor: '#FF5911', fallbackDistance: 250 },
       },
     });
 
@@ -34,8 +34,8 @@ describe('fieldConfigJson', () => {
 
     expect(imported.grid.rows).toBe(20);
     expect(imported.grid.showDividers).toBe(DEFAULT_FIELD_CONFIG.grid.showDividers);
-    expect(imported.lighting.objectGlow.heightAbovePlatform).toBe(
-      DEFAULT_FIELD_CONFIG.lighting.objectGlow.heightAbovePlatform,
+    expect(imported.lighting.objectGlow.minimumVisibleIntensity).toBe(
+      DEFAULT_FIELD_CONFIG.lighting.objectGlow.minimumVisibleIntensity,
     );
   });
 

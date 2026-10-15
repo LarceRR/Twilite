@@ -12,7 +12,6 @@ import { Switch } from '@/design-system/components/Switch/Switch';
 import { Text } from '@/design-system/components/Text/Text';
 import { radius } from '@/design-system/radius/radius';
 import { layout, spacing } from '@/design-system/spacing/spacing';
-import { typography } from '@/design-system/typography/typography';
 import { useFieldCameraControlStore } from '@/domains/spaces/presentation/field/fieldCameraControlStore';
 import { useFieldConfigStore } from '@/domains/spaces/presentation/field/fieldConfigStore';
 import type { FieldConfig } from '@/domains/spaces/presentation/field/fieldConfig';
@@ -137,12 +136,6 @@ function resolveSettingBounds(
       break;
     case 'lighting.shadows.cameraFar':
       min = Math.max(min, config.lighting.shadows.cameraNear + 0.1);
-      break;
-    case 'lighting.shadows.minIntensity':
-      max = Math.min(max, config.lighting.shadows.maxIntensity);
-      break;
-    case 'lighting.shadows.maxIntensity':
-      min = Math.max(min, config.lighting.shadows.minIntensity);
       break;
   }
 

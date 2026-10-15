@@ -116,10 +116,11 @@ function validateConfigConstraints(config: FieldConfig): void {
   );
   const glow = config.lighting.objectGlow;
   assertConfigConstraint(
-    glow.fallbackIntensity >= 0 && glow.fallbackDistance > 0 &&
-      glow.heightAbovePlatform > 0 && glow.decay >= 0 &&
-      glow.minimumVisibleIntensity >= 0 && glow.minimumVisibleIntensity <= 1,
-    'параметры свечения объекта должны быть неотрицательными, а радиус и высота — положительными.',
+    glow.fallbackIntensity >= 0 &&
+      glow.fallbackDistance > 0 &&
+      glow.minimumVisibleIntensity >= 0 &&
+      glow.minimumVisibleIntensity <= 1,
+    'параметры свечения должны иметь неотрицательную энергию, положительный радиус и порог от 0 до 1.',
   );
   assertConfigConstraint(
     glow.flicker.slowIntervalMs > 0 &&
@@ -130,27 +131,27 @@ function validateConfigConstraints(config: FieldConfig): void {
   );
   assertConfigConstraint(
     glow.pixelOverlay.pixelSizePx > 0 &&
-      glow.pixelOverlay.maxAlpha >= 0 && glow.pixelOverlay.maxAlpha <= 1,
-    'пиксельное свечение должно иметь положительный размер, а maxAlpha — значение от 0 до 1.',
+      glow.pixelOverlay.intensityScale >= 0 &&
+      glow.pixelOverlay.alphaScale >= 0 &&
+      glow.pixelOverlay.maxAlpha >= 0 &&
+      glow.pixelOverlay.maxAlpha <= 1 &&
+      glow.pixelOverlay.surfaceColorMix >= 0 &&
+      glow.pixelOverlay.surfaceColorMix <= 1,
+    'пиксельное свечение должно иметь положительный размер и корректные значения альфы/смешивания.',
   );
   const shadows = config.lighting.shadows;
   assertConfigConstraint(
-    Number.isInteger(shadows.mapSizePx) && shadows.mapSizePx > 0 &&
-      Number.isInteger(shadows.localShadowMapSizePx) && shadows.localShadowMapSizePx > 0 &&
-      shadows.localShadowIntensity >= 0 && shadows.localShadowIntensity <= 1 &&
-      shadows.filterRadius >= 0 && shadows.filterRadius <= 10 &&
-      Number.isInteger(shadows.localShadowLights) && shadows.localShadowLights >= 0 &&
-      shadows.localShadowLights <= 4 &&
+    Number.isInteger(shadows.mapSizePx) &&
+      shadows.mapSizePx > 0 &&
+      shadows.filterRadius >= 0 &&
+      shadows.filterRadius <= 10 &&
       shadows.cameraLeft < shadows.cameraRight &&
       shadows.cameraTop > shadows.cameraBottom &&
-      shadows.cameraNear > 0 && shadows.cameraFar > shadows.cameraNear,
-    'параметры shadow-камеры должны описывать корректный объём и положительное разрешение.',
-  );
-  assertConfigConstraint(
-    shadows.emitterSaturationIntensity > 0 &&
-      shadows.minIntensity >= 0 && shadows.minIntensity <= shadows.maxIntensity &&
-      shadows.maxIntensity <= 1,
-    'границы интенсивности теней должны быть упорядочены от 0 до 1.',
+      shadows.cameraNear > 0 &&
+      shadows.cameraFar > shadows.cameraNear &&
+      shadows.baselineIntensity >= 0 &&
+      shadows.baselineIntensity <= 1,
+    'параметры shadow-камеры должны описывать корректный объём, положительное разрешение и интенсивность от 0 до 1.',
   );
 }
 
