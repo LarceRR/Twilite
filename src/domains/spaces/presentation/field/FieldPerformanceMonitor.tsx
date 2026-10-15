@@ -6,7 +6,10 @@ import {
   getFieldCpuWorkDurations,
   publishFieldPerformanceSnapshot,
 } from './fieldPerformanceDiagnostics';
-import { pendingFieldChunkGpuUploads } from './fieldGridChunkBake';
+import {
+  pendingFieldChunkBakes,
+  pendingFieldChunkGpuUploads,
+} from './fieldGridChunkBake';
 
 const SAMPLE_CAPACITY = 120;
 const REPORT_INTERVAL_SEC = 5;
@@ -97,6 +100,7 @@ export function FieldPerformanceMonitor(): null {
       textures: resources.textures,
       shaderPrograms: resources.shaderPrograms,
       pendingGpuUploads: pendingFieldChunkGpuUploads(),
+      pendingChunkBakes: pendingFieldChunkBakes(),
     };
     publishFieldPerformanceSnapshot(snapshot);
 
