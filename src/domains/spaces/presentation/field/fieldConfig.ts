@@ -32,10 +32,14 @@ export type FieldConfig = {
   };
   /** Shape and physical thickness of the raised pixel-art platforms. */
   readonly platform: {
-    /** Vertical extrusion of each platform, in world units. */
+    /** Vertical thickness of each platform tile, in world units. */
     readonly height: number;
-    /** Number of square pixel steps across the circle's diameter. */
-    readonly pixelResolution: number;
+    /** Radius applied to the four plan-view corners, in world units. */
+    readonly cornerRadius: number;
+    /** Size of the real 3D bevel on the upper and lower tile edges. */
+    readonly edgeBevel: number;
+    /** Emissive strength of a platform tile before flicker modulation. */
+    readonly emissiveIntensity: number;
   };
   /** Controls streamed chunks and how much field geometry is kept around the camera. */
   readonly chunks: {
@@ -285,7 +289,9 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
   },
   platform: {
     height: 6,
-    pixelResolution: 48,
+    cornerRadius: 3,
+    edgeBevel: 1,
+    emissiveIntensity: 0.3,
   },
   chunks: {
     cols: 10,
