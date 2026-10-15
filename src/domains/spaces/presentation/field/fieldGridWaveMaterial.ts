@@ -348,7 +348,8 @@ export function syncFieldGridPixelLights(
   lights: readonly FieldGridPixelLight[],
 ): void {
   for (const material of sceneWaveMaterials) {
-    setPixelLightsOnMaterial(material, material.receivesPixelLights ? lights : []);
+    if (!material.receivesPixelLights) continue;
+    setPixelLightsOnMaterial(material, lights);
   }
 }
 
