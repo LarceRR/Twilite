@@ -207,6 +207,7 @@ export type FieldConfig = {
     readonly visibleClusterCellMultiplier: number;
     /** Maximum local tile-light shader slots reserved for moving fireflies; hard limit 8. */
     readonly maxLocalLights: number;
+    readonly opacityDiscardThreshold: number;
     readonly fallbackColor: string;
     readonly differentiateScoutColor: boolean;
     readonly scoutColor: string;
@@ -435,6 +436,7 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
     visibleClusterRadiusMultiplier: 1.8,
     visibleClusterCellMultiplier: 3,
     maxLocalLights: 8,
+    opacityDiscardThreshold: 0.001,
     fallbackColor: '#FFAE00',
     differentiateScoutColor: true,
     scoutColor: '#FFF0B0',
