@@ -21,8 +21,8 @@ import {
   pickFieldWaveSlot,
 } from './fieldGridWave';
 
-export const FIELD_GRID_MAX_OBJECT_PIXEL_LIGHTS = 12;
-export const FIELD_GRID_MAX_FIREFLY_LIGHTS = 8;
+export const FIELD_GRID_MAX_OBJECT_PIXEL_LIGHTS = 8;
+export const FIELD_GRID_MAX_FIREFLY_LIGHTS = 4;
 export const FIELD_GRID_MAX_PIXEL_LIGHTS =
   FIELD_GRID_MAX_OBJECT_PIXEL_LIGHTS + FIELD_GRID_MAX_FIREFLY_LIGHTS;
 const vertexShader = /* glsl */ `
@@ -379,12 +379,19 @@ export function syncFieldGridWaveSceneConfig(): void {
 export function syncFieldGridWaveSceneTime(elapsedTimeSec: number): void {
   sceneWaveTime = elapsedTimeSec;
   const duration = getFieldConfig().wave.durationSec;
+  let hasActiveWave = false;
   for (let index = 0; index < sceneWaveStartTimes.length; index += 1) {
     const start = sceneWaveStartTimes[index]!;
     if (start >= 0 && elapsedTimeSec - start >= duration) {
       sceneWaveStartTimes[index] = FIELD_WAVE_SLOT_INACTIVE;
+    } else if (start >= 0) {
+      hasActiveWave = true;
     }
   }
+
+  // The common idle state has no waves. Avoid copying all wave uniforms into
+  // every streamed material on every frame when there is nothing to animate.
+  if (!hasActiveWave) return;
 
   for (const material of sceneWaveMaterials) {
     material.uniforms.uTime.value = elapsedTimeSec;
