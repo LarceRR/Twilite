@@ -61,7 +61,9 @@ function assertConfigConstraint(condition: boolean, message: string): void {
 
 function validateConfigConstraints(config: FieldConfig): void {
   assertConfigConstraint(
-    Number.isInteger(config.grid.cellSizePx) && config.grid.cellSizePx >= 16 && config.grid.cellSizePx <= 256,
+    Number.isInteger(config.grid.cellSizePx) &&
+      config.grid.cellSizePx >= 16 &&
+      config.grid.cellSizePx <= 256,
     'grid.cellSizePx должен быть целым числом от 16 до 256.',
   );
   assertConfigConstraint(
@@ -69,10 +71,16 @@ function validateConfigConstraints(config: FieldConfig): void {
     'grid.dividerWidthPx должен быть целым числом не меньше нуля.',
   );
   assertConfigConstraint(
-    Number.isInteger(config.grid.rows) && config.grid.rows > 0 &&
-      Number.isInteger(config.grid.centerCols) && config.grid.centerCols > 0 &&
-      Number.isInteger(config.grid.sideExtraCols) && config.grid.sideExtraCols >= 0,
-    'размеры сетки должны быть целыми числами в допустимом диапазоне.',
+    Number.isInteger(config.grid.rows) &&
+      config.grid.rows > 0 &&
+      config.grid.rows <= 40 &&
+      Number.isInteger(config.grid.centerCols) &&
+      config.grid.centerCols > 0 &&
+      config.grid.centerCols <= 20 &&
+      Number.isInteger(config.grid.sideExtraCols) &&
+      config.grid.sideExtraCols >= 0 &&
+      config.grid.sideExtraCols <= 20,
+    'размеры сетки должны быть целыми числами в безопасном диапазоне.',
   );
   assertConfigConstraint(
     Number.isInteger(config.chunks.cols) && config.chunks.cols > 0 && config.chunks.cols <= 20 &&
