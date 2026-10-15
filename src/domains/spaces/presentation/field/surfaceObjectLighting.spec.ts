@@ -21,10 +21,16 @@ describe('surfaceObjectLighting', () => {
     expect(visibility.intersects(1000, 0, 0, 1)).toBe(false);
   });
 
-  it('uses configured fallback light for every object while test override is enabled', () => {
+  it('keeps forced fallback lighting disabled unless the test override is enabled', () => {
     const config = DEFAULT_FIELD_CONFIG.lighting.objectGlow;
     expect(config.forceAllObjectsForTesting).toBe(false);
-    expect(resolveSurfaceObjectLightConfig(null, config)).toEqual({
+    expect(resolveSurfaceObjectLightConfig(null, config)).toBeNull();
+    expect(
+      resolveSurfaceObjectLightConfig(null, {
+        ...config,
+        forceAllObjectsForTesting: true,
+      }),
+    ).toEqual({
       color: config.fallbackColor,
       intensity: config.fallbackIntensity,
       distance: config.fallbackDistance,
@@ -35,10 +41,6 @@ describe('surfaceObjectLighting', () => {
         { ...config, forceAllObjectsForTesting: false },
       ),
     ).toEqual({ color: '#FF5911', intensity: 0.5, distance: 100 });
-    expect(resolveSurfaceObjectLightConfig(null, {
-      ...config,
-      forceAllObjectsForTesting: false,
-    })).toBeNull();
   });
 
   it('keeps material emission and pixel-light shading independently configurable', () => {
