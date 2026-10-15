@@ -108,7 +108,7 @@ export function FieldGeneratedTiles({
 
         // Keep tiles slightly above the continuous deck to avoid coplanar z-fighting.
         temp.position.set(center[0], center[1], renderHeight / 2 + 0.025);
-        temp.rotation.set(0, 0, (variant.rotationQuarterTurns * Math.PI) / 2);
+        temp.rotation.set(0, 0, 0);
         temp.scale.set(1, 1, renderHeight / geometryHeight);
         temp.updateMatrix();
         mesh.setMatrixAt(count, temp.matrix);
