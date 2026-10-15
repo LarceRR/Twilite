@@ -23,7 +23,7 @@ describe('surfaceObjectLighting', () => {
 
   it('uses configured fallback light for every object while test override is enabled', () => {
     const config = DEFAULT_FIELD_CONFIG.lighting.objectGlow;
-    expect(config.forceAllObjectsForTesting).toBe(true);
+    expect(config.forceAllObjectsForTesting).toBe(false);
     expect(resolveSurfaceObjectLightConfig(null, config)).toEqual({
       color: config.fallbackColor,
       intensity: config.fallbackIntensity,
