@@ -25,6 +25,7 @@ describe('fieldGridWaveMaterial', () => {
       expect(material.uniforms.uLightPixelSize.value).toBe(13);
       expect(material.uniforms.uAmbientColor.value.getHex()).toBe(0xff5911);
       expect(material.uniforms.uAmbientIntensity.value).toBe(0.12);
+      expect(material.uniforms.uTileEmissiveIntensity.value).toBe(0.3);
     } finally {
       useFieldConfigStore.getState().reset();
       syncFieldGridWaveSceneConfig();

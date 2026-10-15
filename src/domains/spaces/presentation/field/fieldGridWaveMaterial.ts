@@ -68,6 +68,7 @@ uniform float uLightMaxAlpha;
 uniform float uLightSurfaceColorMix;
 uniform vec3 uAmbientColor;
 uniform float uAmbientIntensity;
+uniform float uTileEmissiveIntensity;
 
 varying vec2 vUv;
 varying vec2 vWorldXY;
@@ -142,7 +143,7 @@ void main() {
   if (alpha > 0.001 && uAmbientIntensity > 0.0) {
     float baseBrightness = max(max(color.r, color.g), color.b);
     float ambientRoom = 1.0 - clamp(baseBrightness, 0.0, 1.0);
-    color = min(vec3(1.0), color + uAmbientColor * (uAmbientIntensity * ambientRoom));
+    color = min(vec3(1.0), color + uAmbientColor * ((uAmbientIntensity + uTileEmissiveIntensity) * ambientRoom));
   }
 
   vec4 light = samplePixelLight();
@@ -239,6 +240,7 @@ export type FieldGridWaveMaterial = ShaderMaterial & {
     uLightSurfaceColorMix: { value: number };
     uAmbientColor: { value: Color };
     uAmbientIntensity: { value: number };
+    uTileEmissiveIntensity: { value: number };
   };
 };
 
@@ -321,6 +323,7 @@ export function createFieldGridWaveMaterial(
       uLightSurfaceColorMix: { value: pixelGlow.surfaceColorMix },
       uAmbientColor: { value: new Color(fieldConfig.lighting.surfaceAmbientColor) },
       uAmbientIntensity: { value: fieldConfig.lighting.surfaceAmbientIntensity },
+      uTileEmissiveIntensity: { value: fieldConfig.platform.emissiveIntensity },
     },
     vertexShader,
     fragmentShader,
@@ -422,10 +425,12 @@ export function syncFieldGridWaveConfig(material: FieldGridWaveMaterial): void {
   material.uniforms.uFadeInEnd.value = wave.fadeInEnd;
   material.uniforms.uFadeOutStart.value = wave.fadeOutStart;
 
-  const lighting = getFieldConfig().lighting;
+  const fieldConfig = getFieldConfig();
+  const lighting = fieldConfig.lighting;
   const pixelGlow = lighting.objectGlow.pixelOverlay;
   material.uniforms.uAmbientColor.value.set(lighting.surfaceAmbientColor);
   material.uniforms.uAmbientIntensity.value = lighting.surfaceAmbientIntensity;
+  material.uniforms.uTileEmissiveIntensity.value = fieldConfig.platform.emissiveIntensity;
   material.uniforms.uLightPixelSize.value = pixelGlow.pixelSizePx;
   material.uniforms.uLightIntensityScale.value = pixelGlow.intensityScale;
   material.uniforms.uLightAlphaScale.value = pixelGlow.alphaScale;
