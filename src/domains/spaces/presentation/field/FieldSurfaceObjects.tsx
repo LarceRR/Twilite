@@ -71,13 +71,13 @@ const FIREFLY_MIN_VISIBLE_LIGHT_INTENSITY = 0.005;
 const fireflyVertexShader = /* glsl */ `
 precision highp float;
 
-attribute vec3 instanceColor;
+attribute vec3 instanceFireflyColor;
 attribute float instanceOpacity;
 varying vec3 vColor;
 varying float vOpacity;
 
 void main() {
-  vColor = instanceColor;
+  vColor = instanceFireflyColor;
   vOpacity = instanceOpacity;
   vec4 localPosition = vec4(position, 1.0);
   #ifdef USE_INSTANCING
@@ -175,14 +175,25 @@ export function FieldSurfaceObjects({
   }, []);
   const fireflyGeometry = useMemo(() => {
     const geometry = new PlaneGeometry(1, 1);
-    geometry.setAttribute(
-      'instanceOpacity',
-      new InstancedBufferAttribute(new Float32Array(FIREFLY_MAX_COUNT), 1),
+    const opacity = new InstancedBufferAttribute(
+      new Float32Array(FIREFLY_MAX_COUNT),
+      1,
     );
+    opacity.setUsage(DynamicDrawUsage);
+    const colors = new InstancedBufferAttribute(
+      new Float32Array(FIREFLY_MAX_COUNT * 3),
+      3,
+    );
+    colors.setUsage(DynamicDrawUsage);
+    geometry.setAttribute('instanceOpacity', opacity);
+    geometry.setAttribute('instanceFireflyColor', colors);
     return geometry;
   }, []);
   const fireflyOpacityAttribute = fireflyGeometry.getAttribute(
     'instanceOpacity',
+  ) as InstancedBufferAttribute;
+  const fireflyColorAttribute = fireflyGeometry.getAttribute(
+    'instanceFireflyColor',
   ) as InstancedBufferAttribute;
   const fireflyMaterial = useMemo(
     () =>
@@ -434,6 +445,7 @@ export function FieldSurfaceObjects({
     if (mesh !== null) {
       mesh.instanceMatrix.setUsage(DynamicDrawUsage);
       const opacityValues = fireflyOpacityAttribute.array as Float32Array;
+      const colorValues = fireflyColorAttribute.array as Float32Array;
       const flyLights = activeFireflyLights.current;
       flyLights.length = 0;
 
@@ -451,7 +463,10 @@ export function FieldSurfaceObjects({
         fireflyBillboard.updateMatrix();
         mesh.setMatrixAt(index, fireflyBillboard.matrix);
         fireflyColor.set(fly.light.color);
-        mesh.setColorAt(index, fireflyColor);
+        const colorOffset = index * 3;
+        colorValues[colorOffset] = fireflyColor.r;
+        colorValues[colorOffset + 1] = fireflyColor.g;
+        colorValues[colorOffset + 2] = fireflyColor.b;
 
         if (
           fly.light.intensity > FIREFLY_MIN_VISIBLE_LIGHT_INTENSITY &&
@@ -468,10 +483,7 @@ export function FieldSurfaceObjects({
 
       mesh.instanceMatrix.needsUpdate = true;
       fireflyOpacityAttribute.needsUpdate = true;
-      if (mesh.instanceColor !== null) {
-        mesh.instanceColor.setUsage(DynamicDrawUsage);
-        mesh.instanceColor.needsUpdate = true;
-      }
+      fireflyColorAttribute.needsUpdate = true;
 
       flyLights.sort(
         (left, right) =>
