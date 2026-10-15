@@ -63,13 +63,17 @@ function mapPlatformUv(
   size: number,
   minZ: number,
   maxZ: number,
+  sideUvDepth: number,
 ): UvPoint {
   const topStart = 0.2;
   const topSize = 0.6;
   const sideWidth = 0.06;
   const xAlong = Math.max(0, Math.min(1, x / size + 0.5));
   const yAlong = Math.max(0, Math.min(1, y / size + 0.5));
-  const vertical = Math.max(0, Math.min(1, (maxZ - z) / Math.max(0.001, maxZ - minZ)));
+  const sideDepth = Math.max(0.001, Math.min(sideUvDepth, maxZ - minZ));
+  // Walls map their upper `sideUvDepth` units to the texture strip; deeper wall
+  // parts (tall columns) reuse the strip's last row instead of stretching it.
+  const vertical = Math.max(0, Math.min(1, (maxZ - z) / sideDepth));
 
   if (nz > 0.72) {
     return { u: topStart + xAlong * topSize, v: topStart + yAlong * topSize };
@@ -89,12 +93,17 @@ function mapPlatformUv(
     : { u: topStart - vertical * sideWidth, v: topStart + yAlong * topSize };
 }
 
-/** One geometry is reused for every cell. Instance elevation never scales its thickness. */
+/**
+ * One geometry is reused for every cell. Instance elevation never scales its thickness.
+ * `sideUvDepth` controls how many units below the top the wall texture strip covers
+ * (defaults to the full height).
+ */
 export function createRoundedSquarePlatformGeometry(
   size: number,
   height: number,
   cornerRadius = PLATFORM_CORNER_RADIUS,
   edgeBevel = PLATFORM_EDGE_BEVEL,
+  sideUvDepth = height,
 ): BufferGeometry {
   const safeSize = safeDimension(size, 1);
   const safeHeight = safeDimension(height, 1);
@@ -103,6 +112,7 @@ export function createRoundedSquarePlatformGeometry(
     safeSize * 0.1,
     safeHeight * 0.24,
   );
+  const safeSideUvDepth = safeDimension(sideUvDepth, safeHeight);
   const bevelEnabled = bevel > 0;
   const bodyDepth = Math.max(0.001, safeHeight - bevel * 2);
   const shapeSize = bevelEnabled ? safeSize - bevel * 2 : safeSize;
@@ -151,6 +161,7 @@ export function createRoundedSquarePlatformGeometry(
         safeSize,
         minZ,
         maxZ,
+        safeSideUvDepth,
       );
       uv[index * 2] = mapped.u;
       uv[index * 2 + 1] = mapped.v;

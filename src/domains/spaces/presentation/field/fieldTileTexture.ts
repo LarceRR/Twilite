@@ -5,8 +5,8 @@ import {
   ClampToEdgeWrapping,
   DataTexture,
   NearestFilter,
-  NoColorSpace,
   RGBAFormat,
+  SRGBColorSpace,
   Texture,
 } from 'three';
 
@@ -53,7 +53,8 @@ export function createSolidTileTexture(hex: string): DataTexture {
     1,
     RGBAFormat,
   );
-  texture.colorSpace = NoColorSpace;
+  // Tiles are now physically lit: albedo must be decoded from sRGB to linear.
+  texture.colorSpace = SRGBColorSpace;
   texture.magFilter = NearestFilter;
   texture.minFilter = NearestFilter;
   texture.wrapS = ClampToEdgeWrapping;
@@ -115,7 +116,7 @@ async function loadTexture(uri: string): Promise<Texture> {
   // Expo GL can upload the downloaded native Asset directly as a texture source.
   const image = Object.assign(asset, dimensions);
   const texture = new Texture(image as unknown as Texture['image']);
-  texture.colorSpace = NoColorSpace;
+  texture.colorSpace = SRGBColorSpace;
   texture.magFilter = NearestFilter;
   texture.minFilter = NearestFilter;
   texture.wrapS = ClampToEdgeWrapping;

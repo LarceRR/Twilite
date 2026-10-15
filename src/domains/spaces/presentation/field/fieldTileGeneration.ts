@@ -7,6 +7,12 @@ export type FieldTileVariant = {
   readonly height: number;
 };
 
+/** World units of elevation per regular tile height level. */
+export const FIELD_TILE_HEIGHT_STEP = 2;
+const REGULAR_TILE_MAX_LEVEL = 3;
+const OBJECT_PLATFORM_MIN = 4;
+const OBJECT_PLATFORM_MAX = 24;
+
 /** FNV-1a seeded from world coordinates: tile layout stays stable while chunks recycle. */
 export function fieldTileRandom(seed: string, col: number, row: number, channel = 0): number {
   let hash = 0x811c9dc5;
@@ -34,8 +40,8 @@ export function fieldTileHeight(
   minHeight = 0,
   maxHeight = 3,
 ): number {
-  const min = clampInteger(minHeight, 0, 3);
-  const max = clampInteger(maxHeight, min, 3);
+  const min = clampInteger(minHeight, 0, REGULAR_TILE_MAX_LEVEL);
+  const max = clampInteger(maxHeight, min, REGULAR_TILE_MAX_LEVEL);
   const sample = fieldTileRandom(seed, col, row, 1);
   const weighted = sample < 0.035 ? 0 : sample < 0.755 ? 1 : sample < 0.96 ? 2 : 3;
   return clampInteger(weighted, min, max);
@@ -49,10 +55,24 @@ export function objectPlatformHeight(
   minHeight = 6,
   maxHeight = 9,
 ): number {
-  const min = clampInteger(minHeight, 4, 24);
-  const max = clampInteger(maxHeight, min, 24);
+  const min = clampInteger(minHeight, OBJECT_PLATFORM_MIN, OBJECT_PLATFORM_MAX);
+  const max = clampInteger(maxHeight, min, OBJECT_PLATFORM_MAX);
   const span = max - min + 1;
   return min + Math.floor(fieldTileRandom(seed, col, row, 2) * span);
+}
+
+/** Highest top elevation any tile can reach with the current settings. */
+export function fieldTileMaxTopHeight(settings: {
+  readonly tileMinHeight: number;
+  readonly tileMaxHeight: number;
+  readonly objectMinHeight: number;
+  readonly objectMaxHeight: number;
+}): number {
+  const objectMin = clampInteger(settings.objectMinHeight, OBJECT_PLATFORM_MIN, OBJECT_PLATFORM_MAX);
+  const objectMax = clampInteger(settings.objectMaxHeight, objectMin, OBJECT_PLATFORM_MAX);
+  const tileMin = clampInteger(settings.tileMinHeight, 0, REGULAR_TILE_MAX_LEVEL);
+  const tileMax = clampInteger(settings.tileMaxHeight, tileMin, REGULAR_TILE_MAX_LEVEL);
+  return Math.max(objectMax, tileMax * FIELD_TILE_HEIGHT_STEP);
 }
 
 export function fieldTileVariant(
