@@ -226,12 +226,6 @@ export type FieldConfig = {
     readonly shadows: {
       /** Width and height of the square directional shadow map, in texels. */
       readonly mapSizePx: number;
-      /** Number of nearest local point lights allowed to cast dynamic shadows. */
-      readonly localShadowLights: number;
-      /** Per-light cube shadow-map face size for point lights. */
-      readonly localShadowMapSizePx: number;
-      /** Opacity of shadows cast by local point lights; lower values let other light sources fill them. */
-      readonly localShadowIntensity: number;
       /** Filter radius multiplier used to soften directional and point-light shadow edges. */
       readonly filterRadius: number;
       /** Left clipping boundary of the directional shadow camera, in world units. */
@@ -389,10 +383,6 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
     },
     shadows: {
       mapSizePx: 512,
-      // Local point-light cube maps are expensive on mobile; pixel-space occlusion handles platform shadows.
-      localShadowLights: 0,
-      localShadowMapSizePx: 128,
-      localShadowIntensity: 0.5,
       filterRadius: 6,
       cameraLeft: -800,
       cameraRight: 800,
