@@ -49,7 +49,7 @@ import {
   createRoundedSquareTopGeometry,
 } from './fieldPlatformGeometry';
 import { useFieldConfig } from './useFieldConfig';
-import { activeFieldTileHeight } from './fieldTileGeneration';
+import { objectPlatformHeight } from './fieldTileGeneration';
 import { useFieldTileStore } from './fieldTileStore';
 
 const billboardCameraPosition = new Vector3();
@@ -225,12 +225,12 @@ export function FieldSurfaceObjects({
           appearanceDelayMs={resolveAppearanceDelay(appearance, object.id)}
           config={config}
           headers={headers}
-          platformHeight={activeFieldTileHeight(
+          platformHeight={objectPlatformHeight(
             tileSettings.worldSeed,
             object.cell.x,
             object.cell.y,
-            tileSettings.activeMinHeight,
-            tileSettings.activeMaxHeight,
+            tileSettings.objectMinHeight,
+            tileSettings.objectMaxHeight,
           )}
           platformCornerRadius={platformCornerRadius}
           platformEdgeBevel={platformEdgeBevel}
@@ -410,9 +410,8 @@ function FieldSurfaceObjectColumn({
           color={platformColor}
           emissive={emissionColor}
           emissiveIntensity={platformEmissionIntensity * initialProgress}
-          roughness={0.82}
-          metalness={0.04}
-          flatShading
+          roughness={0.74}
+          metalness={0.025}
         />
       </mesh>
       <mesh

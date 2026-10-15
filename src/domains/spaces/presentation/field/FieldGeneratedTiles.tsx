@@ -1,13 +1,12 @@
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import type { ReactElement } from 'react';
-import { Color, InstancedMesh, MeshStandardMaterial, Object3D } from 'three';
+import { InstancedMesh, MeshPhysicalMaterial, Object3D } from 'three';
 
 import { useThemeColors } from '@/design-system/colors/colors';
 
 import { createRoundedSquarePlatformGeometry } from './fieldPlatformGeometry';
 import { type FieldGridConfig } from './fieldGridConfig';
 import { cellCenterOnPlane } from './fieldGridCells';
-import { isActiveFieldGridCell } from './fieldGridActiveCells';
 import { fieldTileVariant } from './fieldTileGeneration';
 import { useFieldTileStore } from './fieldTileStore';
 import { useFieldConfig } from './useFieldConfig';
@@ -28,7 +27,7 @@ export function FieldGeneratedTiles({
   const settings = useFieldTileStore();
   const theme = useThemeColors();
   const meshRef = useRef<InstancedMesh>(null);
-  const geometryHeight = Math.max(1, settings.activeMaxHeight, settings.inactiveMaxHeight);
+  const geometryHeight = Math.max(1, settings.tileMaxHeight);
   const geometry = useMemo(
     () =>
       createRoundedSquarePlatformGeometry(
@@ -46,14 +45,20 @@ export function FieldGeneratedTiles({
   );
   const material = useMemo(
     () =>
-      new MeshStandardMaterial({
+      new MeshPhysicalMaterial({
         color: '#FFFFFF',
-        roughness: 0.88,
-        metalness: 0,
-        flatShading: true,
+        roughness: 0.7,
+        metalness: 0.025,
+        clearcoat: 0.14,
+        clearcoatRoughness: 0.62,
+        flatShading: false,
       }),
     [],
   );
+
+  useLayoutEffect(() => {
+    material.color.set(theme.surfaceRaised);
+  }, [material, theme.surfaceRaised]);
 
   useLayoutEffect(
     () => () => {
@@ -82,22 +87,16 @@ export function FieldGeneratedTiles({
     };
     const temp = new Object3D();
     const tileHeights = {
-      inactiveMinHeight: settings.inactiveMinHeight,
-      inactiveMaxHeight: settings.inactiveMaxHeight,
-      activeMinHeight: settings.activeMinHeight,
-      activeMaxHeight: settings.activeMaxHeight,
+      tileMinHeight: settings.tileMinHeight,
+      tileMaxHeight: settings.tileMaxHeight,
     };
-    const inactiveColor = new Color(theme.surfaceRaised);
-    const activeAccent = new Color(theme.accent);
-    const tileColor = new Color();
     let count = 0;
 
     for (let localCol = 0; localCol < columnCount; localCol += 1) {
       const col = chunkIndex * columnCount + localCol;
       for (let row = 0; row < base.rows; row += 1) {
         if (occupiedCellKeys.has(col + ':' + row)) continue;
-        const active = isActiveFieldGridCell(row, base.rows, fieldConfig.activeCells.sideSpan);
-        const variant = fieldTileVariant(settings.worldSeed, col, row, active, tileHeights);
+        const variant = fieldTileVariant(settings.worldSeed, col, row, tileHeights);
         const renderHeight = variant.height === 0 ? 0.04 : variant.height;
         const center = cellCenterOnPlane(col, row, gridConfig);
 
@@ -107,9 +106,6 @@ export function FieldGeneratedTiles({
         temp.updateMatrix();
         mesh.setMatrixAt(count, temp.matrix);
 
-        tileColor.copy(inactiveColor).multiplyScalar(variant.tint);
-        if (active) tileColor.lerp(activeAccent, 0.12);
-        mesh.setColorAt(count, tileColor);
         count += 1;
       }
     }
@@ -127,14 +123,10 @@ export function FieldGeneratedTiles({
     geometryHeight,
     occupiedCellKeys,
     fieldConfig.chunks.cols,
-    fieldConfig.activeCells.sideSpan,
     settings.generatedTilesEnabled,
     settings.worldSeed,
-    settings.inactiveMinHeight,
-    settings.inactiveMaxHeight,
-    settings.activeMinHeight,
-    settings.activeMaxHeight,
-    theme.accent,
+    settings.tileMinHeight,
+    settings.tileMaxHeight,
     theme.surfaceRaised,
   ]);
 

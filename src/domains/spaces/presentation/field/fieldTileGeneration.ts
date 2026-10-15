@@ -1,14 +1,10 @@
 export type FieldTileHeights = {
-  readonly inactiveMinHeight: number;
-  readonly inactiveMaxHeight: number;
-  readonly activeMinHeight: number;
-  readonly activeMaxHeight: number;
+  readonly tileMinHeight: number;
+  readonly tileMaxHeight: number;
 };
 
 export type FieldTileVariant = {
   readonly height: number;
-  readonly tint: number;
-  readonly rotationQuarterTurns: number;
 };
 
 /** FNV-1a seeded from world coordinates: tile layout stays stable while chunks recycle. */
@@ -28,10 +24,10 @@ export function fieldTileRandom(seed: string, col: number, row: number, channel 
 }
 
 /**
- * The requested weighted distribution: most inactive tiles are one unit high,
- * fewer are two, rare tiles are three, and a very small portion sit at ground level.
+ * Shared height distribution for every unoccupied tile, including the five-row
+ * spawn band. "Active" only marks eligible object positions; it does not affect height.
  */
-export function inactiveFieldTileHeight(
+export function fieldTileHeight(
   seed: string,
   col: number,
   row: number,
@@ -45,14 +41,15 @@ export function inactiveFieldTileHeight(
   return clampInteger(weighted, min, max);
 }
 
-export function activeFieldTileHeight(
+/** Object platforms always use a range higher than the maximum regular tile height. */
+export function objectPlatformHeight(
   seed: string,
   col: number,
   row: number,
   minHeight = 6,
   maxHeight = 9,
 ): number {
-  const min = clampInteger(minHeight, 1, 24);
+  const min = clampInteger(minHeight, 4, 24);
   const max = clampInteger(maxHeight, min, 24);
   const span = max - min + 1;
   return min + Math.floor(fieldTileRandom(seed, col, row, 2) * span);
@@ -62,15 +59,10 @@ export function fieldTileVariant(
   seed: string,
   col: number,
   row: number,
-  isActive: boolean,
   heights: FieldTileHeights,
 ): FieldTileVariant {
   return {
-    height: isActive
-      ? activeFieldTileHeight(seed, col, row, heights.activeMinHeight, heights.activeMaxHeight)
-      : inactiveFieldTileHeight(seed, col, row, heights.inactiveMinHeight, heights.inactiveMaxHeight),
-    tint: 0.91 + fieldTileRandom(seed, col, row, 3) * 0.13,
-    rotationQuarterTurns: Math.floor(fieldTileRandom(seed, col, row, 4) * 4),
+    height: fieldTileHeight(seed, col, row, heights.tileMinHeight, heights.tileMaxHeight),
   };
 }
 

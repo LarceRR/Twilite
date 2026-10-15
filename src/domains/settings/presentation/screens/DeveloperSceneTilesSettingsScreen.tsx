@@ -66,41 +66,41 @@ export function DeveloperSceneTilesSettingsScreen(): ReactElement {
       </BlurCard>
 
       <BlurCard title="Высота плиток">
-        <Text variant="caption">Неактивные плитки: минимум и максимум от 0 до 3.</Text>
+        <Text variant="caption">Все пустые плитки используют один диапазон высоты от 0 до 3. Активная зона влияет только на выбор позиций для объектов.</Text>
         <NumberSetting
-          title="Неактивные плитки: минимум"
-          value={settings.inactiveMinHeight}
+          title="Все плитки: минимум"
+          value={settings.tileMinHeight}
           min={0}
           max={3}
           onValueChange={(value) =>
-            setOption('inactiveMinHeight', Math.min(value, settings.inactiveMaxHeight))
+            setOption('tileMinHeight', Math.min(value, settings.tileMaxHeight))
           }
         />
         <NumberSetting
-          title="Неактивные плитки: максимум"
-          value={settings.inactiveMaxHeight}
+          title="Все плитки: максимум"
+          value={settings.tileMaxHeight}
           min={0}
           max={3}
           onValueChange={(value) =>
-            setOption('inactiveMaxHeight', Math.max(value, settings.inactiveMinHeight))
+            setOption('tileMaxHeight', Math.max(value, settings.tileMinHeight))
           }
         />
         <NumberSetting
-          title="Активные плитки: минимум"
-          value={settings.activeMinHeight}
-          min={1}
+          title="Платформы с объектами: минимум"
+          value={settings.objectMinHeight}
+          min={settings.tileMaxHeight + 1}
           max={24}
           onValueChange={(value) =>
-            setOption('activeMinHeight', Math.min(value, settings.activeMaxHeight))
+            setOption('objectMinHeight', Math.min(value, settings.objectMaxHeight))
           }
         />
         <NumberSetting
-          title="Активные плитки: максимум"
-          value={settings.activeMaxHeight}
-          min={1}
+          title="Платформы с объектами: максимум"
+          value={settings.objectMaxHeight}
+          min={settings.objectMinHeight}
           max={24}
           onValueChange={(value) =>
-            setOption('activeMaxHeight', Math.max(value, settings.activeMinHeight))
+            setOption('objectMaxHeight', Math.max(value, settings.objectMinHeight))
           }
         />
       </BlurCard>

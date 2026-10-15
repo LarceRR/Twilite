@@ -3,10 +3,17 @@ import { create } from 'zustand';
 export type FieldTilePreferences = {
   readonly generatedTilesEnabled: boolean;
   readonly worldSeed: string;
-  readonly inactiveMinHeight: number;
-  readonly inactiveMaxHeight: number;
-  readonly activeMinHeight: number;
-  readonly activeMaxHeight: number;
+  readonly tileMinHeight: number;
+  readonly tileMaxHeight: number;
+  readonly objectMinHeight: number;
+  readonly objectMaxHeight: number;
+};
+
+type LegacyFieldTilePreferences = {
+  readonly inactiveMinHeight?: number;
+  readonly inactiveMaxHeight?: number;
+  readonly activeMinHeight?: number;
+  readonly activeMaxHeight?: number;
 };
 
 export type FieldTileState = FieldTilePreferences & {
@@ -14,17 +21,19 @@ export type FieldTileState = FieldTilePreferences & {
     key: K,
     value: FieldTilePreferences[K],
   ) => void;
-  readonly hydrate: (preferences: Partial<FieldTilePreferences>) => void;
+  readonly hydrate: (
+    preferences: Partial<FieldTilePreferences> & LegacyFieldTilePreferences,
+  ) => void;
   readonly reset: () => void;
 };
 
 export const DEFAULT_FIELD_TILE_SETTINGS: FieldTilePreferences = {
   generatedTilesEnabled: true,
   worldSeed: 'twilite-world-001',
-  inactiveMinHeight: 0,
-  inactiveMaxHeight: 3,
-  activeMinHeight: 6,
-  activeMaxHeight: 9,
+  tileMinHeight: 0,
+  tileMaxHeight: 3,
+  objectMinHeight: 6,
+  objectMaxHeight: 9,
 };
 
 function clampInteger(value: number, min: number, max: number): number {
@@ -36,10 +45,13 @@ function normalizePreferences(
   patch: Partial<FieldTilePreferences>,
 ): FieldTilePreferences {
   const next = { ...current, ...patch };
-  const inactiveA = clampInteger(next.inactiveMinHeight, 0, 3);
-  const inactiveB = clampInteger(next.inactiveMaxHeight, 0, 3);
-  const activeA = clampInteger(next.activeMinHeight, 1, 24);
-  const activeB = clampInteger(next.activeMaxHeight, 1, 24);
+  const tileA = clampInteger(next.tileMinHeight, 0, 3);
+  const tileB = clampInteger(next.tileMaxHeight, 0, 3);
+  const tileMinHeight = Math.min(tileA, tileB);
+  const tileMaxHeight = Math.max(tileA, tileB);
+  const minimumObjectHeight = tileMaxHeight + 1;
+  const objectA = clampInteger(next.objectMinHeight, minimumObjectHeight, 24);
+  const objectB = clampInteger(next.objectMaxHeight, minimumObjectHeight, 24);
 
   return {
     generatedTilesEnabled:
@@ -50,10 +62,10 @@ function normalizePreferences(
       typeof next.worldSeed === 'string' && next.worldSeed.trim().length > 0
         ? next.worldSeed.trim().slice(0, 128)
         : current.worldSeed,
-    inactiveMinHeight: Math.min(inactiveA, inactiveB),
-    inactiveMaxHeight: Math.max(inactiveA, inactiveB),
-    activeMinHeight: Math.min(activeA, activeB),
-    activeMaxHeight: Math.max(activeA, activeB),
+    tileMinHeight,
+    tileMaxHeight,
+    objectMinHeight: Math.min(objectA, objectB),
+    objectMaxHeight: Math.max(objectA, objectB),
   };
 }
 
@@ -62,7 +74,18 @@ export const useFieldTileStore = create<FieldTileState>()((set) => ({
   setOption: (key, value) =>
     set((state) => normalizePreferences(state, { [key]: value } as Partial<FieldTilePreferences>)),
   hydrate: (preferences) =>
-    set((state) => normalizePreferences(state, preferences ?? {})),
+    set((state) => {
+      // Migrate preferences saved before the tile/object height ranges were separated.
+      const legacy = preferences as Partial<FieldTilePreferences> & LegacyFieldTilePreferences;
+      const migrated: Partial<FieldTilePreferences> = {
+        ...legacy,
+        tileMinHeight: legacy.tileMinHeight ?? legacy.inactiveMinHeight,
+        tileMaxHeight: legacy.tileMaxHeight ?? legacy.inactiveMaxHeight,
+        objectMinHeight: legacy.objectMinHeight ?? legacy.activeMinHeight,
+        objectMaxHeight: legacy.objectMaxHeight ?? legacy.activeMaxHeight,
+      };
+      return normalizePreferences(state, migrated);
+    }),
   reset: () => set({ ...DEFAULT_FIELD_TILE_SETTINGS }),
 }));
 
@@ -70,9 +93,9 @@ export function persistedFieldTilePreferences(state: FieldTileState): FieldTileP
   return {
     generatedTilesEnabled: state.generatedTilesEnabled,
     worldSeed: state.worldSeed,
-    inactiveMinHeight: state.inactiveMinHeight,
-    inactiveMaxHeight: state.inactiveMaxHeight,
-    activeMinHeight: state.activeMinHeight,
-    activeMaxHeight: state.activeMaxHeight,
+    tileMinHeight: state.tileMinHeight,
+    tileMaxHeight: state.tileMaxHeight,
+    objectMinHeight: state.objectMinHeight,
+    objectMaxHeight: state.objectMaxHeight,
   };
 }
