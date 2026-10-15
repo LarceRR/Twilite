@@ -73,14 +73,28 @@ describe('fieldConfig', () => {
     expect(DEFAULT_FIELD_CONFIG.lighting.objectGlow.heightAbovePlatform).toBe(44);
   });
 
-  it('configures platform height independently of its footprint', () => {
+  it('configures rounded square tiles and emission independently of tile size', () => {
     expect(DEFAULT_FIELD_CONFIG.platform.height).toBe(6);
-    expect(DEFAULT_FIELD_CONFIG.platform.pixelResolution).toBe(48);
-    expect(mergeFieldConfig({ platform: { height: 16 } }).platform.height).toBe(16);
-    expect(mergeFieldConfig({ platform: { pixelResolution: 96 } }).platform.pixelResolution).toBe(96);
-    expect(mergeFieldConfig({ platform: { height: 16 } }).grid.cellSizePx).toBe(
-      DEFAULT_FIELD_CONFIG.grid.cellSizePx,
-    );
+    expect(DEFAULT_FIELD_CONFIG.platform.cornerRadius).toBe(3);
+    expect(DEFAULT_FIELD_CONFIG.platform.edgeBevel).toBe(1);
+    expect(DEFAULT_FIELD_CONFIG.platform.emissiveIntensity).toBe(0.3);
+
+    const merged = mergeFieldConfig({
+      platform: {
+        height: 16,
+        cornerRadius: 5,
+        edgeBevel: 2,
+        emissiveIntensity: 0.6,
+      },
+    });
+
+    expect(merged.platform).toEqual({
+      height: 16,
+      cornerRadius: 5,
+      edgeBevel: 2,
+      emissiveIntensity: 0.6,
+    });
+    expect(merged.grid.cellSizePx).toBe(DEFAULT_FIELD_CONFIG.grid.cellSizePx);
   });
 
   it('derives grid cols and wave radius steps', () => {
