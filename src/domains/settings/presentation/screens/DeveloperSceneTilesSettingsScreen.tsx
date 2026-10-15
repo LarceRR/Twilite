@@ -3,7 +3,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { File, Paths } from 'expo-file-system';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { useEffect, useState, type ReactElement } from 'react';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { Alert, StyleSheet, TextInput, View } from 'react-native';
 
 import { useThemeColors } from '@/design-system/colors/colors';
@@ -49,6 +49,30 @@ export function DeveloperSceneTilesSettingsScreen(): ReactElement {
   const fieldConfig = useFieldConfig();
   const [seedDraft, setSeedDraft] = useState(settings.worldSeed);
   const [textureBusy, setTextureBusy] = useState(false);
+  type TileHeightOption = 'tileMinHeight' | 'tileMaxHeight' | 'objectMinHeight' | 'objectMaxHeight';
+  const pendingHeightChanges = useRef(
+    new Map<TileHeightOption, { readonly value: number; readonly timer: ReturnType<typeof setTimeout> }>(),
+  );
+
+  const setHeightOptionDebounced = (option: TileHeightOption, value: number): void => {
+    const previous = pendingHeightChanges.current.get(option);
+    if (previous !== undefined) clearTimeout(previous.timer);
+    const timer = setTimeout(() => {
+      pendingHeightChanges.current.delete(option);
+      setOption(option, value);
+    }, 180);
+    pendingHeightChanges.current.set(option, { value, timer });
+  };
+
+  useEffect(
+    () => () => {
+      const pending = [...pendingHeightChanges.current.entries()];
+      for (const [, change] of pending) clearTimeout(change.timer);
+      pendingHeightChanges.current.clear();
+      for (const [option, change] of pending) setOption(option, change.value);
+    },
+    [],
+  );
 
   useEffect(() => {
     setSeedDraft(settings.worldSeed);
@@ -207,7 +231,7 @@ export function DeveloperSceneTilesSettingsScreen(): ReactElement {
           min={0}
           max={3}
           onValueChange={(value) =>
-            setOption('tileMinHeight', Math.min(value, settings.tileMaxHeight))
+            setHeightOptionDebounced('tileMinHeight', Math.min(value, settings.tileMaxHeight))
           }
         />
         <NumberSetting
@@ -216,7 +240,7 @@ export function DeveloperSceneTilesSettingsScreen(): ReactElement {
           min={0}
           max={3}
           onValueChange={(value) =>
-            setOption('tileMaxHeight', Math.max(value, settings.tileMinHeight))
+            setHeightOptionDebounced('tileMaxHeight', Math.max(value, settings.tileMinHeight))
           }
         />
         <NumberSetting
@@ -225,7 +249,7 @@ export function DeveloperSceneTilesSettingsScreen(): ReactElement {
           min={Math.min(24, Math.max(4, settings.tileMaxHeight * 2 + 1))}
           max={24}
           onValueChange={(value) =>
-            setOption('objectMinHeight', Math.min(value, settings.objectMaxHeight))
+            setHeightOptionDebounced('objectMinHeight', Math.min(value, settings.objectMaxHeight))
           }
         />
         <NumberSetting
@@ -234,7 +258,7 @@ export function DeveloperSceneTilesSettingsScreen(): ReactElement {
           min={settings.objectMinHeight}
           max={24}
           onValueChange={(value) =>
-            setOption('objectMaxHeight', Math.max(value, settings.objectMinHeight))
+            setHeightOptionDebounced('objectMaxHeight', Math.max(value, settings.objectMinHeight))
           }
         />
       </BlurCard>
