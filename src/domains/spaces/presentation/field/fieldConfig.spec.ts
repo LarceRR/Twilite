@@ -75,7 +75,12 @@ describe('fieldConfig', () => {
       fireflies: { maxCount: 8 },
     } as const;
     const first = mergeFieldConfig(overrides);
-    const second = mergeFieldConfig(overrides);
+    const nextOverrides = {
+      ...overrides,
+      fireflies: { maxCount: 12 },
+    };
+    const second = mergeFieldConfig(nextOverrides);
+    expect(second.fireflies.maxCount).toBe(12);
     expect(second.lighting.objectGlow).toBe(first.lighting.objectGlow);
     expect(second.lighting.shadows).toBe(first.lighting.shadows);
   });
