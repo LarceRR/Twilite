@@ -66,7 +66,7 @@ export function DeveloperSceneTilesSettingsScreen(): ReactElement {
       </BlurCard>
 
       <BlurCard title="Высота плиток">
-        <Text variant="caption">Все пустые плитки используют один диапазон высоты от 0 до 3. Активная зона влияет только на выбор позиций для объектов.</Text>
+        <Text variant="caption">Все пустые плитки используют общий диапазон уровней 0–3. Каждый уровень равен двум единицам высоты сцены. Активная зона не влияет на высоту.</Text>
         <NumberSetting
           title="Все плитки: минимум"
           value={settings.tileMinHeight}
@@ -88,7 +88,7 @@ export function DeveloperSceneTilesSettingsScreen(): ReactElement {
         <NumberSetting
           title="Платформы с объектами: минимум"
           value={settings.objectMinHeight}
-          min={settings.tileMaxHeight + 1}
+          min={Math.min(24, settings.tileMaxHeight * 2 + 1)}
           max={24}
           onValueChange={(value) =>
             setOption('objectMinHeight', Math.min(value, settings.objectMaxHeight))

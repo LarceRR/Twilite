@@ -32,7 +32,7 @@ describe('fieldTileStore', () => {
     useFieldTileStore.getState().setOption('objectMinHeight', 1);
 
     const state = useFieldTileStore.getState();
-    expect(state.objectMinHeight).toBeGreaterThan(state.tileMaxHeight);
+    expect(state.objectMinHeight).toBeGreaterThan(state.tileMaxHeight * 2);
     expect(state.objectMaxHeight).toBeGreaterThanOrEqual(state.objectMinHeight);
   });
 
@@ -50,8 +50,8 @@ describe('fieldTileStore', () => {
       worldSeed: 'old-seed',
       tileMinHeight: 1,
       tileMaxHeight: 2,
-      objectMinHeight: 6,
-      objectMaxHeight: 9,
+      objectMinHeight: 7,
+      objectMaxHeight: 10,
     });
   });
 
@@ -59,7 +59,7 @@ describe('fieldTileStore', () => {
     expect(DEFAULT_FIELD_TILE_SETTINGS.tileMinHeight).toBe(0);
     expect(DEFAULT_FIELD_TILE_SETTINGS.tileMaxHeight).toBe(3);
     expect(DEFAULT_FIELD_TILE_SETTINGS.objectMinHeight).toBeGreaterThan(
-      DEFAULT_FIELD_TILE_SETTINGS.tileMaxHeight,
+      DEFAULT_FIELD_TILE_SETTINGS.tileMaxHeight * 2,
     );
   });
 });

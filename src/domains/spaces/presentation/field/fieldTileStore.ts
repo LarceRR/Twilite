@@ -32,8 +32,8 @@ export const DEFAULT_FIELD_TILE_SETTINGS: FieldTilePreferences = {
   worldSeed: 'twilite-world-001',
   tileMinHeight: 0,
   tileMaxHeight: 3,
-  objectMinHeight: 6,
-  objectMaxHeight: 9,
+  objectMinHeight: 7,
+  objectMaxHeight: 10,
 };
 
 function clampInteger(value: number, min: number, max: number): number {
@@ -49,7 +49,7 @@ function normalizePreferences(
   const tileB = clampInteger(next.tileMaxHeight, 0, 3);
   const tileMinHeight = Math.min(tileA, tileB);
   const tileMaxHeight = Math.max(tileA, tileB);
-  const minimumObjectHeight = tileMaxHeight + 1;
+  const minimumObjectHeight = tileMaxHeight * 2 + 1;
   const objectA = clampInteger(next.objectMinHeight, minimumObjectHeight, 24);
   const objectB = clampInteger(next.objectMaxHeight, minimumObjectHeight, 24);
 

@@ -27,17 +27,21 @@ export function FieldGeneratedTiles({
   const settings = useFieldTileStore();
   const theme = useThemeColors();
   const meshRef = useRef<InstancedMesh>(null);
-  const geometryHeight = Math.max(1, settings.tileMaxHeight);
+  // A 0–3 setting is a terrain level, not a 0–3 world-unit height.
+  // Scaling it up makes the side walls visible at the field's 60-unit cell size.
+  const geometryHeight = Math.max(1, settings.tileMaxHeight * 2);
+  const tileGap = Math.max(2, (base.dividerWidth ?? 1) * 2);
+  const tileSize = Math.max(1, base.cellSize - tileGap * 2);
   const geometry = useMemo(
     () =>
       createRoundedSquarePlatformGeometry(
-        base.cellSize,
+        tileSize,
         geometryHeight,
         fieldConfig.platform.cornerRadius,
         fieldConfig.platform.edgeBevel,
       ),
     [
-      base.cellSize,
+      tileSize,
       geometryHeight,
       fieldConfig.platform.cornerRadius,
       fieldConfig.platform.edgeBevel,
@@ -58,6 +62,8 @@ export function FieldGeneratedTiles({
 
   useLayoutEffect(() => {
     material.color.set(theme.surfaceRaised);
+    material.emissive.set(theme.surfaceRaised);
+    material.emissiveIntensity = 0.055;
   }, [material, theme.surfaceRaised]);
 
   useLayoutEffect(
@@ -97,10 +103,11 @@ export function FieldGeneratedTiles({
       for (let row = 0; row < base.rows; row += 1) {
         if (occupiedCellKeys.has(col + ':' + row)) continue;
         const variant = fieldTileVariant(settings.worldSeed, col, row, tileHeights);
-        const renderHeight = variant.height === 0 ? 0.04 : variant.height;
+        const renderHeight = variant.height === 0 ? 0.08 : variant.height * 2;
         const center = cellCenterOnPlane(col, row, gridConfig);
 
-        temp.position.set(center[0], center[1], renderHeight / 2);
+        // Keep tiles slightly above the continuous deck to avoid coplanar z-fighting.
+        temp.position.set(center[0], center[1], renderHeight / 2 + 0.025);
         temp.rotation.set(0, 0, (variant.rotationQuarterTurns * Math.PI) / 2);
         temp.scale.set(1, 1, renderHeight / geometryHeight);
         temp.updateMatrix();
@@ -141,7 +148,8 @@ export function FieldGeneratedTiles({
       args={[geometry, material, fieldConfig.chunks.cols * base.rows]}
       castShadow
       receiveShadow
-      frustumCulled
+      frustumCulled={false}
+      renderOrder={1}
     />
   );
 }
