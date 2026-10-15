@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import type { ReactElement } from 'react';
-import { Color, InstancedMesh, Object3D } from 'three';
+import { Color, InstancedMesh, MeshStandardMaterial, Object3D } from 'three';
 
 import { useThemeColors } from '@/design-system/colors/colors';
 
@@ -9,9 +9,8 @@ import { type FieldGridConfig } from './fieldGridConfig';
 import { cellCenterOnPlane } from './fieldGridCells';
 import { isActiveFieldGridCell } from './fieldGridActiveCells';
 import { fieldTileVariant } from './fieldTileGeneration';
+import { useFieldTileStore } from './fieldTileStore';
 import { useFieldConfig } from './useFieldConfig';
-import { useFieldMaterialStore } from './fieldMaterialStore';
-import { useFieldSceneMaterial, createFieldStandardMaterial, ensureFieldGeometryUvChannels, updateFieldStandardMaterial } from './FieldSceneMaterialRuntime';
 
 type FieldGeneratedTilesProps = {
   readonly chunkIndex: number | null;
@@ -24,40 +23,45 @@ export function FieldGeneratedTiles({
   chunkIndex,
   base,
   occupiedCellKeys,
-}: FieldGeneratedTilesProps): ReactElement | null {
+}: FieldGeneratedTilesProps): ReactElement {
   const fieldConfig = useFieldConfig();
-  const settings = useFieldMaterialStore();
-  const { textures } = useFieldSceneMaterial();
+  const settings = useFieldTileStore();
   const theme = useThemeColors();
   const meshRef = useRef<InstancedMesh>(null);
   const geometryHeight = Math.max(1, settings.activeMaxHeight, settings.inactiveMaxHeight);
   const geometry = useMemo(
-    () => ensureFieldGeometryUvChannels(
+    () =>
       createRoundedSquarePlatformGeometry(
         base.cellSize,
         geometryHeight,
         fieldConfig.platform.cornerRadius,
         fieldConfig.platform.edgeBevel,
       ),
-    ),
-    [base.cellSize, geometryHeight, fieldConfig.platform.cornerRadius, fieldConfig.platform.edgeBevel],
-  );
-  const material = useMemo(() => createFieldStandardMaterial('#FFFFFF'), []);
-
-  useLayoutEffect(() => {
-    updateFieldStandardMaterial(
-      material,
-      settings,
-      textures,
+    [
       base.cellSize,
-      theme.surfaceRaised,
-    );
-  }, [material, settings, textures, base.cellSize, theme.surfaceRaised]);
+      geometryHeight,
+      fieldConfig.platform.cornerRadius,
+      fieldConfig.platform.edgeBevel,
+    ],
+  );
+  const material = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        color: '#FFFFFF',
+        roughness: 0.88,
+        metalness: 0,
+        flatShading: true,
+      }),
+    [],
+  );
 
-  useLayoutEffect(() => () => {
-    geometry.dispose();
-    material.dispose();
-  }, [geometry, material]);
+  useLayoutEffect(
+    () => () => {
+      geometry.dispose();
+      material.dispose();
+    },
+    [geometry, material],
+  );
 
   useLayoutEffect(() => {
     const mesh = meshRef.current;
@@ -83,7 +87,7 @@ export function FieldGeneratedTiles({
       activeMinHeight: settings.activeMinHeight,
       activeMaxHeight: settings.activeMaxHeight,
     };
-    const inactiveColor = new Color('#FFFFFF');
+    const inactiveColor = new Color(theme.surfaceRaised);
     const activeAccent = new Color(theme.accent);
     const tileColor = new Color();
     let count = 0;
@@ -95,10 +99,10 @@ export function FieldGeneratedTiles({
         const active = isActiveFieldGridCell(row, base.rows, fieldConfig.activeCells.sideSpan);
         const variant = fieldTileVariant(settings.worldSeed, col, row, active, tileHeights);
         const renderHeight = variant.height === 0 ? 0.04 : variant.height;
-
         const center = cellCenterOnPlane(col, row, gridConfig);
+
         temp.position.set(center[0], center[1], renderHeight / 2);
-        temp.rotation.set(0, 0, 0);
+        temp.rotation.set(0, 0, (variant.rotationQuarterTurns * Math.PI) / 2);
         temp.scale.set(1, 1, renderHeight / geometryHeight);
         temp.updateMatrix();
         mesh.setMatrixAt(count, temp.matrix);
@@ -131,6 +135,7 @@ export function FieldGeneratedTiles({
     settings.activeMinHeight,
     settings.activeMaxHeight,
     theme.accent,
+    theme.surfaceRaised,
   ]);
 
   useLayoutEffect(() => {

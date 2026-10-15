@@ -49,13 +49,8 @@ import {
   createRoundedSquareTopGeometry,
 } from './fieldPlatformGeometry';
 import { useFieldConfig } from './useFieldConfig';
-import {
-  ensureFieldGeometryUvChannels,
-  updateFieldStandardMaterial,
-  useFieldSceneMaterial,
-} from './FieldSceneMaterialRuntime';
-import { useFieldMaterialStore } from './fieldMaterialStore';
 import { activeFieldTileHeight } from './fieldTileGeneration';
+import { useFieldTileStore } from './fieldTileStore';
 
 const billboardCameraPosition = new Vector3();
 
@@ -105,7 +100,7 @@ export function FieldSurfaceObjects({
   const appearance = useAppearingObjects(objects);
   const { surfaceRaised } = useThemeColors();
   const fieldConfig = useFieldConfig();
-  const materialSettings = useFieldMaterialStore();
+  const tileSettings = useFieldTileStore();
   const lightingConfig = fieldConfig.lighting;
   const platformCornerRadius = fieldConfig.platform.cornerRadius;
   const platformEdgeBevel = fieldConfig.platform.edgeBevel;
@@ -231,11 +226,11 @@ export function FieldSurfaceObjects({
           config={config}
           headers={headers}
           platformHeight={activeFieldTileHeight(
-            materialSettings.worldSeed,
+            tileSettings.worldSeed,
             object.cell.x,
             object.cell.y,
-            materialSettings.activeMinHeight,
-            materialSettings.activeMaxHeight,
+            tileSettings.activeMinHeight,
+            tileSettings.activeMaxHeight,
           )}
           platformCornerRadius={platformCornerRadius}
           platformEdgeBevel={platformEdgeBevel}
@@ -280,23 +275,21 @@ function FieldSurfaceObjectColumn({
   const artwork = useRef<Group>(null);
   const waveOverlay = useRef<Mesh>(null);
   const platformMaterial = useRef<MeshStandardMaterial>(null);
-  const materialSettings = useFieldMaterialStore();
-  const { textures } = useFieldSceneMaterial();
   const platformSize = config.cellSize;
   const platformGeometry = useMemo(
-    () => ensureFieldGeometryUvChannels(createRoundedSquarePlatformGeometry(
+    () => createRoundedSquarePlatformGeometry(
       platformSize,
       platformHeight,
       platformCornerRadius,
       platformEdgeBevel,
-    )),
+    ),
     [platformSize, platformHeight, platformCornerRadius, platformEdgeBevel],
   );
   const platformTopGeometry = useMemo(
-    () => ensureFieldGeometryUvChannels(createRoundedSquareTopGeometry(
+    () => createRoundedSquareTopGeometry(
       Math.max(0.001, platformSize - platformEdgeBevel * 2),
       Math.max(0, platformCornerRadius - platformEdgeBevel),
-    )),
+    ),
     [platformSize, platformCornerRadius, platformEdgeBevel],
   );
   const artHeight =
@@ -378,19 +371,6 @@ function FieldSurfaceObjectColumn({
       unregisterRuntime();
     };
   }, [item, register]);
-
-  useLayoutEffect(() => {
-    const material = platformMaterial.current;
-    if (material === null) return;
-    updateFieldStandardMaterial(
-      material,
-      materialSettings,
-      textures,
-      platformSize,
-      platformColor.getStyle(),
-      true,
-    );
-  }, [materialSettings, textures, platformSize, platformColor]);
 
   useEffect(() => () => platformGeometry.dispose(), [platformGeometry]);
   useEffect(() => () => platformTopGeometry.dispose(), [platformTopGeometry]);

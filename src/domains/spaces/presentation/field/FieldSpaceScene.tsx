@@ -8,7 +8,6 @@ import { useSettingsStore } from '@/domains/settings/presentation/stores/setting
 import type { SurfaceObject } from '@/domains/spaces/domain/entities/SurfaceObject';
 
 import { FieldGridSurface } from './FieldGridSurface';
-import { FieldSceneMaterialProvider } from './FieldSceneMaterialRuntime';
 import { FieldSurfaceObjects } from './FieldSurfaceObjects';
 import { FieldWorldAxes } from './FieldWorldAxes';
 import { resetFieldGridWaveScene } from './fieldGridWaveMaterial';
@@ -28,12 +27,12 @@ export function FieldSpaceScene({
   useEffect(() => () => resetFieldGridWaveScene(), []);
 
   return (
-    <FieldSceneMaterialProvider>
+    <>
       <FieldSceneLighting />
       <FieldGridSurface config={gridConfig} objects={objects} />
       <FieldSurfaceObjects config={gridConfig} headers={headers} objects={objects} />
       {showWorldAxes ? <FieldWorldAxes /> : null}
-    </FieldSceneMaterialProvider>
+    </>
   );
 }
 

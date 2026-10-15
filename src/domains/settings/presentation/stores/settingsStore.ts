@@ -5,7 +5,6 @@ export type SettingsState = {
   themeMode: ThemeMode;
   reduceMotion: boolean;
   developerCameraControlsEnabled: boolean;
-  developerMaterialControlsEnabled: boolean;
   developerShowActiveCells: boolean;
   developerShowWorldAxes: boolean;
   developerShowCellLabels: boolean;
@@ -13,7 +12,6 @@ export type SettingsState = {
   setThemeMode: (v: ThemeMode) => void;
   setReduceMotion: (v: boolean) => void;
   setDeveloperCameraControlsEnabled: (v: boolean) => void;
-  setDeveloperMaterialControlsEnabled: (v: boolean) => void;
   setDeveloperShowActiveCells: (v: boolean) => void;
   setDeveloperShowWorldAxes: (v: boolean) => void;
   setDeveloperShowCellLabels: (v: boolean) => void;
@@ -25,7 +23,6 @@ export type PersistedSettings = {
   readonly themeMode: ThemeMode;
   readonly reduceMotion: boolean;
   readonly developerCameraControlsEnabled: boolean;
-  readonly developerMaterialControlsEnabled: boolean;
   readonly developerShowActiveCells: boolean;
   readonly developerShowWorldAxes: boolean;
   readonly developerShowCellLabels: boolean;
@@ -40,7 +37,6 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
   themeMode: 'system',
   reduceMotion: false,
   developerCameraControlsEnabled: false,
-  developerMaterialControlsEnabled: false,
   developerShowActiveCells: true,
   developerShowWorldAxes: true,
   developerShowCellLabels: true,
@@ -51,17 +47,7 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
   },
   setReduceMotion: (reduceMotion) => set({ reduceMotion }),
   setDeveloperCameraControlsEnabled: (developerCameraControlsEnabled) =>
-    set(
-      developerCameraControlsEnabled
-        ? { developerCameraControlsEnabled: true, developerMaterialControlsEnabled: false }
-        : { developerCameraControlsEnabled: false },
-    ),
-  setDeveloperMaterialControlsEnabled: (developerMaterialControlsEnabled) =>
-    set(
-      developerMaterialControlsEnabled
-        ? { developerMaterialControlsEnabled: true, developerCameraControlsEnabled: false }
-        : { developerMaterialControlsEnabled: false },
-    ),
+    set({ developerCameraControlsEnabled }),
   setDeveloperShowActiveCells: (developerShowActiveCells) =>
     set({ developerShowActiveCells }),
   setDeveloperShowWorldAxes: (developerShowWorldAxes) =>
@@ -79,12 +65,6 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
     if (v.reduceMotion !== undefined) next.reduceMotion = v.reduceMotion;
     if (v.developerCameraControlsEnabled !== undefined) {
       next.developerCameraControlsEnabled = v.developerCameraControlsEnabled;
-    }
-    if (v.developerMaterialControlsEnabled !== undefined) {
-      next.developerMaterialControlsEnabled = v.developerMaterialControlsEnabled;
-    }
-    if (next.developerCameraControlsEnabled === true && next.developerMaterialControlsEnabled === true) {
-      next.developerCameraControlsEnabled = false;
     }
     if (v.developerShowActiveCells !== undefined) {
       next.developerShowActiveCells = v.developerShowActiveCells;
@@ -107,7 +87,6 @@ export function persistedSettings(s: SettingsState): PersistedSettings {
     themeMode: s.themeMode,
     reduceMotion: s.reduceMotion,
     developerCameraControlsEnabled: s.developerCameraControlsEnabled,
-    developerMaterialControlsEnabled: s.developerMaterialControlsEnabled,
     developerShowActiveCells: s.developerShowActiveCells,
     developerShowWorldAxes: s.developerShowWorldAxes,
     developerShowCellLabels: s.developerShowCellLabels,

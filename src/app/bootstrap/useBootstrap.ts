@@ -15,10 +15,10 @@ import {
   useFieldConfigStore,
 } from '@/domains/spaces/presentation/field/fieldConfigStore';
 import {
-  type FieldMaterialPreferences,
-  persistedFieldMaterialPreferences,
-  useFieldMaterialStore,
-} from '@/domains/spaces/presentation/field/fieldMaterialStore';
+  type FieldTilePreferences,
+  persistedFieldTilePreferences,
+  useFieldTileStore,
+} from '@/domains/spaces/presentation/field/fieldTileStore';
 import { toAppError } from '@/shared/errors';
 
 import { loadNativeTabIconSources } from '../navigation/nativeTabIconSources';
@@ -89,13 +89,13 @@ export function useBootstrap(): { readonly isReady: boolean } {
       }
 
       try {
-        const fieldMaterial = await withTimeout(
-          storage.read<Partial<FieldMaterialPreferences>>(storageKeys.fieldMaterial),
-          'field material restore',
+        const fieldTiles = await withTimeout(
+          storage.read<Partial<FieldTilePreferences>>(storageKeys.fieldTiles),
+          'field tiles restore',
         );
-        if (fieldMaterial !== null) useFieldMaterialStore.getState().hydrate(fieldMaterial);
+        if (fieldTiles !== null) useFieldTileStore.getState().hydrate(fieldTiles);
       } catch (error) {
-        logger.debug('Field material restore skipped', { error: String(error) });
+        logger.debug('Field tiles restore skipped', { error: String(error) });
       }
 
       try {
@@ -181,18 +181,18 @@ export function useBootstrap(): { readonly isReady: boolean } {
         timeout = null;
       }
       void storage.write(
-        storageKeys.fieldMaterial,
-        persistedFieldMaterialPreferences(useFieldMaterialStore.getState()),
+        storageKeys.fieldTiles,
+        persistedFieldTilePreferences(useFieldTileStore.getState()),
       );
     };
 
-    const unsubscribe = useFieldMaterialStore.subscribe(() => {
+    const unsubscribe = useFieldTileStore.subscribe(() => {
       if (timeout !== null) clearTimeout(timeout);
       timeout = setTimeout(() => {
         timeout = null;
         void storage.write(
-          storageKeys.fieldMaterial,
-          persistedFieldMaterialPreferences(useFieldMaterialStore.getState()),
+          storageKeys.fieldTiles,
+          persistedFieldTilePreferences(useFieldTileStore.getState()),
         );
       }, 250);
     });

@@ -89,10 +89,6 @@ export function createRoundedSquarePlatformGeometry(
   });
 
   geometry.translate(0, 0, -safeHeight / 2 + bevel);
-  const uv = geometry.getAttribute('uv');
-  if (uv !== undefined && geometry.getAttribute('uv1') === undefined) {
-    geometry.setAttribute('uv1', uv.clone());
-  }
   geometry.computeVertexNormals();
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
@@ -107,10 +103,6 @@ export function createRoundedSquareTopGeometry(
 ): ShapeGeometry {
   const shape = createRoundedSquareShape(size, cornerRadius);
   const geometry = new ShapeGeometry(shape, 3);
-  const uv = geometry.getAttribute('uv');
-  if (uv !== undefined && geometry.getAttribute('uv1') === undefined) {
-    geometry.setAttribute('uv1', uv.clone());
-  }
 
   geometry.computeVertexNormals();
   geometry.computeBoundingBox();

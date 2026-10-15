@@ -46,9 +46,9 @@ export function SettingsScreen(): ReactElement {
           onPress={() => router.push('/settings/scene' as Href)}
         />
         <ListRow
-          title="Материалы сцены"
-          subtitle="PBR-каталог, текстуры и генерация плиток"
-          onPress={() => router.push('/settings/materials' as Href)}
+          title="Плитки поля"
+          subtitle="Seed мира и распределение высоты плиток"
+          onPress={() => router.push('/settings/tiles' as Href)}
         />
       </BlurCard>
     </Screen>
