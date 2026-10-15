@@ -1,29 +1,56 @@
+import { Ionicons } from '@expo/vector-icons';
 import { memo, type ReactElement } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  type PressableProps,
+  type StyleProp,
+  StyleSheet,
+  View,
+  type ViewStyle,
+} from 'react-native';
 import Animated from 'react-native-reanimated';
 
-import type { ThemeColors } from '../../colors/themes';
 import { useThemeColors } from '../../colors/themeStore';
+import type { IconName } from '../../icons/icons';
 import { radius } from '../../radius/radius';
-import { shadows } from '../../shadows/shadows';
 import { layout, spacing } from '../../spacing/spacing';
 import { usePressFeedback } from '../Pressable/usePressFeedback';
+import {
+  GlassSurface,
+  LIQUID_GLASS_AVAILABLE,
+} from '../GlassSurface/GlassSurface';
 import { Text } from '../Text/Text';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
-export type ButtonProps = {
+/** The shared glass button keeps native Pressable callbacks available to callers. */
+export type ButtonProps = Omit<
+  PressableProps,
+  | 'children'
+  | 'style'
+  | 'onPress'
+  | 'onPressIn'
+  | 'onPressOut'
+  | 'accessibilityRole'
+  | 'accessibilityState'
+> & {
   readonly label: string;
-  readonly onPress: () => void;
+  readonly onPress: NonNullable<PressableProps['onPress']>;
+  readonly onPressIn?: PressableProps['onPressIn'];
+  readonly onPressOut?: PressableProps['onPressOut'];
   readonly variant?: ButtonVariant;
-  readonly disabled?: boolean;
   readonly loading?: boolean;
   readonly compact?: boolean;
-  readonly accessibilityHint?: string;
-  readonly testID?: string;
+  /** Stretch the button to the width of its parent. */
+  readonly block?: boolean;
+  readonly icon?: IconName;
+  /** Style for the button container without overriding its native event handling. */
+  readonly containerStyle?: StyleProp<ViewStyle>;
 };
 
-function backgroundFor(variant: ButtonVariant, theme: ThemeColors): string {
+function tintFor(variant: ButtonVariant, theme: ReturnType<typeof useThemeColors>): string {
   switch (variant) {
     case 'primary':
       return theme.accent;
@@ -31,15 +58,19 @@ function backgroundFor(variant: ButtonVariant, theme: ThemeColors): string {
       return theme.surfaceSunken;
     case 'danger':
       return theme.negative;
-    default:
-      return 'transparent';
+    case 'ghost':
+      return theme.glassTint;
   }
 }
 
-function labelColorFor(variant: ButtonVariant, theme: ThemeColors): string {
+function labelColorFor(variant: ButtonVariant, theme: ReturnType<typeof useThemeColors>): string {
+  if (Platform.OS === 'ios' && !LIQUID_GLASS_AVAILABLE) {
+    if (variant === 'danger') return theme.negative;
+    return theme.textPrimary;
+  }
+
   switch (variant) {
     case 'primary':
-      return theme.accentOn;
     case 'danger':
       return theme.accentOn;
     default:
@@ -47,15 +78,24 @@ function labelColorFor(variant: ButtonVariant, theme: ThemeColors): string {
   }
 }
 
+/**
+ * iOS 26+ uses system Liquid Glass, older iOS uses the themed blur fallback,
+ * and Android uses its own themed surface fill.
+ */
 function ButtonComponent({
   label,
   onPress,
+  onPressIn,
+  onPressOut,
   variant = 'primary',
   disabled = false,
   loading = false,
   compact = false,
-  accessibilityHint,
-  testID,
+  block = false,
+  icon,
+  hitSlop = layout.hitSlop,
+  containerStyle,
+  ...pressableProps
 }: ButtonProps): ReactElement {
   const feedback = usePressFeedback();
   const theme = useThemeColors();
@@ -63,38 +103,51 @@ function ButtonComponent({
   const labelColor = labelColorFor(variant, theme);
 
   return (
-    <Animated.View style={feedback.animatedStyle}>
+    <Animated.View style={[feedback.animatedStyle, block && styles.block, containerStyle]}>
       <Pressable
+        {...pressableProps}
         accessibilityRole="button"
         accessibilityState={{ disabled: inactive, busy: loading }}
-        {...(accessibilityHint === undefined ? {} : { accessibilityHint })}
-        {...(testID === undefined ? {} : { testID })}
         disabled={inactive}
-        hitSlop={layout.hitSlop}
+        hitSlop={hitSlop}
         onPress={onPress}
-        onPressIn={feedback.onPressIn}
-        onPressOut={feedback.onPressOut}
-        style={[
-          styles.base,
-          compact ? styles.compact : styles.regular,
-          { backgroundColor: backgroundFor(variant, theme) },
-          variant === 'secondary' && {
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: theme.surfaceDivider,
-          },
-          variant === 'primary' && shadows.low,
-          inactive && styles.inactive,
-        ]}
+        onPressIn={(event) => {
+          feedback.onPressIn();
+          onPressIn?.(event);
+        }}
+        onPressOut={(event) => {
+          feedback.onPressOut();
+          onPressOut?.(event);
+        }}
+        style={inactive ? styles.inactive : undefined}
       >
-        {loading ? (
-          <ActivityIndicator color={labelColor} size="small" />
-        ) : (
-          <View style={styles.labelWrap}>
-            <Text variant="label" color={labelColor} numberOfLines={1}>
-              {label}
-            </Text>
-          </View>
-        )}
+        <GlassSurface
+          cornerRadius={radius.pill}
+          interactive
+          tintColor={tintFor(variant, theme)}
+          style={[
+            styles.surface,
+            compact ? styles.compact : styles.regular,
+            block && styles.block,
+            variant === 'secondary' && {
+              borderWidth: StyleSheet.hairlineWidth,
+              borderColor: theme.surfaceDivider,
+            },
+          ]}
+        >
+          {loading ? (
+            <ActivityIndicator color={labelColor} size="small" />
+          ) : (
+            <View style={styles.labelWrap}>
+              {icon === undefined ? null : (
+                <Ionicons name={icon} size={18} color={labelColor} />
+              )}
+              <Text variant="label" color={labelColor} numberOfLines={1}>
+                {label}
+              </Text>
+            </View>
+          )}
+        </GlassSurface>
       </Pressable>
     </Animated.View>
   );
@@ -103,10 +156,11 @@ function ButtonComponent({
 export const Button = memo(ButtonComponent);
 
 const styles = StyleSheet.create({
-  base: {
+  surface: {
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.pill,
+    overflow: 'hidden',
     paddingHorizontal: spacing.xl,
   },
   regular: {
@@ -116,12 +170,17 @@ const styles = StyleSheet.create({
     minHeight: layout.controlHeightCompact,
     paddingHorizontal: spacing.lg,
   },
+  block: {
+    width: '100%',
+  },
   inactive: {
     opacity: 0.45,
   },
   labelWrap: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.sm,
+    paddingVertical: spacing.xs,
   },
 });

@@ -17,6 +17,7 @@ import {
 export type Rgba = readonly [number, number, number, number];
 
 export type FieldGridTextureColors = {
+  /** Base surface color used for cache identity; transparent pixels reveal the lit mesh underneath. */
   readonly fill: Rgba;
   readonly line: Rgba;
   readonly text: Rgba;
@@ -40,14 +41,12 @@ function resolveColors(
   colors: FieldGridTextureColors,
   activeCells: FieldConfig['activeCells'],
 ): {
-  readonly fill: Rgba;
   readonly line: Rgba;
   readonly text: Rgba;
   readonly activeFill: Rgba;
   readonly activeCenter: Rgba;
 } {
   return {
-    fill: colors.fill,
     line: colors.line,
     text: colors.text,
     activeFill: colors.activeFill ?? fieldActiveFillRgba(),
@@ -62,25 +61,6 @@ function resolveLayerFlags(flags?: Partial<FieldGridLayerFlags>): FieldGridLayer
       flags?.showActiveCenters ?? DEFAULT_FIELD_GRID_LAYER_FLAGS.showActiveCenters,
     showCellLabels: flags?.showCellLabels ?? DEFAULT_FIELD_GRID_LAYER_FLAGS.showCellLabels,
   };
-}
-
-/** Solid fill without per-pixel bounds checks (hot path for chunk bake). */
-function fillBuffer(data: Uint8Array, color: Rgba): void {
-  if (data.length === 0) return;
-
-  data[0] = color[0];
-  data[1] = color[1];
-  data[2] = color[2];
-  data[3] = color[3];
-
-  // Typed-array bulk copies are substantially faster than assigning every
-  // channel of every pixel in JavaScript. Double the filled prefix each pass.
-  let filledBytes = 4;
-  while (filledBytes < data.length) {
-    const copyBytes = Math.min(filledBytes, data.length - filledBytes);
-    data.copyWithin(filledBytes, 0, copyBytes);
-    filledBytes += copyBytes;
-  }
 }
 
 function fillRect(
@@ -172,6 +152,7 @@ function drawGridLines(
   config: FieldGridConfig,
   line: Rgba,
 ): void {
+  if (config.showDividers === false) return;
   const { width, height } = fieldGridWorldSize(config);
   const pitch = fieldGridCellPitch(config);
   for (let c = 0; c < config.cols; c += 1) {
@@ -326,12 +307,11 @@ export function buildFieldGridLabelPixels(
   const data = new Uint8Array(width * height * 4);
   const cells = createFieldGridPixelCells(config, colStart);
   const { labels, activeCells } = runtimeConfig;
-  fillBuffer(data, resolved.fill);
   if (layers.showActiveCells) {
     drawActiveFills(data, config, colStart, resolved.activeFill, activeCells.sideSpan, cells);
   }
   drawGridLines(data, config, resolved.line);
-  if (layers.showActiveCells) {
+  if (layers.showActiveCells && config.showDividers !== false) {
     drawActiveBorders(
       data,
       config,

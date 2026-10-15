@@ -19,6 +19,7 @@ import {
 import { isLabelGlyphPixelOn } from './fieldGridDigitGlyphs';
 
 const FILL: Rgba = [10, 20, 30, 255];
+const TRANSPARENT: Rgba = [0, 0, 0, 0];
 const LINE: Rgba = [200, 200, 200, 255];
 const TEXT: Rgba = [1, 2, 3, 255];
 const ACTIVE_FILL: Rgba = FIELD_ACTIVE_FILL_RGBA;
@@ -66,15 +67,26 @@ function countColorInRect(
 describe('fieldGridLabelPixels', () => {
   const config = createFieldGridConfig(50, 21, 60);
 
-  it('builds a pitch-sized RGBA buffer with fill, grid lines, and text ink', () => {
+  it('builds a pitch-sized transparent RGBA buffer with grid lines and text ink', () => {
     const { data, width, height } = buildFieldGridLabelPixels(config, COLORS);
     expect(width).toBe(3050);
     expect(height).toBe(1282);
     expect(data.length).toBe(3050 * 1282 * 4);
     // Avoid bottom-right label ink; sample near cell center of an inactive corner cell.
-    expect(sample(data, width, 30, 30)).toEqual(FILL);
+    expect(sample(data, width, 30, 30)).toEqual(TRANSPARENT);
     expect(sample(data, width, 0, 30)).toEqual(LINE);
     expect(sample(data, width, 61, 30)).toEqual(LINE);
+  });
+
+  it('omits grid divider pixels when divider visibility is disabled', () => {
+    const hidden = createFieldGridConfig(50, 21, 60, 1, false);
+    const { data, width } = buildFieldGridLabelPixels(hidden, COLORS);
+    expect(sample(data, width, 0, 30)).toEqual(TRANSPARENT);
+    expect(sample(data, width, 61, 30)).toEqual(TRANSPARENT);
+    // Even highlighted active cells must not retain divider-colored borders.
+    expect(sample(data, width, 30, 611)).toEqual(ACTIVE_FILL);
+    // Disabling visual lines does not change the logical cell pitch.
+    expect(width).toBe(3050);
   });
 
   it('paints small cell-1 ink raised in the camera bottom-right corner', () => {
@@ -85,13 +97,13 @@ describe('fieldGridLabelPixels', () => {
     expect(isLabelGlyphPixelOn('1', 2, 0)).toBe(true);
   });
 
-  it('fills the active center band with surfaceRaised and a center mark', () => {
+  it('fills the active center band with the configured active color and a center mark', () => {
     const { data, width } = buildFieldGridLabelPixels(config, COLORS);
     // Active cell (col0,row10): x∈[1,61), data y∈[611,671).
     expect(sample(data, width, 20, 620)).toEqual(ACTIVE_FILL);
     expect(sample(data, width, 30, 640)).toEqual(ACTIVE_CENTER);
     // Outside the active band stays base fill.
-    expect(sample(data, width, 20, 50)).toEqual(FILL);
+    expect(sample(data, width, 20, 50)).toEqual(TRANSPARENT);
   });
 
   it('defaults active colors when omitted', () => {
@@ -104,15 +116,15 @@ describe('fieldGridLabelPixels', () => {
     expect(sample(data, width, 30, 640)).toEqual(ACTIVE_CENTER);
   });
 
-  it('skips surfaceRaised active fills when showActiveCells is off', () => {
+  it('skips configured active fills when showActiveCells is off', () => {
     const { data, width } = buildFieldGridLabelPixels(config, COLORS, {
       showActiveCells: false,
     });
-    expect(sample(data, width, 20, 620)).toEqual(FILL);
+    expect(sample(data, width, 20, 620)).toEqual(TRANSPARENT);
     expect(sample(data, width, 30, 630)).toEqual(ACTIVE_CENTER);
   });
 
-  it('skips pink centers when showActiveCenters is off', () => {
+  it('skips configured center marks when showActiveCenters is off', () => {
     const { data, width } = buildFieldGridLabelPixels(config, COLORS, {
       showActiveCenters: false,
     });

@@ -64,6 +64,12 @@ describe('fieldGridChunkBake', () => {
     expect(fieldChunkBakeCacheKey(req)).toContain('1|');
   });
 
+  it('uses separate cached textures when visual dividers are hidden', () => {
+    const visible = { ...request(1), base: { rows: 15, cellSize: 60, dividerWidth: 1, showDividers: true } };
+    const hidden = { ...request(1), base: { rows: 15, cellSize: 60, dividerWidth: 1, showDividers: false } };
+    expect(fieldChunkBakeCacheKey(visible)).not.toBe(fieldChunkBakeCacheKey(hidden));
+  });
+
   it('includes active colors and label layout in the texture cache key', () => {
     const original = request(1);
     const originalKey = fieldChunkBakeCacheKey(original);

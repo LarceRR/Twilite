@@ -3,6 +3,7 @@ import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'ex
 import { memo, type ReactElement, type ReactNode } from 'react';
 import { Platform, type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
 
+import { withAlpha } from '../../colors/palette';
 import { useIsDarkTheme, useThemeColors } from '../../colors/themeStore';
 import { radius } from '../../radius/radius';
 import { shadows } from '../../shadows/shadows';
@@ -54,6 +55,10 @@ function GlassSurfaceComponent({
   const theme = useThemeColors();
   const isDark = useIsDarkTheme();
   const glassTint = tintColor ?? theme.glassTint;
+  const fallbackTint =
+    tintColor === undefined || tintColor.startsWith('rgba(')
+      ? glassTint
+      : withAlpha(tintColor, isDark ? 0.18 : 0.12);
 
   if (LIQUID_GLASS_AVAILABLE) {
     const scheme = isDark ? 'dark' : 'light';
@@ -97,6 +102,13 @@ function GlassSurfaceComponent({
         intensity={BLUR_INTENSITY}
         tint={isDark ? 'systemChromeMaterialDark' : 'systemChromeMaterialLight'}
         style={StyleSheet.absoluteFill}
+      />
+      <View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: fallbackTint },
+        ]}
       />
       <View
         pointerEvents="none"

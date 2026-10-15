@@ -57,9 +57,11 @@ import {
   type FieldGridTextureColors,
 } from './fieldGridLabelPixels';
 import {
-  syncFieldGridWaveConfig,
-  syncFieldGridWaveTime,
-  triggerFieldGridWave,
+  registerFieldGridWaveMaterial,
+  syncFieldGridPixelLights,
+  syncFieldGridWaveSceneConfig,
+  syncFieldGridWaveSceneTime,
+  triggerFieldGridWaveOnScene,
   type FieldGridWaveMaterial,
 } from './fieldGridWaveMaterial';
 import { useFieldConfig } from './useFieldConfig';
@@ -81,6 +83,7 @@ type BakeSnapshot = {
     readonly rows: number;
     readonly cellSize: number;
     readonly dividerWidth: number;
+    readonly showDividers: boolean;
   };
   readonly colors: FieldGridTextureColors;
   readonly layers: FieldGridLayerFlags;
@@ -91,20 +94,16 @@ function clearPressSession(session: PressSession | null): void {
   clearTimeout(session.timer);
 }
 
-function fireWaveBurstOnMaterials(
-  materials: Iterable<FieldGridWaveMaterial>,
+function fireWaveBurst(
   cell: FieldGridCellCoord,
   config: FieldGridConfig,
   nowSec: number,
   count: 1 | 2,
 ): void {
   const [cx, cy] = cellCenterOnPlane(cell.col, cell.row, config);
-  const gapSec = fieldWaveSecondBurstGapSec();
-  for (const material of materials) {
-    triggerFieldGridWave(material, cx, cy, nowSec);
-    if (count === 2) {
-      triggerFieldGridWave(material, cx, cy, nowSec + gapSec);
-    }
+  triggerFieldGridWaveOnScene(cx, cy, nowSec);
+  if (count === 2) {
+    triggerFieldGridWaveOnScene(cx, cy, nowSec + fieldWaveSecondBurstGapSec());
   }
 }
 
@@ -191,7 +190,7 @@ function warmChunkPrefetch(
 /** Streams field chunks along +X; camera pose is polled in useFrame (no React bind). */
 export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElement {
   const showToast = useUiStore((s) => s.showToast);
-  const { surface, surfaceRaised, surfaceDivider } = useThemeColors();
+  const { surface, surfaceDivider } = useThemeColors();
   const fieldConfig = useFieldConfig();
   const showActiveCells = useSettingsStore((s) => s.developerShowActiveCells);
   const showActiveCenters = useSettingsStore((s) => s.developerShowActiveCellCenters);
@@ -229,6 +228,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
   const timeRef = useRef(0);
   const pressRef = useRef<PressSession | null>(null);
   const materialsRef = useRef(new Map<number, FieldGridWaveMaterial>());
+  const unregisterWaveMaterialRef = useRef(new Map<FieldGridWaveMaterial, () => void>());
 
   const bake = useMemo(
     (): BakeSnapshot => ({
@@ -236,12 +236,13 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
         rows: config.rows,
         cellSize: config.cellSize,
         dividerWidth: config.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH,
+        showDividers: config.showDividers ?? true,
       },
       colors: {
         fill: themeColorToRgbaTuple(surface),
         line: themeColorToRgbaTuple(compositeThemeColorOver(surfaceDivider, surface)),
         text: hexToRgba(fieldLabelTextHex()),
-        activeFill: themeColorToRgbaTuple(surfaceRaised),
+        activeFill: hexToRgba(fieldConfig.activeCells.fillHex),
         activeCenter: fieldActiveCenterRgba(),
       },
       layers: { showActiveCells, showActiveCenters, showCellLabels },
@@ -250,8 +251,8 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
       config.rows,
       config.cellSize,
       config.dividerWidth,
+      config.showDividers,
       surface,
-      surfaceRaised,
       surfaceDivider,
       showActiveCells,
       showActiveCenters,
@@ -272,14 +273,19 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
       clearPressSession(pressRef.current);
       pressRef.current = null;
       materialsRef.current.clear();
+      for (const unregister of unregisterWaveMaterialRef.current.values()) unregister();
+      unregisterWaveMaterialRef.current.clear();
+      syncFieldGridPixelLights([]);
     },
     [],
   );
 
   const onMaterialReady = useCallback(
     (chunkIndex: number, material: FieldGridWaveMaterial) => {
-      syncFieldGridWaveConfig(material);
       materialsRef.current.set(chunkIndex, material);
+      if (!unregisterWaveMaterialRef.current.has(material)) {
+        unregisterWaveMaterialRef.current.set(material, registerFieldGridWaveMaterial(material));
+      }
     },
     [],
   );
@@ -289,6 +295,8 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
       const current = materialsRef.current.get(chunkIndex);
       if (current === material) {
         materialsRef.current.delete(chunkIndex);
+        unregisterWaveMaterialRef.current.get(material)?.();
+        unregisterWaveMaterialRef.current.delete(material);
       }
     },
     [],
@@ -297,10 +305,8 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
   // Wave tuning is static across frames. Sync only when its config changes,
   // not once per chunk on every render frame.
   useEffect(() => {
-    for (const material of materialsRef.current.values()) {
-      syncFieldGridWaveConfig(material);
-    }
-  }, [fieldConfig.wave]);
+    syncFieldGridWaveSceneConfig();
+  }, [fieldConfig.wave, fieldConfig.lighting.objectGlow.pixelOverlay]);
 
   useFrame(({ clock, gl, camera }) => {
     timeRef.current = clock.elapsedTime;
@@ -347,10 +353,9 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
         fieldConfig,
       );
 
-    // GPU uploads can synchronize with the graphics driver. One upload per
-    // frame bounds that cost instead of turning several completed bakes into
-    // a single visible frame hitch.
-    const uploaded = pumpFieldChunkGpuUploads(gl, 1);
+    // GPU uploads can synchronize with the graphics driver. Keep the per-frame
+    // budget configurable so the developer screen can trade speed for smoothness.
+    const uploaded = pumpFieldChunkGpuUploads(gl, fieldConfig.chunks.gpuUploadSteady);
 
     if (
       !bootstrappedRef.current &&
@@ -384,9 +389,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
       }
     }
 
-    for (const material of materialsRef.current.values()) {
-      syncFieldGridWaveTime(material, clock.elapsedTime);
-    }
+    syncFieldGridWaveSceneTime(clock.elapsedTime);
   });
 
   const cancelPress = useCallback((): void => {
@@ -414,13 +417,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
           return;
         }
         session.longFired = true;
-        fireWaveBurstOnMaterials(
-          materialsRef.current.values(),
-          session.cell,
-          config,
-          timeRef.current,
-          2,
-        );
+        fireWaveBurst(session.cell, config, timeRef.current, 2);
         showToast(fieldCellLongPressToastMessage(session.cell.label));
       }, fieldCellLongPressMs());
 
@@ -463,13 +460,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
       const released = resolveActiveFieldCellAtPoint(event.point.x, event.point.y, config);
       if (!sameFieldCell(pressed, released) || released == null) return;
 
-      fireWaveBurstOnMaterials(
-        materialsRef.current.values(),
-        released,
-        config,
-        timeRef.current,
-        1,
-      );
+      fireWaveBurst(released, config, timeRef.current, 1);
       showToast(fieldCellTapToastMessage(released.label));
     },
     [cancelPress, config, showToast],

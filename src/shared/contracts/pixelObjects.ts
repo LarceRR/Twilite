@@ -4,6 +4,15 @@ export { PIXEL_OBJECT_FORMAT };
 
 export type PixelObjectStatusDto = 'pending' | 'published' | 'rejected' | 'archived';
 
+export type PixelObjectLightDto = {
+  /** Hex RGB color chosen by the backend. */
+  readonly color: string;
+  /** Base PointLight intensity before the client-side candle flicker. */
+  readonly intensity: number;
+  /** Light falloff distance in field world units. */
+  readonly distance: number;
+};
+
 export type PixelObjectManifestDto = {
   readonly format: typeof PIXEL_OBJECT_FORMAT;
   readonly canvas: { readonly width: number; readonly height: number };
@@ -67,4 +76,6 @@ export type PixelObjectMobileDto = {
   };
   readonly animations: PixelObjectManifestDto['animations'];
   readonly staticPreviewFrame: number;
+  /** Absent or null means this sprite does not emit light. */
+  readonly light?: PixelObjectLightDto | null;
 };

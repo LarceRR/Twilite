@@ -17,44 +17,27 @@ export type FieldConfigState = {
   reset: () => void;
 };
 
-function assignSection<K extends keyof FieldConfigOverrides>(
-  target: FieldConfigOverrides,
-  key: K,
-  value: FieldConfigOverrides[K] | undefined,
-): void {
-  if (value === undefined) {
-    delete (target as Record<string, unknown>)[key];
-    return;
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** Recursively merge object patches so editing one nested setting preserves its siblings. */
+function mergeNested(current: unknown, patch: unknown): unknown {
+  if (!isPlainObject(current) || !isPlainObject(patch)) return patch;
+
+  const next: Record<string, unknown> = { ...current };
+  for (const [key, patchValue] of Object.entries(patch)) {
+    if (patchValue === undefined) continue;
+    next[key] = mergeNested(current[key], patchValue);
   }
-  (target as Record<K, NonNullable<FieldConfigOverrides[K]>>)[key] =
-    value as NonNullable<FieldConfigOverrides[K]>;
+  return next;
 }
 
 function mergeOverrides(
   current: FieldConfigOverrides,
   patch: FieldConfigOverrides,
 ): FieldConfigOverrides {
-  const next: FieldConfigOverrides = { ...current };
-  const keys = Object.keys(patch) as (keyof FieldConfigOverrides)[];
-  for (const key of keys) {
-    const patchValue = patch[key];
-    if (patchValue === undefined) continue;
-    const currentValue = current[key];
-    if (
-      currentValue != null &&
-      typeof currentValue === 'object' &&
-      typeof patchValue === 'object' &&
-      !Array.isArray(patchValue)
-    ) {
-      assignSection(next, key, {
-        ...(currentValue as object),
-        ...(patchValue as object),
-      } as FieldConfigOverrides[typeof key]);
-      continue;
-    }
-    assignSection(next, key, patchValue);
-  }
-  return next;
+  return mergeNested(current, patch) as FieldConfigOverrides;
 }
 
 export const useFieldConfigStore = create<FieldConfigState>()((set) => ({

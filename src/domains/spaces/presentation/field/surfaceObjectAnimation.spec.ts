@@ -35,6 +35,10 @@ describe('surfaceObjectAnimation', () => {
     expect(looped).toEqual({ cursor: { index: 1, elapsedMs: 50 }, frame: 8 });
   });
 
+  it('uses a fixed six-world-unit platform thickness', () => {
+    expect(SURFACE_OBJECT_ANIMATION_CONFIG.platformHeight).toBe(6);
+  });
+
   it('holds a one-frame sprite without scheduling another frame', () => {
     expect(
       advanceSpritePlayback({ index: 0, elapsedMs: 0 }, [{ frame: 2, durationMs: 0 }], 1000),

@@ -1,4 +1,4 @@
-import type { PixelObjectMobileDto } from './pixelObjects';
+import type { PixelObjectLightDto, PixelObjectMobileDto } from './pixelObjects';
 import { PIXEL_OBJECT_FORMAT } from './limits';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -15,6 +15,29 @@ function isNonNegInt(value: unknown): value is number {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0;
+}
+
+function parsePixelObjectLight(raw: unknown): PixelObjectLightDto | null {
+  if (!isRecord(raw)) return null;
+  if (
+    typeof raw.color !== 'string' ||
+    !/^#[\da-f]{6}$/i.test(raw.color) ||
+    typeof raw.intensity !== 'number' ||
+    !Number.isFinite(raw.intensity) ||
+    raw.intensity <= 0 ||
+    raw.intensity > 5 ||
+    typeof raw.distance !== 'number' ||
+    !Number.isFinite(raw.distance) ||
+    raw.distance < 1 ||
+    raw.distance > 2000
+  ) {
+    return null;
+  }
+  return {
+    color: raw.color,
+    intensity: raw.intensity,
+    distance: raw.distance,
+  };
 }
 
 function parseSheet(raw: unknown): PixelObjectMobileDto['sheet'] | null {
@@ -79,6 +102,7 @@ export function parsePixelObjectMobileDto(raw: unknown): PixelObjectMobileDto | 
     sheet,
     animations,
     staticPreviewFrame: raw.staticPreviewFrame,
+    light: parsePixelObjectLight(raw.light),
   };
 
   if (typeof raw.revision === 'number' && Number.isInteger(raw.revision) && raw.revision >= 1) {

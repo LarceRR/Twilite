@@ -28,6 +28,7 @@ export type FieldGridChunkSpec = {
   readonly rows: number;
   readonly cellSize: number;
   readonly dividerWidth?: number;
+  readonly showDividers?: boolean;
 };
 
 export function fieldChunkIndexFromWorldX(
@@ -92,7 +93,7 @@ export function fieldChunkIndicesForCameraX(
 
 export function createFieldGridChunkSpec(
   chunkIndex: number,
-  base: Pick<FieldGridConfig, 'rows' | 'cellSize' | 'dividerWidth'>,
+  base: Pick<FieldGridConfig, 'rows' | 'cellSize' | 'dividerWidth' | 'showDividers'>,
   chunkCols?: number,
 ): FieldGridChunkSpec {
   const cols = chunkCols ?? getFieldConfig().chunks.cols;
@@ -103,6 +104,7 @@ export function createFieldGridChunkSpec(
     rows: base.rows,
     cellSize: base.cellSize,
     ...(base.dividerWidth === undefined ? {} : { dividerWidth: base.dividerWidth }),
+    ...(base.showDividers === undefined ? {} : { showDividers: base.showDividers }),
   };
 }
 
@@ -144,5 +146,6 @@ export function fieldChunkToGridConfig(spec: FieldGridChunkSpec): FieldGridConfi
     rows: spec.rows,
     cellSize: spec.cellSize,
     ...(spec.dividerWidth === undefined ? {} : { dividerWidth: spec.dividerWidth }),
+    ...(spec.showDividers === undefined ? {} : { showDividers: spec.showDividers }),
   };
 }

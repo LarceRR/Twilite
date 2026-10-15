@@ -14,6 +14,8 @@ export { GlassSurface, isLiquidGlassSurfaceAvailable } from './GlassSurface/Glas
 export type { GlassTintButtonProps } from './GlassTintButton/GlassTintButton';
 export { GlassTintButton } from './GlassTintButton/GlassTintButton';
 export { IconButton } from './IconButton/IconButton';
+export type { InputProps } from './Input/Input';
+export { Input } from './Input/Input';
 export { ListRow } from './ListRow/ListRow';
 export { Modal } from './Modal/Modal';
 export { usePressFeedback } from './Pressable/usePressFeedback';
@@ -31,5 +33,7 @@ export type { SwitchProps } from './Switch/Switch';
 export { Switch } from './Switch/Switch';
 export type { TextProps } from './Text/Text';
 export { Text } from './Text/Text';
+export type { TextAreaProps } from './TextArea/TextArea';
+export { TextArea } from './TextArea/TextArea';
 export type { UserAvatarProps } from './UserAvatar/UserAvatar';
 export { avatarInitial, avatarTint, UserAvatar } from './UserAvatar/UserAvatar';
