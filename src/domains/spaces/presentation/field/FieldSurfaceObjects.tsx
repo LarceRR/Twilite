@@ -51,10 +51,7 @@ import {
   advanceFirefly,
   buildFireflyClusters,
   createFirefly,
-  FIREFLY_CLUSTER_MAX_EMITTERS,
-  FIREFLY_CLUSTER_REFRESH_SEC,
-  FIREFLY_MAX_COUNT,
-  FIREFLY_SPAWN_DISTANCE,
+  FIREFLY_BUFFER_CAPACITY,
   fireflyCameraDistanceSquared,
   fireflyTargetCount,
   fireflyVisualOpacity,
@@ -64,10 +61,6 @@ import {
 } from './fieldFireflies';
 
 const billboardCameraPosition = new Vector3();
-const FIREFLY_RETIRE_DURATION_SEC = 0.8;
-const FIREFLY_SPAWN_INTERVAL_SEC = 0.12;
-const FIREFLY_MIN_VISIBLE_LIGHT_INTENSITY = 0.005;
-
 const fireflyVertexShader = /* glsl */ `
 precision highp float;
 
@@ -154,6 +147,7 @@ export function FieldSurfaceObjects({
   const fieldConfig = useFieldConfig();
   const tileSettings = useFieldTileStore();
   const objectGlowConfig = fieldConfig.lighting.objectGlow;
+  const fireflyConfig = fieldConfig.fireflies;
   const lastBillboardCameraXY = useRef({ x: Number.NaN, y: Number.NaN });
   const lightVisibility = useMemo(() => new SurfaceObjectLightVisibility(), []);
   const lightCandidates = useRef<RuntimeObject[]>([]);
@@ -177,12 +171,12 @@ export function FieldSurfaceObjects({
   const fireflyGeometry = useMemo(() => {
     const geometry = new PlaneGeometry(1, 1);
     const opacity = new InstancedBufferAttribute(
-      new Float32Array(FIREFLY_MAX_COUNT),
+      new Float32Array(FIREFLY_BUFFER_CAPACITY),
       1,
     );
     opacity.setUsage(DynamicDrawUsage);
     const colors = new InstancedBufferAttribute(
-      new Float32Array(FIREFLY_MAX_COUNT * 3),
+      new Float32Array(FIREFLY_BUFFER_CAPACITY * 3),
       3,
     );
     colors.setUsage(DynamicDrawUsage);
@@ -275,8 +269,9 @@ export function FieldSurfaceObjects({
       const dz = billboardCameraPosition.z - topZ;
       if (
         fireflySource !== null &&
-        fireflyIntensity > item.minimumVisibleIntensity &&
-        dx * dx + dy * dy + dz * dz <= FIREFLY_SPAWN_DISTANCE * FIREFLY_SPAWN_DISTANCE
+        fireflyConfig.enabled &&
+        fireflyIntensity > fireflyConfig.minVisibleLightIntensity &&
+        dx * dx + dy * dy + dz * dz <= fireflyConfig.spawnDistance * fireflyConfig.spawnDistance
       ) {
         emitters.push({
           id: item.object.id,
@@ -314,11 +309,20 @@ export function FieldSurfaceObjects({
 
     const simulation = fireflySimulation.current;
     simulation.refreshElapsedSec += delta;
-    if (
+    const maximumLiveFlies = Math.min(fireflyConfig.maxCount, FIREFLY_BUFFER_CAPACITY);
+    while (simulation.flies.length > maximumLiveFlies) simulation.flies.pop();
+    if (!fireflyConfig.enabled) {
+      simulation.clusters = [];
+      simulation.refreshElapsedSec = 0;
+      simulation.initialized = true;
+      for (const fly of simulation.flies) {
+        if (fly.retireInSec === null) fly.retireInSec = fireflyConfig.retireDurationSec;
+      }
+    } else if (
       !simulation.initialized ||
-      simulation.refreshElapsedSec >= FIREFLY_CLUSTER_REFRESH_SEC
+      simulation.refreshElapsedSec >= fireflyConfig.clusterRefreshSec
     ) {
-      if (emitters.length > FIREFLY_CLUSTER_MAX_EMITTERS) {
+      if (emitters.length > fireflyConfig.clusterMaxEmitters) {
         emitters.sort((left, right) => {
           const leftDistance =
             (billboardCameraPosition.x - left.x) ** 2 +
@@ -330,9 +334,13 @@ export function FieldSurfaceObjects({
             (billboardCameraPosition.z - right.z) ** 2;
           return leftDistance - rightDistance;
         });
-        emitters.length = FIREFLY_CLUSTER_MAX_EMITTERS;
+        emitters.length = fireflyConfig.clusterMaxEmitters;
       }
-      simulation.clusters = buildFireflyClusters(emitters, config.cellSize);
+      simulation.clusters = buildFireflyClusters(
+        emitters,
+        config.cellSize,
+        fireflyConfig,
+      );
       simulation.refreshElapsedSec = 0;
       simulation.initialized = true;
       const clustersById = new Map<string, FireflyCluster>();
@@ -342,14 +350,17 @@ export function FieldSurfaceObjects({
       for (const fly of simulation.flies) {
         const cluster = clustersById.get(fly.clusterId);
         if (cluster === undefined) {
-          if (fly.retireInSec === null) fly.retireInSec = FIREFLY_RETIRE_DURATION_SEC;
+          if (fly.retireInSec === null) fly.retireInSec = fireflyConfig.retireDurationSec;
           continue;
         }
         fly.retireInSec = null;
         fly.homeX = cluster.x + fly.homeOffsetX;
         fly.homeY = cluster.y + fly.homeOffsetY;
         fly.homeZ = cluster.z + fly.homeOffsetZ;
-        if (fly.kind !== 'scout') fly.light.color = cluster.color;
+        fly.light.color =
+          fly.kind === 'scout' && fireflyConfig.differentiateScoutColor
+            ? fireflyConfig.scoutColor
+            : cluster.color;
       }
     }
 
@@ -373,7 +384,10 @@ export function FieldSurfaceObjects({
           cluster.x,
           cluster.y,
           cluster.z,
-          Math.max(cluster.radius * 1.8, config.cellSize * 3),
+          Math.max(
+            cluster.radius * fireflyConfig.visibleClusterRadiusMultiplier,
+            config.cellSize * fireflyConfig.visibleClusterCellMultiplier,
+          ),
         ),
       )
       .sort((left, right) => {
@@ -392,8 +406,8 @@ export function FieldSurfaceObjects({
     let targetTotal = 0;
     for (const cluster of visibleClusters) {
       const target = Math.min(
-        fireflyTargetCount(cluster),
-        FIREFLY_MAX_COUNT - targetTotal,
+        fireflyTargetCount(cluster, fireflyConfig),
+        Math.min(fireflyConfig.maxCount, FIREFLY_BUFFER_CAPACITY) - targetTotal,
       );
       if (target <= 0) break;
       targetCounts.set(cluster.id, target);
@@ -408,21 +422,21 @@ export function FieldSurfaceObjects({
 
     let spawnBudget = 0;
     if (simulation.flies.length === 0 && targetTotal > 0) {
-      spawnBudget = Math.min(3, targetTotal);
+      spawnBudget = Math.min(fireflyConfig.initialSpawnBudget, targetTotal);
       simulation.spawnAccumulatorSec = 0;
     } else {
       simulation.spawnAccumulatorSec += delta;
-      if (simulation.spawnAccumulatorSec >= FIREFLY_SPAWN_INTERVAL_SEC) {
+      if (simulation.spawnAccumulatorSec >= fireflyConfig.spawnIntervalSec) {
         const intervals = Math.floor(
-          simulation.spawnAccumulatorSec / FIREFLY_SPAWN_INTERVAL_SEC,
+          simulation.spawnAccumulatorSec / fireflyConfig.spawnIntervalSec,
         );
-        simulation.spawnAccumulatorSec -= intervals * FIREFLY_SPAWN_INTERVAL_SEC;
-        spawnBudget = intervals * 2;
+        simulation.spawnAccumulatorSec -= intervals * fireflyConfig.spawnIntervalSec;
+        spawnBudget = intervals * fireflyConfig.spawnBudgetPerInterval;
       }
     }
     spawnBudget = Math.min(
       spawnBudget,
-      FIREFLY_MAX_COUNT - simulation.flies.length,
+      Math.min(fireflyConfig.maxCount, FIREFLY_BUFFER_CAPACITY) - simulation.flies.length,
     );
 
     while (spawnBudget > 0) {
@@ -433,7 +447,7 @@ export function FieldSurfaceObjects({
       );
       if (cluster === undefined) break;
       simulation.flies.push(
-        createFirefly(simulation.nextId, cluster, config.cellSize),
+        createFirefly(simulation.nextId, cluster, config.cellSize, fireflyConfig),
       );
       simulation.nextId += 1;
       currentCounts.set(
@@ -451,15 +465,16 @@ export function FieldSurfaceObjects({
       const flyLights = activeFireflyLights.current;
       flyLights.length = 0;
 
-      for (let index = 0; index < FIREFLY_MAX_COUNT; index += 1) {
+      for (let index = 0; index < FIREFLY_BUFFER_CAPACITY; index += 1) {
         const fly = simulation.flies[index];
         if (fly === undefined) {
           opacityValues[index] = 0;
           continue;
         }
 
-        opacityValues[index] = fireflyVisualOpacity(fly);
+        opacityValues[index] = fireflyVisualOpacity(fly, fireflyConfig);
         fireflyBillboard.position.set(fly.x, fly.y, fly.z);
+        fireflyBillboard.scale.setScalar(fireflyConfig.pixelSize);
         fireflyBillboard.up.set(0, 0, 1);
         fireflyBillboard.lookAt(billboardCameraPosition);
         fireflyBillboard.updateMatrix();
@@ -471,7 +486,7 @@ export function FieldSurfaceObjects({
         colorValues[colorOffset + 2] = fireflyColor.b;
 
         if (
-          fly.light.intensity > FIREFLY_MIN_VISIBLE_LIGHT_INTENSITY &&
+          fly.light.intensity > fireflyConfig.minVisibleLightIntensity &&
           lightVisibility.intersects(
             fly.x,
             fly.y,
@@ -494,7 +509,9 @@ export function FieldSurfaceObjects({
       );
       for (
         let index = 0;
-        index < flyLights.length && index < FIELD_GRID_MAX_FIREFLY_LIGHTS;
+        index < flyLights.length &&
+        index < fireflyConfig.maxLocalLights &&
+        index < FIELD_GRID_MAX_FIREFLY_LIGHTS;
         index += 1
       ) {
         pixelLights.push(flyLights[index]!.light);
@@ -508,7 +525,7 @@ export function FieldSurfaceObjects({
     <group>
       <instancedMesh
         ref={fireflyMesh}
-        args={[fireflyGeometry, fireflyMaterial, FIREFLY_MAX_COUNT]}
+        args={[fireflyGeometry, fireflyMaterial, FIREFLY_BUFFER_CAPACITY]}
         frustumCulled={false}
       />
       {objects.map((object) => (
