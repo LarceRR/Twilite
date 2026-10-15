@@ -1,5 +1,6 @@
 import Slider from '@react-native-community/slider';
 import * as DocumentPicker from 'expo-document-picker';
+import { File, Paths } from 'expo-file-system';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useEffect, useState, type ReactElement } from 'react';
@@ -16,7 +17,7 @@ import {
   DEFAULT_FIELD_TILE_SETTINGS,
   useFieldTileStore,
 } from '@/domains/spaces/presentation/field/fieldTileStore';
-import { createRoundedSquarePlatformUvSvg } from '@/domains/spaces/presentation/field/fieldPlatformGeometry';
+import { createRoundedSquarePlatformUvPng } from '@/domains/spaces/presentation/field/fieldUvPng';
 import {
   hydrateFieldTileTextureUri,
   persistFieldTileTextureUri,
@@ -97,30 +98,27 @@ export function DeveloperSceneTilesSettingsScreen(): ReactElement {
   const exportUv = async (): Promise<void> => {
     setTextureBusy(true);
     try {
-      const directory = FileSystem.documentDirectory;
-      if (directory === null) {
-        throw new Error('Не удалось получить каталог приложения для UV-развёртки.');
-      }
-      const svg = createRoundedSquarePlatformUvSvg(
+      const png = createRoundedSquarePlatformUvPng(
         fieldConfig.grid.cellSizePx,
         fieldConfig.platform.height,
         fieldConfig.platform.cornerRadius,
         fieldConfig.platform.edgeBevel,
       );
-      const uri = directory + 'twilite-field-tile-uv-' + Date.now().toString() + '.svg';
-      await FileSystem.writeAsStringAsync(uri, svg, {
-        encoding: FileSystem.EncodingType.UTF8,
-      });
+      // Same pattern as the config export: write to the cache, then share it.
+      const file = new File(Paths.cache, 'twilite-field-tile-uv-' + Date.now().toString() + '.png');
+      file.create();
+      await file.write(png);
 
       if (!(await Sharing.isAvailableAsync())) {
         Alert.alert(
           'UV-развёртка создана',
-          'Файл записан во внутренний каталог приложения, но системное меню сохранения недоступно.',
+          'Файл записан, но системное меню сохранения недоступно на этом устройстве.',
         );
         return;
       }
-      await Sharing.shareAsync(uri, {
-        mimeType: 'image/svg+xml',
+      await Sharing.shareAsync(file.uri, {
+        mimeType: 'image/png',
+        UTI: 'public.png',
         dialogTitle: 'Сохранить UV-развёртку плитки',
       });
     } catch (error) {
@@ -242,9 +240,10 @@ export function DeveloperSceneTilesSettingsScreen(): ReactElement {
           onPress={() => void exportUv()}
         />
         <Text variant="caption">
-          Развёртка автоматически строится по UV-координатам той же геометрии, что используется
-          в сцене: {fieldConfig.grid.cellSizePx}×{fieldConfig.grid.cellSizePx}, толщина{' '}
-          {fieldConfig.platform.height}. Системное меню позволит сохранить файл на телефон.
+          Развёртка строится по UV-координатам той же геометрии, что используется в сцене:
+          {' '}{fieldConfig.grid.cellSizePx}×{fieldConfig.grid.cellSizePx}, толщина{' '}
+          {fieldConfig.platform.height}. Файл в PNG: его можно сохранить в фото, отправить в
+          Telegram, нарисовать поверх и загрузить обратно как текстуру.
         </Text>
       </BlurCard>
     </Screen>
