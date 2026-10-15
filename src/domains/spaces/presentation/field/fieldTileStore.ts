@@ -82,12 +82,19 @@ export const useFieldTileStore = create<FieldTileState>()((set) => ({
     set((state) => {
       // Migrate preferences saved before the tile/object height ranges were separated.
       const legacy = preferences as Partial<FieldTilePreferences> & LegacyFieldTilePreferences;
+      const tileMinHeight = legacy.tileMinHeight ?? legacy.inactiveMinHeight;
+      const tileMaxHeight = legacy.tileMaxHeight ?? legacy.inactiveMaxHeight;
+      const objectMinHeight = legacy.objectMinHeight ?? legacy.activeMinHeight;
+      const objectMaxHeight = legacy.objectMaxHeight ?? legacy.activeMaxHeight;
       const migrated: Partial<FieldTilePreferences> = {
-        ...legacy,
-        tileMinHeight: legacy.tileMinHeight ?? legacy.inactiveMinHeight,
-        tileMaxHeight: legacy.tileMaxHeight ?? legacy.inactiveMaxHeight,
-        objectMinHeight: legacy.objectMinHeight ?? legacy.activeMinHeight,
-        objectMaxHeight: legacy.objectMaxHeight ?? legacy.activeMaxHeight,
+        ...(legacy.generatedTilesEnabled === undefined
+          ? {}
+          : { generatedTilesEnabled: legacy.generatedTilesEnabled }),
+        ...(legacy.worldSeed === undefined ? {} : { worldSeed: legacy.worldSeed }),
+        ...(tileMinHeight === undefined ? {} : { tileMinHeight }),
+        ...(tileMaxHeight === undefined ? {} : { tileMaxHeight }),
+        ...(objectMinHeight === undefined ? {} : { objectMinHeight }),
+        ...(objectMaxHeight === undefined ? {} : { objectMaxHeight }),
       };
       return normalizePreferences(state, migrated);
     }),
