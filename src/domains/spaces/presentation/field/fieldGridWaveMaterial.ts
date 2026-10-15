@@ -134,8 +134,8 @@ vec4 samplePixelLight() {
     ) {
       float fractionAtPlatformTop = (sourceZ - platformTopZ) / verticalSpan;
       vec2 crossing = mix(uLightPositions[i].xy, pixelWorld, fractionAtPlatformTop);
-      vec2 crossingOffset = crossing - uLightPositions[i].xy;
-      float edgeDistance = length(crossingOffset) - platformHalfSize;
+      vec2 crossingOffset = abs(crossing - uLightPositions[i].xy);
+      float edgeDistance = max(crossingOffset.x, crossingOffset.y) - platformHalfSize;
       float softness = max(uLightPixelSize * 2.0, 10.0);
       // Fade the occlusion at the platform edge instead of cutting the light off abruptly.
       attenuation *= smoothstep(-softness, softness, edgeDistance);
