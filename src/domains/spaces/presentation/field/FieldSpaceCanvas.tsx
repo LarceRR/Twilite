@@ -24,6 +24,7 @@ export function FieldSpaceCanvas({
 }): ReactElement {
   const scene = useSceneColors();
   const pose = fieldCameraOpticsFromConfig();
+  const fov = getFieldConfig().camera.fov;
   // Read the initial camera setup without subscribing the Canvas root to every
   // developer-config update. FieldSpaceCamera applies camera edits imperatively.
   const camera = useMemo(
