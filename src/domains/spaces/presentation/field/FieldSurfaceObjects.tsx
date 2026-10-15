@@ -22,7 +22,7 @@ import type { SurfaceObject } from '@/domains/spaces/domain/entities/SurfaceObje
 
 import { FieldSurfaceObjectArtwork } from './FieldSurfaceObjectArtwork';
 import { cellCenterOnPlane } from './fieldGridCells';
-import type { FieldConfig } from './fieldConfig';
+import { DEFAULT_FIELD_CONFIG, type FieldConfig } from './fieldConfig';
 import type { FieldGridConfig } from './fieldGridConfig';
 import {
   FIELD_GRID_MAX_FIREFLY_LIGHTS,
@@ -204,7 +204,11 @@ export function FieldSurfaceObjects({
   const fireflyMaterial = useMemo(
     () =>
       new ShaderMaterial({
-        uniforms: { uOpacityDiscardThreshold: { value: fireflyConfig.opacityDiscardThreshold } },
+        uniforms: {
+          uOpacityDiscardThreshold: {
+            value: DEFAULT_FIELD_CONFIG.fireflies.opacityDiscardThreshold,
+          },
+        },
         vertexShader: fireflyVertexShader,
         fragmentShader: fireflyFragmentShader,
         side: DoubleSide,
