@@ -199,7 +199,7 @@ export function DeveloperSceneTilesSettingsScreen(): ReactElement {
         <NumberSetting
           title="Ячейки с объектами: минимум"
           value={settings.objectMinHeight}
-          min={Math.min(24, settings.tileMaxHeight * 2 + 1)}
+          min={Math.min(24, Math.max(4, settings.tileMaxHeight * 2 + 1))}
           max={24}
           onValueChange={(value) =>
             setOption('objectMinHeight', Math.min(value, settings.objectMaxHeight))

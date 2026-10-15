@@ -51,7 +51,7 @@ function normalizePreferences(
   const tileB = clampInteger(next.tileMaxHeight, 0, 3);
   const tileMinHeight = Math.min(tileA, tileB);
   const tileMaxHeight = Math.max(tileA, tileB);
-  const minimumObjectHeight = tileMaxHeight * 2 + 1;
+  const minimumObjectHeight = Math.max(4, tileMaxHeight * 2 + 1);
   const objectA = clampInteger(next.objectMinHeight, minimumObjectHeight, 24);
   const objectB = clampInteger(next.objectMaxHeight, minimumObjectHeight, 24);
 

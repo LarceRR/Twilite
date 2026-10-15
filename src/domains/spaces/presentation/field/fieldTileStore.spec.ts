@@ -36,6 +36,12 @@ describe('fieldTileStore', () => {
     expect(state.objectMaxHeight).toBeGreaterThanOrEqual(state.objectMinHeight);
   });
 
+  it('keeps object elevations above the minimum allowed object height', () => {
+    useFieldTileStore.getState().setOption('tileMaxHeight', 0);
+    useFieldTileStore.getState().setOption('objectMinHeight', 0);
+    expect(useFieldTileStore.getState().objectMinHeight).toBe(4);
+  });
+
   it('migrates previously saved seed and height options', () => {
     useFieldTileStore.getState().hydrate({
       worldSeed: 'old-seed',
