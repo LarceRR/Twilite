@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useMemo, useState, type ReactElement, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { useThemeColors } from '@/design-system/colors/colors';
@@ -390,7 +390,18 @@ export function FieldConfigExplorer({ children }: { readonly children?: ReactNod
     });
   }, [needle]);
 
-  const onChangeSetting = (setting: FieldConfigSetting, value: unknown): void => {
+  const pendingSettingChanges = useRef(
+    new Map<
+      string,
+      {
+        readonly setting: FieldConfigSetting;
+        readonly value: unknown;
+        readonly timer: ReturnType<typeof setTimeout>;
+      }
+    >(),
+  );
+
+  const applySettingChange = (setting: FieldConfigSetting, value: unknown): void => {
     patchOverrides(buildFieldConfigSettingPatch(getFieldConfig(), setting.path, value));
 
     if (!setting.path.startsWith('camera.')) return;
@@ -413,7 +424,50 @@ export function FieldConfigExplorer({ children }: { readonly children?: ReactNod
     }
   };
 
+  const clearPendingSettingChanges = (): void => {
+    for (const pending of pendingSettingChanges.current.values()) {
+      clearTimeout(pending.timer);
+    }
+    pendingSettingChanges.current.clear();
+  };
+
+  const flushPendingSettingChanges = (): void => {
+    const pending = [...pendingSettingChanges.current.values()];
+    clearPendingSettingChanges();
+    for (const change of pending) applySettingChange(change.setting, change.value);
+  };
+
+  const onChangeSetting = (setting: FieldConfigSetting, value: unknown): void => {
+    // Switches are cheap and should feel immediate. Slider and color changes are
+    // coalesced so a drag never rebuilds geometry, textures, or shader resources
+    // dozens of times per second.
+    if (setting.kind === 'boolean') {
+      applySettingChange(setting, value);
+      return;
+    }
+
+    const previous = pendingSettingChanges.current.get(setting.path);
+    if (previous !== undefined) clearTimeout(previous.timer);
+    const timer = setTimeout(() => {
+      pendingSettingChanges.current.delete(setting.path);
+      applySettingChange(setting, value);
+    }, 180);
+    pendingSettingChanges.current.set(setting.path, { setting, value, timer });
+  };
+
+  useEffect(
+    () => () => {
+      // Do not lose the last slider value if the developer leaves this screen
+      // before the coalescing window expires.
+      const pending = [...pendingSettingChanges.current.values()];
+      clearPendingSettingChanges();
+      for (const change of pending) applySettingChange(change.setting, change.value);
+    },
+    [],
+  );
+
   const resetAll = (): void => {
+    clearPendingSettingChanges();
     reset();
     applyCameraConfig(getFieldConfig());
   };
@@ -421,7 +475,8 @@ export function FieldConfigExplorer({ children }: { readonly children?: ReactNod
   const onExport = async (): Promise<void> => {
     setTransferBusy(true);
     try {
-      await exportFieldConfigFile(config);
+      flushPendingSettingChanges();
+      await exportFieldConfigFile(getFieldConfig());
     } catch (error) {
       Alert.alert(
         'Не удалось экспортировать',
