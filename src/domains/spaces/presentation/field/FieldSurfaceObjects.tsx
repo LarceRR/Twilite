@@ -285,27 +285,26 @@ export function FieldSurfaceObjects({
       const topZ = item.platformHeight * progress;
       // Use the resolved light, not only the raw backend field: the resolved
       // config also includes forceAllObjectsForTesting for development scenes.
-      const fireflySource = lightConfig;
-      const fireflyIntensity =
-        fireflySource === null ? 0 : fireflySource.intensity * flicker * progress;
-      const dx = billboardCameraPosition.x - item.centerX;
-      const dy = billboardCameraPosition.y - item.centerY;
-      const dz = billboardCameraPosition.z - topZ;
-      if (
-        fireflySource !== null &&
-        fireflyConfig.enabled &&
-        fireflyIntensity > fireflyConfig.minVisibleLightIntensity &&
-        dx * dx + dy * dy + dz * dz <= fireflyConfig.spawnDistance * fireflyConfig.spawnDistance
-      ) {
-        emitters.push({
-          id: item.object.id,
-          x: item.centerX,
-          y: item.centerY,
-          z: topZ,
-          color: fireflySource.color,
-          intensity: fireflyIntensity,
-          distance: fireflySource.distance,
-        });
+      if (fireflyConfig.enabled) {
+        const fireflyIntensity = lightConfig.intensity * flicker * progress;
+        const dx = billboardCameraPosition.x - item.centerX;
+        const dy = billboardCameraPosition.y - item.centerY;
+        const dz = billboardCameraPosition.z - topZ;
+        if (
+          fireflyIntensity > fireflyConfig.minVisibleLightIntensity &&
+          dx * dx + dy * dy + dz * dz <=
+            fireflyConfig.spawnDistance * fireflyConfig.spawnDistance
+        ) {
+          emitters.push({
+            id: item.object.id,
+            x: item.centerX,
+            y: item.centerY,
+            z: topZ,
+            color: lightConfig.color,
+            intensity: fireflyIntensity,
+            distance: lightConfig.distance,
+          });
+        }
       }
 
       if (!lightVisibility.intersects(item.centerX, item.centerY, topZ, lightConfig.distance)) {
@@ -332,17 +331,29 @@ export function FieldSurfaceObjects({
     }
 
     const simulation = fireflySimulation.current;
+    if (!fireflyConfig.enabled) {
+      simulation.flies.length = 0;
+      simulation.clusters.length = 0;
+      simulation.refreshElapsedSec = 0;
+      simulation.spawnAccumulatorSec = 0;
+      simulation.initialized = false;
+      activeFireflyLights.current.length = 0;
+      const mesh = fireflyMesh.current;
+      if (mesh !== null) mesh.visible = false;
+
+      pixelLightSyncElapsed.current += delta;
+      if (pixelLightSyncElapsed.current >= 1 / 30) {
+        pixelLightSyncElapsed.current %= 1 / 30;
+        syncFieldGridPixelLights(pixelLights);
+      }
+      recordFieldCpuWork('objects', performance.now() - frameWorkStart);
+      return;
+    }
+
     simulation.refreshElapsedSec += delta;
     const maximumLiveFlies = Math.min(fireflyConfig.maxCount, FIREFLY_BUFFER_CAPACITY);
     while (simulation.flies.length > maximumLiveFlies) simulation.flies.pop();
-    if (!fireflyConfig.enabled) {
-      simulation.clusters = [];
-      simulation.refreshElapsedSec = 0;
-      simulation.initialized = true;
-      for (const fly of simulation.flies) {
-        if (fly.retireInSec === null) fly.retireInSec = fireflyConfig.retireDurationSec;
-      }
-    } else if (
+    if (
       !simulation.initialized ||
       simulation.refreshElapsedSec >= fireflyConfig.clusterRefreshSec
     ) {
