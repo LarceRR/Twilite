@@ -43,6 +43,9 @@ export function FieldSpaceCanvas({
             far: pose.far,
           }}
           gl={{ antialias: true }}
+          // Tiles and pixel-art are authored as final display colors: keep sRGB
+          // output but skip filmic tone mapping, which washes out the palette.
+          flat
           shadows="percentage"
         >
           <color attach="background" args={[scene.background]} />

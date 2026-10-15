@@ -344,9 +344,13 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
     startDelayMs: 180,
   },
   lighting: {
-    ambientIntensity: 0.85,
-    directionalIntensity: 0.55,
-    directionalPosition: [240, 420, 180],
+    // Physically based units: lit faces receive (ambient + N.L * directional) / PI.
+    // The sun is high and slightly behind/left of the camera, so tile tops are
+    // bright, the walls facing the camera sit in readable half-shade and
+    // shadows fall forward and to the side of raised tiles.
+    ambientIntensity: 1.4,
+    directionalIntensity: 2.2,
+    directionalPosition: [-160, 260, 420],
     surfaceAmbientColor: '#FFAE00',
     surfaceAmbientIntensity: 0.025,
     objectGlow: {
@@ -374,17 +378,20 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
       },
     },
     shadows: {
-      mapSizePx: 512,
+      mapSizePx: 1024,
       filterRadius: 6,
-      cameraLeft: -800,
-      cameraRight: 800,
-      cameraTop: 500,
-      cameraBottom: -500,
+      cameraLeft: -900,
+      cameraRight: 900,
+      cameraTop: 600,
+      cameraBottom: -600,
       cameraNear: 0.1,
       cameraFar: 4000,
       bias: -0.0005,
-      normalBias: 0.02,
-      baselineIntensity: 0.42,
+      // About half a shadow texel in world units: removes acne on tile tops
+      // without detaching shadows from the 2-unit tile steps.
+      normalBias: 0.8,
+      // Shadowed areas keep only ambient + local candle light, like in reality.
+      baselineIntensity: 0.92,
     },
   },
 };

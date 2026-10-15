@@ -13,7 +13,14 @@ import { FieldWorldAxes } from './FieldWorldAxes';
 import { resetFieldGridWaveScene } from './fieldGridWaveMaterial';
 import { useFieldConfig, useFieldGridConfig } from './useFieldConfig';
 
-/** One low-resolution directional shadow map follows the currently visible field. */
+/**
+ * The camera looks along +X at a shallow angle, so the ground it actually sees
+ * starts a few hundred units ahead of it. The shadow frustum is centred there
+ * instead of directly under the camera, so every visible tile receives shadows.
+ */
+const SHADOW_FOCUS_AHEAD = 900;
+
+/** One directional shadow map follows the currently visible field. */
 export function FieldSpaceScene({
   objects,
   headers,
@@ -84,9 +91,10 @@ function FieldSceneLighting(): ReactElement {
   useFrame(({ camera }) => {
     const light = lightRef.current;
     if (light === null) return;
-    target.position.set(camera.position.x, 0, 0);
+    const focusX = camera.position.x + SHADOW_FOCUS_AHEAD;
+    target.position.set(focusX, 0, 0);
     light.position.set(
-      camera.position.x + lighting.directionalPosition[0],
+      focusX + lighting.directionalPosition[0],
       lighting.directionalPosition[1],
       lighting.directionalPosition[2],
     );
