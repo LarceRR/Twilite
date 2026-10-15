@@ -400,14 +400,14 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
   },
   fireflies: {
     enabled: true,
-    maxCount: 32,
+    maxCount: 16,
     pixelSize: 1,
     maxLifetimeSec: 10,
     minLifetimeSec: 3.2,
     lifetimeVariationSec: 6.5,
     clusterRefreshSec: 0.3,
     spawnDistance: 900,
-    clusterMaxEmitters: 256,
+    clusterMaxEmitters: 128,
     clusterNeighbourDistanceMultiplier: 1.55,
     minimumClusterNeighbourDistance: 1,
     clusterDistanceMinCellMultiplier: 1,
@@ -562,7 +562,7 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
     surfaceAmbientColor: '#FFAE00',
     surfaceAmbientIntensity: 0.025,
     objectGlow: {
-      forceAllObjectsForTesting: true,
+      forceAllObjectsForTesting: false,
       fallbackColor: '#FFAE00',
       fallbackIntensity: 2.1,
       fallbackDistance: 300,
@@ -586,7 +586,7 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
       },
     },
     shadows: {
-      mapSizePx: 1024,
+      mapSizePx: 512,
       filterRadius: 6,
       cameraLeft: -900,
       cameraRight: 900,
@@ -628,11 +628,22 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+const mergedSectionCache = new WeakMap<object, WeakMap<object, object>>();
+
 function mergeSection<T extends Record<string, unknown>>(
   base: T,
   patch: DeepPartial<T> | undefined,
 ): T {
   if (patch == null) return base;
+
+  // Overrides are immutable. Reuse merged nested sections when their patch
+  // reference has not changed, so editing fireflies cannot recreate artwork,
+  // textures, or geometry in an unrelated lighting section.
+  const patchObject = patch as object;
+  let byPatch = mergedSectionCache.get(base);
+  const cached = byPatch?.get(patchObject);
+  if (cached !== undefined) return cached as T;
+
   const next: Record<string, unknown> = { ...base };
   for (const key of Object.keys(patch) as (keyof T & string)[]) {
     const patchValue = patch[key];
@@ -646,7 +657,14 @@ function mergeSection<T extends Record<string, unknown>>(
           )
         : patchValue;
   }
-  return next as T;
+
+  const result = next as T;
+  if (byPatch === undefined) {
+    byPatch = new WeakMap<object, object>();
+    mergedSectionCache.set(base, byPatch);
+  }
+  byPatch.set(patchObject, result);
+  return result;
 }
 
 export function mergeFieldConfig(overrides: FieldConfigOverrides = {}): FieldConfig {
