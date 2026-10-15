@@ -32,7 +32,7 @@ export function FieldPerformanceOverlay() {
         Draw calls {snapshot.drawCalls} | triangles {snapshot.triangles}
       </Text>
       <Text style={styles.text}>
-        GPU resources geo/tex/programs {snapshot.geometries}/{snapshot.textures}/{snapshot.shaderPrograms} | queued uploads {snapshot.pendingGpuUploads}
+        GPU resources geo/tex/programs {snapshot.geometries}/{snapshot.textures}/{snapshot.shaderPrograms} | queued uploads/bakes {snapshot.pendingGpuUploads}/{snapshot.pendingChunkBakes}
       </Text>
     </View>
   );
