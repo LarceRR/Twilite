@@ -30,6 +30,7 @@ import {
   hydrateFieldTileTextureUri,
 } from './fieldTileTexture';
 import { useFieldConfig } from './useFieldConfig';
+import { requestFieldShadowUpdate } from './fieldShadowInvalidation';
 
 /** The ground seen through gaps/corners between tiles is a darker shade of the tile color. */
 const GROUND_SHADE = 0.42;
@@ -173,6 +174,7 @@ export function FieldGeneratedTiles({
     if (chunkIndex === null) {
       mesh.count = 0;
       mesh.instanceMatrix.needsUpdate = true;
+      requestFieldShadowUpdate();
       return;
     }
 
@@ -232,6 +234,7 @@ export function FieldGeneratedTiles({
     mesh.instanceMatrix.needsUpdate = true;
     glowAttribute.needsUpdate = true;
     mesh.computeBoundingSphere();
+    requestFieldShadowUpdate();
 
     if (ground !== null) {
       const pitch = fieldGridCellPitch(gridConfig);
