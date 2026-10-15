@@ -14,6 +14,7 @@ export type FieldPerformanceSnapshot = {
   readonly textures: number;
   readonly shaderPrograms: number;
   readonly pendingGpuUploads: number;
+  readonly pendingChunkBakes: number;
 };
 
 let latestSnapshot: FieldPerformanceSnapshot | null = null;
