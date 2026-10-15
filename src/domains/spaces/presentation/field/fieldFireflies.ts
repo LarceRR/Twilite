@@ -252,10 +252,13 @@ export function createFirefly(
   const seed = (Math.imul(id + 1, 0x9e3779b1) ^ hashText(cluster.id)) >>> 0;
   const random = makeRandom(seed);
   const kindRoll = random();
+  const scoutThreshold = clamp(config.scoutChance, 0, 1);
+  const wandererThreshold =
+    scoutThreshold + clamp(config.wandererChance, 0, 1 - scoutThreshold);
   const kind: FireflyKind =
-    kindRoll < config.scoutChance
+    kindRoll < scoutThreshold
       ? 'scout'
-      : kindRoll < config.scoutChance + config.wandererChance
+      : kindRoll < wandererThreshold
         ? 'wanderer'
         : 'drifter';
   const kindConfig = config.kinds[kind];
