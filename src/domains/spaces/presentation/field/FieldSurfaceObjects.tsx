@@ -45,6 +45,7 @@ import {
   staggerAppearanceDelays,
 } from './surfaceObjectAnimation';
 import { useFieldConfig } from './useFieldConfig';
+import { recordFieldCpuWork } from './fieldPerformanceDiagnostics';
 import { objectPlatformHeight } from './fieldTileGeneration';
 import { useFieldTileStore } from './fieldTileStore';
 import {
@@ -225,6 +226,7 @@ export function FieldSurfaceObjects({
   }, []);
 
   useFrame(({ camera, clock }, delta) => {
+    const frameWorkStart = performance.now();
     lightVisibility.updateCamera(camera);
     camera.getWorldPosition(billboardCameraPosition);
     const cameraMoved =
@@ -539,6 +541,7 @@ export function FieldSurfaceObjects({
     }
 
     syncFieldGridPixelLights(pixelLights);
+    recordFieldCpuWork('objects', performance.now() - frameWorkStart);
   });
 
   return (
