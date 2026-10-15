@@ -17,6 +17,8 @@ type LegacyFieldTilePreferences = {
 };
 
 export type FieldTileState = FieldTilePreferences & {
+  readonly textureUri: string | null;
+  readonly setTextureUri: (uri: string | null) => void;
   readonly setOption: <K extends keyof FieldTilePreferences>(
     key: K,
     value: FieldTilePreferences[K],
@@ -71,6 +73,9 @@ function normalizePreferences(
 
 export const useFieldTileStore = create<FieldTileState>()((set) => ({
   ...DEFAULT_FIELD_TILE_SETTINGS,
+  textureUri: null,
+  setTextureUri: (uri) =>
+    set({ textureUri: typeof uri === 'string' && uri.trim().length > 0 ? uri : null }),
   setOption: (key, value) =>
     set((state) => normalizePreferences(state, { [key]: value } as Partial<FieldTilePreferences>)),
   hydrate: (preferences) =>
@@ -86,7 +91,7 @@ export const useFieldTileStore = create<FieldTileState>()((set) => ({
       };
       return normalizePreferences(state, migrated);
     }),
-  reset: () => set({ ...DEFAULT_FIELD_TILE_SETTINGS }),
+  reset: () => set({ ...DEFAULT_FIELD_TILE_SETTINGS, textureUri: null }),
 }));
 
 export function persistedFieldTilePreferences(state: FieldTileState): FieldTilePreferences {

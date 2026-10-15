@@ -1,7 +1,7 @@
 import { type ThreeEvent } from '@react-three/fiber/native';
 import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import type { ReactElement } from 'react';
-import { BufferGeometry, Color, DoubleSide, PlaneGeometry, type Group, type Mesh } from 'three';
+import { BufferGeometry, PlaneGeometry, type Group, type Mesh } from 'three';
 
 import { useThemeColors } from '@/design-system/colors/colors';
 import { useSettingsStore } from '@/domains/settings/presentation/stores/settingsStore';
@@ -40,7 +40,10 @@ function useChunkSlotResources(width: number, height: number) {
     [width, height],
   );
   const lineGeometry = useMemo(() => new BufferGeometry(), []);
-  const material = useMemo(() => createFieldGridWaveMaterial(null), []);
+  const material = useMemo(
+    () => createFieldGridWaveMaterial(null, { receivesPixelLights: false }),
+    [],
+  );
 
   useEffect(() => {
     return () => {
@@ -69,24 +72,11 @@ function FieldGridChunkComponent({
   const { surface, surfaceDivider } = useThemeColors();
   const gridLineColor = compositeThemeColorOver(surfaceDivider, surface);
   const fieldConfig = useFieldConfig();
-  const surfaceMaterialColor = useMemo(
-    () =>
-      new Color(surface).lerp(
-        new Color(fieldConfig.lighting.surfaceAmbientColor),
-        fieldConfig.lighting.surfaceAmbientIntensity,
-      ),
-    [
-      surface,
-      fieldConfig.lighting.surfaceAmbientColor,
-      fieldConfig.lighting.surfaceAmbientIntensity,
-    ],
-  );
   const showActiveCells = useSettingsStore((s) => s.developerShowActiveCells);
   const showActiveCenters = useSettingsStore((s) => s.developerShowActiveCellCenters);
   const showCellLabels = useSettingsStore((s) => s.developerShowCellLabels);
 
   const groupRef = useRef<Group>(null);
-  const surfaceMeshRef = useRef<Mesh>(null);
   const meshRef = useRef<Mesh>(null);
   const boundChunkRef = useRef<number | null>(null);
 
@@ -122,7 +112,6 @@ function FieldGridChunkComponent({
       material,
       lineGeometry,
       meshRef.current,
-      surfaceMeshRef.current,
     );
 
     if (prevBound != null && prevBound !== chunkIndex) {
@@ -155,9 +144,6 @@ function FieldGridChunkComponent({
 
   return (
     <group ref={groupRef} visible={chunkIndex != null}>
-      <mesh ref={surfaceMeshRef} geometry={planeGeometry} receiveShadow>
-        <meshLambertMaterial color={surfaceMaterialColor} side={DoubleSide} />
-      </mesh>
       <FieldGeneratedTiles chunkIndex={chunkIndex} base={base} occupiedCellKeys={occupiedCellKeys} />
       <mesh
         ref={meshRef}

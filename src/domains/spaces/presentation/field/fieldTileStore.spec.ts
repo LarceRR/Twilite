@@ -11,7 +11,7 @@ describe('fieldTileStore', () => {
     useFieldTileStore.getState().reset();
   });
 
-  it('persists one tile range and a separate object-platform range', () => {
+  it('keeps separate elevation ranges while sharing a single tile type', () => {
     useFieldTileStore.getState().setOption('worldSeed', 'stable-world');
     useFieldTileStore.getState().setOption('tileMinHeight', 1);
     useFieldTileStore.getState().setOption('tileMaxHeight', 2);
@@ -53,6 +53,13 @@ describe('fieldTileStore', () => {
       objectMinHeight: 6,
       objectMaxHeight: 9,
     });
+  });
+
+  it('stores one shared texture URI separately from numerical settings', () => {
+    useFieldTileStore.getState().setTextureUri('file:///tiles/custom.png');
+
+    expect(useFieldTileStore.getState().textureUri).toBe('file:///tiles/custom.png');
+    expect(persistedFieldTilePreferences(useFieldTileStore.getState())).not.toHaveProperty('textureUri');
   });
 
   it('uses the expected initial configuration', () => {

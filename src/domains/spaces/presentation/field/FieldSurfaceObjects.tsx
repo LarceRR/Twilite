@@ -2,33 +2,23 @@ import { useFrame } from '@react-three/fiber/native';
 import type { ReactElement, RefObject } from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
-  Color,
   Vector3,
   type Group,
-  type Mesh,
   type MeshBasicMaterial,
-  type MeshStandardMaterial,
   type Texture,
 } from 'three';
 
 import type { AuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAssetHeaders';
 import type { SurfaceObject } from '@/domains/spaces/domain/entities/SurfaceObject';
-import { useThemeColors } from '@/design-system/colors/colors';
 
 import { FieldSurfaceObjectArtwork } from './FieldSurfaceObjectArtwork';
 import { cellCenterOnPlane } from './fieldGridCells';
 import type { FieldConfig } from './fieldConfig';
+import type { FieldGridConfig } from './fieldGridConfig';
 import {
-  FIELD_GRID_OVERLAY_RENDER_ORDER,
-  type FieldGridConfig,
-} from './fieldGridConfig';
-import {
-  createFieldGridWaveMaterial,
-  registerFieldGridWaveMaterial,
   FIELD_GRID_MAX_PIXEL_LIGHTS,
   syncFieldGridPixelLights,
   type FieldGridPixelLight,
-  type FieldGridWaveMaterial,
 } from './fieldGridWaveMaterial';
 import {
   candleFlickerMultiplier,
@@ -44,10 +34,6 @@ import {
   SURFACE_OBJECT_ANIMATION_CONFIG,
   staggerAppearanceDelays,
 } from './surfaceObjectAnimation';
-import {
-  createRoundedSquarePlatformGeometry,
-  createRoundedSquareTopGeometry,
-} from './fieldPlatformGeometry';
 import { useFieldConfig } from './useFieldConfig';
 import { objectPlatformHeight } from './fieldTileGeneration';
 import { useFieldTileStore } from './fieldTileStore';
@@ -55,24 +41,17 @@ import { useFieldTileStore } from './fieldTileStore';
 const billboardCameraPosition = new Vector3();
 
 type RuntimeObject = {
-  readonly column: RefObject<Mesh | null>;
   readonly artwork: RefObject<Group | null>;
-  readonly waveOverlay: RefObject<Mesh | null>;
-  readonly platformMaterial: RefObject<MeshStandardMaterial | null>;
   readonly object: SurfaceObject;
   readonly centerX: number;
   readonly centerY: number;
   readonly flickerSeed: number;
   readonly platformHeight: number;
   readonly platformSize: number;
-  readonly platformEmissionIntensity: number;
-  readonly fallbackEmissionColor: string;
   readonly artHeight: number;
   readonly lightConfig: SurfaceObjectLightConfig | null;
   readonly flickerConfig: FieldConfig['lighting']['objectGlow']['flicker'];
   readonly minimumVisibleIntensity: number;
-  readonly waveMaterial: FieldGridWaveMaterial;
-  unregisterWaveMaterial: (() => void) | null;
   readonly pixelLight: FieldGridPixelLight | null;
   lightDistanceSquared: number;
   artworkMaterial: MeshBasicMaterial | null;
@@ -87,6 +66,11 @@ function compareLightDistance(left: RuntimeObject, right: RuntimeObject): number
   return left.lightDistanceSquared - right.lightDistanceSquared;
 }
 
+/**
+ * This layer contains only pixel-object artwork and light-source simulation.
+ * Physical platforms are rendered by FieldGeneratedTiles so there is only one
+ * geometry/material definition for every cell, occupied or empty.
+ */
 export function FieldSurfaceObjects({
   objects,
   config,
@@ -98,26 +82,9 @@ export function FieldSurfaceObjects({
 }): ReactElement {
   const runtime = useRef(new Map<string, RuntimeObject>());
   const appearance = useAppearingObjects(objects);
-  const { surfaceRaised } = useThemeColors();
   const fieldConfig = useFieldConfig();
   const tileSettings = useFieldTileStore();
-  const lightingConfig = fieldConfig.lighting;
-  const platformCornerRadius = fieldConfig.platform.cornerRadius;
-  const platformEdgeBevel = fieldConfig.platform.edgeBevel;
-  const platformEmissionIntensity = fieldConfig.platform.emissiveIntensity;
-  const platformColor = useMemo(
-    () =>
-      new Color(surfaceRaised).lerp(
-        new Color(lightingConfig.surfaceAmbientColor),
-        lightingConfig.surfaceAmbientIntensity,
-      ),
-    [
-      surfaceRaised,
-      lightingConfig.surfaceAmbientColor,
-      lightingConfig.surfaceAmbientIntensity,
-    ],
-  );
-  const objectGlowConfig = lightingConfig.objectGlow;
+  const objectGlowConfig = fieldConfig.lighting.objectGlow;
   const lastBillboardCameraXY = useRef({ x: Number.NaN, y: Number.NaN });
   const lightVisibility = useMemo(() => new SurfaceObjectLightVisibility(), []);
   const lightCandidates = useRef<RuntimeObject[]>([]);
@@ -126,7 +93,9 @@ export function FieldSurfaceObjects({
   const register = useCallback((item: RuntimeObject): (() => void) => {
     runtime.current.set(item.object.id, item);
     return () => {
-      runtime.current.delete(item.object.id);
+      if (runtime.current.get(item.object.id) === item) {
+        runtime.current.delete(item.object.id);
+      }
     };
   }, []);
 
@@ -147,60 +116,40 @@ export function FieldSurfaceObjects({
     pixelLights.length = 0;
 
     for (const item of runtime.current.values()) {
-      advanceColumn(item, delta * 1000);
-      advanceArtwork(item, delta * 1000, billboardCameraPosition, cameraMoved);
-
-      const platformInView = lightVisibility.intersects(
-        item.centerX,
-        item.centerY,
-        item.platformHeight / 2 + item.artHeight / 2,
-        item.platformSize * 1.25,
+      const deltaMs = delta * 1000;
+      item.elapsedMs = Math.min(
+        SURFACE_OBJECT_ANIMATION_CONFIG.riseDurationMs,
+        item.elapsedMs + deltaMs,
       );
-      if (platformInView && item.unregisterWaveMaterial === null) {
-        item.unregisterWaveMaterial = registerFieldGridWaveMaterial(item.waveMaterial);
-      } else if (!platformInView && item.unregisterWaveMaterial !== null) {
-        item.unregisterWaveMaterial();
-        item.unregisterWaveMaterial = null;
-      }
+      advanceArtwork(item, deltaMs, billboardCameraPosition, cameraMoved);
 
       const progress = surfaceObjectRiseProgress(item.elapsedMs);
-      const flicker = candleFlickerMultiplier(
-        clock.elapsedTime * 1000,
-        item.flickerSeed,
-        item.flickerConfig,
-      );
-      const material = item.platformMaterial.current;
-      if (material !== null) {
-        const emissiveIntensity = item.platformEmissionIntensity * flicker * progress;
-        if (material.emissiveIntensity !== emissiveIntensity) {
-          material.emissiveIntensity = emissiveIntensity;
-        }
-        const emissionColor = item.lightConfig?.color ?? item.fallbackEmissionColor;
-        if (material.emissive.getHexString() !== emissionColor.replace('#', '').toLowerCase()) {
-          material.emissive.set(emissionColor);
-        }
+      if (item.artworkMaterial !== null && item.artworkMaterial.opacity !== progress) {
+        item.artworkMaterial.opacity = progress;
       }
 
       const lightConfig = item.lightConfig;
       const pixelLight = item.pixelLight;
       if (lightConfig === null || pixelLight === null) continue;
 
+      const flicker = candleFlickerMultiplier(
+        clock.elapsedTime * 1000,
+        item.flickerSeed,
+        item.flickerConfig,
+      );
       const intensity = lightConfig.intensity * flicker * progress;
       if (intensity <= item.minimumVisibleIntensity) continue;
 
-      // The tile surface is the emitter. This virtual source drives only the
-      // shared pixel-light shader; the scene contains no separate lamp object.
-      const platformTopZ = item.platformHeight * progress;
-      const z = platformTopZ;
-      if (!lightVisibility.intersects(item.centerX, item.centerY, z, lightConfig.distance)) {
+      const topZ = item.platformHeight * progress;
+      if (!lightVisibility.intersects(item.centerX, item.centerY, topZ, lightConfig.distance)) {
         continue;
       }
 
       item.lightDistanceSquared =
         (camera.position.x - item.centerX) ** 2 +
         (camera.position.y - item.centerY) ** 2 +
-        (camera.position.z - z) ** 2;
-      pixelLight.z = z;
+        (camera.position.z - topZ) ** 2;
+      pixelLight.z = topZ;
       pixelLight.intensity = intensity;
       candidates.push(item);
     }
@@ -232,11 +181,7 @@ export function FieldSurfaceObjects({
             tileSettings.objectMinHeight,
             tileSettings.objectMaxHeight,
           )}
-          platformCornerRadius={platformCornerRadius}
-          platformEdgeBevel={platformEdgeBevel}
-          platformEmissionIntensity={platformEmissionIntensity}
           objectGlowConfig={objectGlowConfig}
-          platformColor={platformColor}
           key={object.id}
           object={object}
           register={register}
@@ -252,46 +197,19 @@ function FieldSurfaceObjectColumn({
   headers,
   appearanceDelayMs,
   objectGlowConfig,
-  platformColor,
   platformHeight,
-  platformCornerRadius,
-  platformEdgeBevel,
-  platformEmissionIntensity,
   register,
 }: {
   readonly object: SurfaceObject;
   readonly config: FieldGridConfig;
   readonly headers: AuthenticatedAssetHeaders;
   readonly platformHeight: number;
-  readonly platformCornerRadius: number;
-  readonly platformEdgeBevel: number;
-  readonly platformEmissionIntensity: number;
   readonly objectGlowConfig: FieldConfig['lighting']['objectGlow'];
   readonly appearanceDelayMs: number | null;
-  readonly platformColor: Color;
   readonly register: (item: RuntimeObject) => () => void;
 }): ReactElement {
-  const column = useRef<Mesh>(null);
   const artwork = useRef<Group>(null);
-  const waveOverlay = useRef<Mesh>(null);
-  const platformMaterial = useRef<MeshStandardMaterial>(null);
   const platformSize = config.cellSize;
-  const platformGeometry = useMemo(
-    () => createRoundedSquarePlatformGeometry(
-      platformSize,
-      platformHeight,
-      platformCornerRadius,
-      platformEdgeBevel,
-    ),
-    [platformSize, platformHeight, platformCornerRadius, platformEdgeBevel],
-  );
-  const platformTopGeometry = useMemo(
-    () => createRoundedSquareTopGeometry(
-      Math.max(0.001, platformSize - platformEdgeBevel * 2),
-      Math.max(0, platformCornerRadius - platformEdgeBevel),
-    ),
-    [platformSize, platformCornerRadius, platformEdgeBevel],
-  );
   const artHeight =
     object.pixelObject === null
       ? 0
@@ -302,44 +220,36 @@ function FieldSurfaceObjectColumn({
     () => resolveSurfaceObjectLightConfig(backendLightConfig, objectGlowConfig),
     [backendLightConfig, objectGlowConfig],
   );
-  const waveMaterial = useMemo(() => createFieldGridWaveMaterial(), []);
   const initialElapsedMs =
     appearanceDelayMs === null
       ? SURFACE_OBJECT_ANIMATION_CONFIG.riseDurationMs
       : -appearanceDelayMs;
   const initialProgress = surfaceObjectRiseProgress(initialElapsedMs);
-  const emissionColor = lightConfig?.color ?? objectGlowConfig.fallbackColor;
 
   const item = useMemo<RuntimeObject>(
     () => ({
-      column,
       artwork,
-      waveOverlay,
-      platformMaterial,
       object,
-      waveMaterial,
-      unregisterWaveMaterial: null,
       centerX: center[0],
       centerY: center[1],
       flickerSeed: surfaceObjectFlickerSeed(object.id),
       platformHeight,
       platformSize,
-      platformEmissionIntensity,
-      fallbackEmissionColor: objectGlowConfig.fallbackColor,
       artHeight,
       lightConfig,
       flickerConfig: objectGlowConfig.flicker,
       minimumVisibleIntensity: objectGlowConfig.minimumVisibleIntensity,
-      pixelLight: lightConfig === null
-        ? null
-        : {
-            x: center[0],
-            y: center[1],
-            z: 0,
-            color: lightConfig.color,
-            intensity: 0,
-            distance: lightConfig.distance,
-          },
+      pixelLight:
+        lightConfig === null
+          ? null
+          : {
+              x: center[0],
+              y: center[1],
+              z: 0,
+              color: lightConfig.color,
+              intensity: 0,
+              distance: lightConfig.distance,
+            },
       lightDistanceSquared: Number.POSITIVE_INFINITY,
       artworkMaterial: null,
       texture: null,
@@ -356,26 +266,12 @@ function FieldSurfaceObjectColumn({
       object,
       platformHeight,
       platformSize,
-      platformEmissionIntensity,
       lightConfig,
       objectGlowConfig,
-      waveMaterial,
     ],
   );
 
-  useEffect(() => {
-    const unregisterRuntime = register(item);
-    return () => {
-      item.unregisterWaveMaterial?.();
-      item.unregisterWaveMaterial = null;
-      unregisterRuntime();
-    };
-  }, [item, register]);
-
-  useEffect(() => () => platformGeometry.dispose(), [platformGeometry]);
-  useEffect(() => () => platformTopGeometry.dispose(), [platformTopGeometry]);
-
-  useEffect(() => () => waveMaterial.dispose(), [waveMaterial]);
+  useEffect(() => register(item), [item, register]);
 
   const onTextureReady = useCallback(
     (texture: Texture | null): void => {
@@ -396,34 +292,17 @@ function FieldSurfaceObjectColumn({
 
   return (
     <group position={[center[0], center[1], 0]}>
-      <mesh
-        ref={column}
-        castShadow
-        receiveShadow
-        visible={initialProgress > 0}
-        position={[0, 0, (platformHeight * initialProgress) / 2]}
-        scale={[1, 1, initialProgress]}
-        geometry={platformGeometry}
+      <group
+        ref={artwork}
+        position={[
+          0,
+          0,
+          platformHeight * initialProgress +
+            artHeight / 2 +
+            SURFACE_OBJECT_ANIMATION_CONFIG.artworkOffset,
+        ]}
+        rotation={[0, 0, 0]}
       >
-        <meshStandardMaterial
-          ref={platformMaterial}
-          color={platformColor}
-          emissive={emissionColor}
-          emissiveIntensity={platformEmissionIntensity * initialProgress}
-          roughness={0.74}
-          metalness={0.025}
-        />
-      </mesh>
-      <mesh
-        ref={waveOverlay}
-        geometry={platformTopGeometry}
-        visible={initialProgress > 0}
-        position={[0, 0, platformHeight * initialProgress + 0.2]}
-        renderOrder={FIELD_GRID_OVERLAY_RENDER_ORDER}
-      >
-        <primitive object={waveMaterial} attach="material" />
-      </mesh>
-      <group ref={artwork} rotation={[0, 0, 0]}>
         <FieldSurfaceObjectArtwork
           size={platformSize}
           headers={headers}
@@ -436,50 +315,6 @@ function FieldSurfaceObjectColumn({
   );
 }
 
-function advanceColumn(item: RuntimeObject, deltaMs: number): void {
-  const duration = SURFACE_OBJECT_ANIMATION_CONFIG.riseDurationMs;
-  if (item.elapsedMs >= duration) {
-    if (item.column.current !== null) {
-      if (!item.column.current.visible) item.column.current.visible = true;
-      if (item.column.current.scale.z !== 1) item.column.current.scale.z = 1;
-      if (item.column.current.position.z !== item.platformHeight / 2) {
-        item.column.current.position.z = item.platformHeight / 2;
-      }
-    }
-    if (item.waveOverlay.current !== null) {
-      if (!item.waveOverlay.current.visible) item.waveOverlay.current.visible = true;
-      const overlayZ = item.platformHeight + 0.2;
-      if (item.waveOverlay.current.position.z !== overlayZ) item.waveOverlay.current.position.z = overlayZ;
-    }
-    if (item.artworkMaterial !== null && item.artworkMaterial.opacity !== 1) {
-      item.artworkMaterial.opacity = 1;
-    }
-    if (item.artwork.current !== null) {
-      const finalZ = item.platformHeight + item.artHeight / 2 + SURFACE_OBJECT_ANIMATION_CONFIG.artworkOffset;
-      if (item.artwork.current.position.z !== finalZ) item.artwork.current.position.z = finalZ;
-    }
-    return;
-  }
-
-  item.elapsedMs = Math.min(duration, item.elapsedMs + deltaMs);
-  const progress = surfaceObjectRiseProgress(item.elapsedMs);
-  const height = item.platformHeight * progress;
-  if (item.column.current !== null) {
-    item.column.current.visible = progress > 0;
-    item.column.current.scale.z = progress;
-    item.column.current.position.z = height / 2;
-  }
-  if (item.waveOverlay.current !== null) {
-    item.waveOverlay.current.visible = progress > 0;
-    item.waveOverlay.current.position.z = height + 0.2;
-  }
-  if (item.artworkMaterial !== null) item.artworkMaterial.opacity = progress;
-  if (item.artwork.current !== null) {
-    item.artwork.current.position.z =
-      height + item.artHeight / 2 + SURFACE_OBJECT_ANIMATION_CONFIG.artworkOffset;
-  }
-}
-
 function advanceArtwork(
   item: RuntimeObject,
   deltaMs: number,
@@ -487,11 +322,20 @@ function advanceArtwork(
   cameraMoved: boolean,
 ): void {
   const artwork = item.artwork.current;
-  const hasSprite = item.object.pixelObject !== null;
-  if (artwork !== null && hasSprite && (!item.billboardUpdated || cameraMoved)) {
-    if (!item.billboardUpdated) artwork.up.set(0, 0, 1);
-    artwork.lookAt(cameraPosition.x, cameraPosition.y, artwork.position.z);
-    item.billboardUpdated = true;
+  const progress = surfaceObjectRiseProgress(item.elapsedMs);
+  if (artwork !== null) {
+    const z =
+      item.platformHeight * progress +
+      item.artHeight / 2 +
+      SURFACE_OBJECT_ANIMATION_CONFIG.artworkOffset;
+    if (artwork.position.z !== z) artwork.position.z = z;
+
+    const hasSprite = item.object.pixelObject !== null;
+    if (hasSprite && (!item.billboardUpdated || cameraMoved)) {
+      if (!item.billboardUpdated) artwork.up.set(0, 0, 1);
+      artwork.lookAt(cameraPosition.x, cameraPosition.y, artwork.position.z);
+      item.billboardUpdated = true;
+    }
   }
 
   const sprite = item.object.pixelObject;

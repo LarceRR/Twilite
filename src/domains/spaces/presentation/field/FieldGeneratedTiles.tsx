@@ -1,14 +1,23 @@
-import { useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
-import { InstancedMesh, MeshPhysicalMaterial, Object3D } from 'three';
+import { InstancedMesh, Object3D, type Texture } from 'three';
 
 import { useThemeColors } from '@/design-system/colors/colors';
 
 import { createRoundedSquarePlatformGeometry } from './fieldPlatformGeometry';
 import { type FieldGridConfig } from './fieldGridConfig';
 import { cellCenterOnPlane } from './fieldGridCells';
-import { fieldTileVariant } from './fieldTileGeneration';
+import {
+  createFieldGridWaveMaterial,
+  registerFieldGridWaveMaterial,
+} from './fieldGridWaveMaterial';
+import { fieldTileVariant, objectPlatformHeight } from './fieldTileGeneration';
 import { useFieldTileStore } from './fieldTileStore';
+import {
+  acquireFieldTileTexture,
+  createSolidTileTexture,
+  hydrateFieldTileTextureUri,
+} from './fieldTileTexture';
 import { useFieldConfig } from './useFieldConfig';
 
 type FieldGeneratedTilesProps = {
@@ -17,7 +26,11 @@ type FieldGeneratedTilesProps = {
   readonly occupiedCellKeys: ReadonlySet<string>;
 };
 
-/** Seeded, streamed tile geometry. One InstancedMesh keeps each chunk to one draw call. */
+/**
+ * Every cell, occupied or not, is an instance of exactly the same tile geometry,
+ * with one configured thickness and one shared shader material per streamed chunk.
+ * Elevation only changes each instance's Z position; its Z scale is always 1.
+ */
 export function FieldGeneratedTiles({
   chunkIndex,
   base,
@@ -27,57 +40,86 @@ export function FieldGeneratedTiles({
   const settings = useFieldTileStore();
   const theme = useThemeColors();
   const meshRef = useRef<InstancedMesh>(null);
-  // A 0–3 setting is a terrain level, not a 0–3 world-unit height.
-  // Scaling it up makes the side walls visible at the field's 60-unit cell size.
-  const geometryHeight = Math.max(1, settings.tileMaxHeight * 2);
-  const tileGap = Math.max(2, (base.dividerWidth ?? 1) * 2);
-  const tileSize = Math.max(1, base.cellSize - tileGap * 2);
+  const [customTexture, setCustomTexture] = useState<Texture | null>(null);
+
+  const thickness = Math.max(0.1, fieldConfig.platform.height);
+  const tileSize = base.cellSize;
   const geometry = useMemo(
     () =>
       createRoundedSquarePlatformGeometry(
         tileSize,
-        geometryHeight,
+        thickness,
         fieldConfig.platform.cornerRadius,
         fieldConfig.platform.edgeBevel,
       ),
     [
       tileSize,
-      geometryHeight,
+      thickness,
       fieldConfig.platform.cornerRadius,
       fieldConfig.platform.edgeBevel,
     ],
   );
-  const material = useMemo(
-    () =>
-      new MeshPhysicalMaterial({
-        color: '#FFFFFF',
-        roughness: 0.7,
-        metalness: 0.025,
-        clearcoat: 0.14,
-        clearcoatRoughness: 0.62,
-        flatShading: false,
-      }),
-    [],
+  const fallbackTexture = useMemo(
+    () => createSolidTileTexture(theme.surfaceRaised),
+    [theme.surfaceRaised],
   );
+  const material = useMemo(
+    () => createFieldGridWaveMaterial(fallbackTexture, { depthWrite: true }),
+    [fallbackTexture],
+  );
+
+  useEffect(() => {
+    void hydrateFieldTileTextureUri();
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    let releaseTexture: (() => void) | null = null;
+    setCustomTexture(null);
+
+    if (settings.textureUri === null) {
+      return () => {
+        active = false;
+      };
+    }
+
+    void acquireFieldTileTexture(settings.textureUri)
+      .then((acquired) => {
+        if (!active) {
+          acquired.release();
+          return;
+        }
+        releaseTexture = acquired.release;
+        setCustomTexture(acquired.texture);
+      })
+      .catch((error: unknown) => {
+        if (active) console.warn('Unable to load the selected tile texture', error);
+      });
+
+    return () => {
+      active = false;
+      releaseTexture?.();
+    };
+  }, [settings.textureUri]);
 
   useLayoutEffect(() => {
-    material.color.set(theme.surfaceRaised);
-    material.emissive.set(theme.surfaceRaised);
-    material.emissiveIntensity = 0.055;
-  }, [material, theme.surfaceRaised]);
+    material.uniforms.uMap.value = customTexture ?? fallbackTexture;
+    if (customTexture !== null) customTexture.needsUpdate = true;
+  }, [material, customTexture, fallbackTexture]);
 
-  useLayoutEffect(
-    () => () => {
-      geometry.dispose();
-      material.dispose();
-    },
-    [geometry, material],
-  );
+  useEffect(() => {
+    if (chunkIndex === null) return;
+    return registerFieldGridWaveMaterial(material);
+  }, [chunkIndex, material]);
+
+  useEffect(() => () => material.dispose(), [material]);
+  useEffect(() => () => fallbackTexture.dispose(), [fallbackTexture]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
 
   useLayoutEffect(() => {
     const mesh = meshRef.current;
     if (mesh === null) return;
-    if (chunkIndex === null || !settings.generatedTilesEnabled) {
+    if (chunkIndex === null) {
       mesh.count = 0;
       mesh.instanceMatrix.needsUpdate = true;
       return;
@@ -101,25 +143,33 @@ export function FieldGeneratedTiles({
     for (let localCol = 0; localCol < columnCount; localCol += 1) {
       const col = chunkIndex * columnCount + localCol;
       for (let row = 0; row < base.rows; row += 1) {
-        if (occupiedCellKeys.has(col + ':' + row)) continue;
-        const variant = fieldTileVariant(settings.worldSeed, col, row, tileHeights);
-        const renderHeight = variant.height === 0 ? 0.08 : variant.height * 2;
+        const isOccupied = occupiedCellKeys.has(col + ':' + row);
+        if (!settings.generatedTilesEnabled && !isOccupied) continue;
+
+        const topHeight = isOccupied
+          ? objectPlatformHeight(
+              settings.worldSeed,
+              col,
+              row,
+              settings.objectMinHeight,
+              settings.objectMaxHeight,
+            )
+          : fieldTileVariant(settings.worldSeed, col, row, tileHeights).height * 2;
         const center = cellCenterOnPlane(col, row, gridConfig);
 
-        // Keep tiles slightly above the continuous deck to avoid coplanar z-fighting.
-        temp.position.set(center[0], center[1], renderHeight / 2 + 0.025);
+        // Geometry is always six units thick (or the configured type thickness).
+        // Only its top elevation differs from cell to cell.
+        temp.position.set(center[0], center[1], topHeight - thickness / 2);
         temp.rotation.set(0, 0, 0);
-        temp.scale.set(1, 1, renderHeight / geometryHeight);
+        temp.scale.set(1, 1, 1);
         temp.updateMatrix();
         mesh.setMatrixAt(count, temp.matrix);
-
         count += 1;
       }
     }
 
     mesh.count = count;
     mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor !== null) mesh.instanceColor.needsUpdate = true;
     mesh.computeBoundingSphere();
   }, [
     chunkIndex,
@@ -127,20 +177,21 @@ export function FieldGeneratedTiles({
     base.cellSize,
     base.dividerWidth,
     base.showDividers,
-    geometryHeight,
+    thickness,
     occupiedCellKeys,
     fieldConfig.chunks.cols,
     settings.generatedTilesEnabled,
     settings.worldSeed,
     settings.tileMinHeight,
     settings.tileMaxHeight,
-    theme.surfaceRaised,
+    settings.objectMinHeight,
+    settings.objectMaxHeight,
   ]);
 
   useLayoutEffect(() => {
     const mesh = meshRef.current;
-    if (mesh !== null) mesh.visible = chunkIndex !== null && settings.generatedTilesEnabled;
-  }, [chunkIndex, settings.generatedTilesEnabled]);
+    if (mesh !== null) mesh.visible = chunkIndex !== null;
+  }, [chunkIndex]);
 
   return (
     <instancedMesh

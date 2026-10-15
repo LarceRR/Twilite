@@ -31,10 +31,14 @@ varying float vWorldZ;
 
 void main() {
   vUv = uv;
-  vec4 world = modelMatrix * vec4(position, 1.0);
+  vec4 localPosition = vec4(position, 1.0);
+  #ifdef USE_INSTANCING
+    localPosition = instanceMatrix * localPosition;
+  #endif
+  vec4 world = modelMatrix * localPosition;
   vWorldXY = world.xy;
   vWorldZ = world.z;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  gl_Position = projectionMatrix * viewMatrix * world;
 }
 `;
 
@@ -166,6 +170,7 @@ void main() {
     alpha = max(alpha, wave);
   }
 
+  if (alpha <= 0.001) discard;
   gl_FragColor = vec4(color, alpha);
 }
 `;
@@ -212,6 +217,7 @@ export type FieldGridPixelLight = {
 };
 
 export type FieldGridWaveMaterial = ShaderMaterial & {
+  receivesPixelLights: boolean;
   uniforms: {
     uMap: { value: Texture | null };
     uOrigins: { value: Vector2[] };
@@ -280,13 +286,19 @@ function setPixelLightsOnMaterial(
   }
 }
 
+export type FieldGridWaveMaterialOptions = {
+  readonly depthWrite?: boolean;
+  readonly receivesPixelLights?: boolean;
+};
+
 export function createFieldGridWaveMaterial(
   map: Texture | null = null,
+  options: FieldGridWaveMaterialOptions = {},
 ): FieldGridWaveMaterial {
   const fieldConfig = getFieldConfig();
   const wave = fieldConfig.wave;
   const pixelGlow = fieldConfig.lighting.objectGlow.pixelOverlay;
-  return new ShaderMaterial({
+  const material = new ShaderMaterial({
     uniforms: {
       uMap: { value: map ?? transparentPixelTexture },
       uOrigins: { value: createOrigins() },
@@ -313,10 +325,12 @@ export function createFieldGridWaveMaterial(
     fragmentShader,
     side: DoubleSide,
     transparent: true,
-    depthWrite: false,
+    depthWrite: options.depthWrite ?? false,
     blending: NormalBlending,
     toneMapped: false,
   }) as FieldGridWaveMaterial;
+  material.receivesPixelLights = options.receivesPixelLights ?? true;
+  return material;
 }
 
 /** Register both the grid shader and platform overlays in one shared effects set. */
@@ -334,7 +348,7 @@ export function syncFieldGridPixelLights(
   lights: readonly FieldGridPixelLight[],
 ): void {
   for (const material of sceneWaveMaterials) {
-    setPixelLightsOnMaterial(material, lights);
+    setPixelLightsOnMaterial(material, material.receivesPixelLights ? lights : []);
   }
 }
 

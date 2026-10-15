@@ -1,6 +1,9 @@
 import Slider from '@react-native-community/slider';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { useEffect, useState, type ReactElement } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { Alert, StyleSheet, TextInput, View } from 'react-native';
 
 import { useThemeColors } from '@/design-system/colors/colors';
 import { BlurCard } from '@/design-system/components/BlurCard/BlurCard';
@@ -13,16 +16,120 @@ import {
   DEFAULT_FIELD_TILE_SETTINGS,
   useFieldTileStore,
 } from '@/domains/spaces/presentation/field/fieldTileStore';
+import { createRoundedSquarePlatformUvSvg } from '@/domains/spaces/presentation/field/fieldPlatformGeometry';
+import {
+  hydrateFieldTileTextureUri,
+  persistFieldTileTextureUri,
+} from '@/domains/spaces/presentation/field/fieldTileTexture';
+import { useFieldConfig } from '@/domains/spaces/presentation/field/useFieldConfig';
 
 export function DeveloperSceneTilesSettingsScreen(): ReactElement {
   const theme = useThemeColors();
   const settings = useFieldTileStore();
   const setOption = settings.setOption;
+  const fieldConfig = useFieldConfig();
   const [seedDraft, setSeedDraft] = useState(settings.worldSeed);
+  const [textureBusy, setTextureBusy] = useState(false);
 
   useEffect(() => {
     setSeedDraft(settings.worldSeed);
   }, [settings.worldSeed]);
+
+  useEffect(() => {
+    void hydrateFieldTileTextureUri();
+  }, []);
+
+  const addTexture = async (): Promise<void> => {
+    setTextureBusy(true);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['image/png', 'image/jpeg'],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      if (result.canceled) return;
+      const asset = result.assets[0];
+      if (asset === undefined) return;
+
+      const name = asset.name.toLowerCase();
+      const isPng = asset.mimeType === 'image/png' || name.endsWith('.png');
+      const isJpeg =
+        asset.mimeType === 'image/jpeg' || name.endsWith('.jpg') || name.endsWith('.jpeg');
+      if (!isPng && !isJpeg) {
+        Alert.alert('Неподдерживаемый файл', 'Выберите изображение PNG или JPG.');
+        return;
+      }
+
+      const directory = FileSystem.documentDirectory;
+      if (directory === null) {
+        throw new Error('Не удалось получить каталог приложения для текстур.');
+      }
+      const extension = isPng ? 'png' : 'jpg';
+      const destination =
+        directory + 'twilite-field-tile-' + Date.now().toString() + '.' + extension;
+      await FileSystem.copyAsync({ from: asset.uri, to: destination });
+      await persistFieldTileTextureUri(destination);
+    } catch (error) {
+      console.error('Не удалось загрузить текстуру плитки', error);
+      Alert.alert('Не удалось загрузить текстуру', 'Попробуйте выбрать PNG или JPG ещё раз.');
+    } finally {
+      setTextureBusy(false);
+    }
+  };
+
+  const removeTexture = async (): Promise<void> => {
+    const previousUri = settings.textureUri;
+    try {
+      await persistFieldTileTextureUri(null);
+      if (
+        previousUri !== null &&
+        FileSystem.documentDirectory !== null &&
+        previousUri.startsWith(FileSystem.documentDirectory)
+      ) {
+        await FileSystem.deleteAsync(previousUri, { idempotent: true });
+      }
+    } catch (error) {
+      console.error('Не удалось удалить текстуру плитки', error);
+      Alert.alert('Не удалось удалить текстуру', 'Попробуйте ещё раз.');
+    }
+  };
+
+  const exportUv = async (): Promise<void> => {
+    setTextureBusy(true);
+    try {
+      const directory = FileSystem.documentDirectory;
+      if (directory === null) {
+        throw new Error('Не удалось получить каталог приложения для UV-развёртки.');
+      }
+      const svg = createRoundedSquarePlatformUvSvg(
+        fieldConfig.grid.cellSizePx,
+        fieldConfig.platform.height,
+        fieldConfig.platform.cornerRadius,
+        fieldConfig.platform.edgeBevel,
+      );
+      const uri = directory + 'twilite-field-tile-uv-' + Date.now().toString() + '.svg';
+      await FileSystem.writeAsStringAsync(uri, svg, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+
+      if (!(await Sharing.isAvailableAsync())) {
+        Alert.alert(
+          'UV-развёртка создана',
+          'Файл записан во внутренний каталог приложения, но системное меню сохранения недоступно.',
+        );
+        return;
+      }
+      await Sharing.shareAsync(uri, {
+        mimeType: 'image/svg+xml',
+        dialogTitle: 'Сохранить UV-развёртку плитки',
+      });
+    } catch (error) {
+      console.error('Не удалось экспортировать UV-развёртку плитки', error);
+      Alert.alert('Не удалось скачать UV-развёртку', 'Попробуйте ещё раз.');
+    } finally {
+      setTextureBusy(false);
+    }
+  };
 
   return (
     <Screen title="Плитки поля" reserveTabBar={false}>
@@ -65,10 +172,14 @@ export function DeveloperSceneTilesSettingsScreen(): ReactElement {
         </Text>
       </BlurCard>
 
-      <BlurCard title="Высота плиток">
-        <Text variant="caption">Все пустые плитки используют общий диапазон уровней 0–3. Каждый уровень равен двум единицам высоты сцены. Активная зона не влияет на высоту.</Text>
+      <BlurCard title="Общая геометрия">
+        <Text variant="caption">
+          Все ячейки используют один тип плитки. Толщина задаётся настройкой геометрии
+          ({fieldConfig.platform.height} единиц) и не зависит от высоты расположения.
+          Меняется только положение верхней грани.
+        </Text>
         <NumberSetting
-          title="Все плитки: минимум"
+          title="Обычные ячейки: минимум"
           value={settings.tileMinHeight}
           min={0}
           max={3}
@@ -77,7 +188,7 @@ export function DeveloperSceneTilesSettingsScreen(): ReactElement {
           }
         />
         <NumberSetting
-          title="Все плитки: максимум"
+          title="Обычные ячейки: максимум"
           value={settings.tileMaxHeight}
           min={0}
           max={3}
@@ -86,7 +197,7 @@ export function DeveloperSceneTilesSettingsScreen(): ReactElement {
           }
         />
         <NumberSetting
-          title="Платформы с объектами: минимум"
+          title="Ячейки с объектами: минимум"
           value={settings.objectMinHeight}
           min={Math.min(24, settings.tileMaxHeight * 2 + 1)}
           max={24}
@@ -95,7 +206,7 @@ export function DeveloperSceneTilesSettingsScreen(): ReactElement {
           }
         />
         <NumberSetting
-          title="Платформы с объектами: максимум"
+          title="Ячейки с объектами: максимум"
           value={settings.objectMaxHeight}
           min={settings.objectMinHeight}
           max={24}
@@ -103,6 +214,38 @@ export function DeveloperSceneTilesSettingsScreen(): ReactElement {
             setOption('objectMaxHeight', Math.max(value, settings.objectMinHeight))
           }
         />
+      </BlurCard>
+
+      <BlurCard title="Текстура плитки">
+        <Text variant="caption">
+          Выбранное изображение будет использоваться всеми плитками, в том числе под объектами.
+          Поддерживаются PNG и JPG.
+        </Text>
+        <Button
+          label={
+            textureBusy
+              ? 'Подготовка…'
+              : settings.textureUri === null
+                ? 'Добавить текстуру'
+                : 'Заменить текстуру'
+          }
+          onPress={() => void addTexture()}
+        />
+        {settings.textureUri !== null ? (
+          <>
+            <Text variant="caption">Пользовательская текстура выбрана.</Text>
+            <Button label="Убрать текстуру" onPress={() => void removeTexture()} />
+          </>
+        ) : null}
+        <Button
+          label={textureBusy ? 'Подготовка…' : 'Скачать UV-развёртку плитки'}
+          onPress={() => void exportUv()}
+        />
+        <Text variant="caption">
+          Развёртка автоматически строится по UV-координатам той же геометрии, что используется
+          в сцене: {fieldConfig.grid.cellSizePx}×{fieldConfig.grid.cellSizePx}, толщина{' '}
+          {fieldConfig.platform.height}. Системное меню позволит сохранить файл на телефон.
+        </Text>
       </BlurCard>
     </Screen>
   );
