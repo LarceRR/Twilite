@@ -75,6 +75,20 @@ describe('fieldConfigJson', () => {
     ).toThrow(/камера/i);
   });
 
+  it('rejects imported configs that can trigger unbounded scene work', () => {
+    expect(() =>
+      parseFieldConfigJson(JSON.stringify({ fireflies: { clusterMaxEmitters: 1000 } })),
+    ).toThrow(/светлячков/i);
+
+    expect(() =>
+      parseFieldConfigJson(JSON.stringify({ grid: { rows: 10000 } })),
+    ).toThrow(/размеры сетки/i);
+
+    expect(() =>
+      parseFieldConfigJson(JSON.stringify({ lighting: { shadows: { mapSizePx: 1024 } } })),
+    ).toThrow(/shadow-камеры/i);
+  });
+
   it('reports malformed JSON clearly', () => {
     expect(() => parseFieldConfigJson('{')).toThrow(/JSON/);
   });
