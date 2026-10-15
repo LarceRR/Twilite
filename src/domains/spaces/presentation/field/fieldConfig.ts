@@ -179,6 +179,9 @@ export type FieldConfig = {
     readonly spawnDistance: number;
     readonly clusterMaxEmitters: number;
     readonly clusterNeighbourDistanceMultiplier: number;
+    readonly minimumClusterNeighbourDistance: number;
+    readonly clusterDistanceMinCellMultiplier: number;
+    readonly clusterDistanceMaxCellMultiplier: number;
     readonly clusterRadiusOffsetCellMultiplier: number;
     readonly clusterRadiusMinCellMultiplier: number;
     readonly clusterRadiusMaxCellMultiplier: number;
@@ -405,6 +408,9 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
     spawnDistance: 900,
     clusterMaxEmitters: 256,
     clusterNeighbourDistanceMultiplier: 1.55,
+    minimumClusterNeighbourDistance: 1,
+    clusterDistanceMinCellMultiplier: 1,
+    clusterDistanceMaxCellMultiplier: 4,
     clusterRadiusOffsetCellMultiplier: 0.42,
     clusterRadiusMinCellMultiplier: 0.55,
     clusterRadiusMaxCellMultiplier: 3.5,
