@@ -61,10 +61,6 @@ export function FieldSpaceCanvas({
           style={styles.canvas}
           camera={camera}
           gl={gl}
-          onCreated={({ gl: renderer }) => {
-            // Keep the internal framebuffer below the phone's native 3x density.
-            renderer.setPixelRatio(1.5);
-          }}
           // Tiles and pixel-art are authored as final display colors: keep sRGB
           // output but skip filmic tone mapping, which washes out the palette.
           flat
