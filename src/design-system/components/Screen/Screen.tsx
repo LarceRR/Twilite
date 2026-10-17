@@ -64,6 +64,9 @@ function ScreenComponent({
     !skipTopSafeArea &&
     (enableNativeHeader || !isTabRootPath(pathname));
   const useGradientNativeHeader = useNativeHeader && Platform.OS === 'ios';
+  // A tab root opted into its own nested Stack already has its header accounted
+  // for by that stack. Adding a second spacer doubles the top blank area.
+  const needsManualHeaderInset = useGradientNativeHeader && !enableNativeHeader;
   const showBack = shouldShowScreenBack({
     hideBack,
     isFocused,
@@ -141,7 +144,7 @@ function ScreenComponent({
             { paddingTop: useGradientNativeHeader ? 0 : topPadding },
           ]}
         >
-          {useGradientNativeHeader ? <NativeHeaderInset /> : null}
+          {needsManualHeaderInset ? <NativeHeaderInset /> : null}
           {customHeader}
           <View
             style={[
@@ -176,7 +179,7 @@ function ScreenComponent({
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {useGradientNativeHeader ? <NativeHeaderInset /> : null}
+        {needsManualHeaderInset ? <NativeHeaderInset /> : null}
         {customHeader}
         {contentSubtitle}
         {children}
