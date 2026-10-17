@@ -35,7 +35,7 @@ export type ScreenProps = {
   /** Optional trailing action in the native navigation header. */
   readonly headerRight?: ReactNode;
   /** Opt a tab root into its own nested native-stack header. */
-  readonly nativeHeader?: boolean;
+  readonly enableNativeHeader?: boolean;
 };
 
 function ScreenComponent({
@@ -49,7 +49,7 @@ function ScreenComponent({
   hideHeader = false,
   contentGutter = layout.screenGutter,
   headerRight,
-  nativeHeader = false,
+  enableNativeHeader = false,
 }: ScreenProps): ReactElement {
   const insets = useSafeAreaInsets();
   const theme = useThemeColors();
@@ -62,7 +62,7 @@ function ScreenComponent({
   const useNativeHeader =
     resolvedTitle !== undefined &&
     !skipTopSafeArea &&
-    (nativeHeader || !isTabRootPath(pathname));
+    (enableNativeHeader || !isTabRootPath(pathname));
   const useGradientNativeHeader = useNativeHeader && Platform.OS === 'ios';
   const showBack = shouldShowScreenBack({
     hideBack,

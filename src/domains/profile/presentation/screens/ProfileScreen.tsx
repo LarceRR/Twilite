@@ -35,7 +35,7 @@ export function ProfileScreen(): ReactElement {
     profile?.email ?? (status === 'authenticated' ? 'Почта не указана' : 'Войдите в аккаунт');
 
   return (
-    <Screen title="Профиль" nativeHeader>
+    <Screen title="Профиль" enableNativeHeader>
       <BlurCard>
         <View style={styles.identity}>
           <Pressable
