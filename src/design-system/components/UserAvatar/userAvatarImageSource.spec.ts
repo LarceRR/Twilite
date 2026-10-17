@@ -7,6 +7,12 @@ describe('userAvatarImageSource', () => {
     expect(userAvatarImageSource(' https://assets.example/avatar.png ', null)).toBeNull();
   });
 
+  it('keeps legacy public avatar sources working when no auth prop is supplied', () => {
+    expect(userAvatarImageSource('https://assets.example/public-avatar.png', undefined)).toEqual({
+      uri: 'https://assets.example/public-avatar.png',
+    });
+  });
+
   it('adds session headers to remote avatar requests', () => {
     expect(
       userAvatarImageSource('https://assets.example/avatar.png', {

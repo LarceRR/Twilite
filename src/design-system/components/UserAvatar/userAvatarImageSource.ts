@@ -1,6 +1,6 @@
 import type { ImageURISource } from 'react-native';
 
-export type UserAvatarImageHeaders = Readonly<Record<string, string>> | null;
+export type UserAvatarImageHeaders = Readonly<Record<string, string>> | null | undefined;
 
 /**
  * Twilite's remote avatar assets require a valid session token. Avoid sending
@@ -17,7 +17,7 @@ export function userAvatarImageSource(
   const isRemote = /^https?:\/\//i.test(normalizedUri);
   if (isRemote && headers === null) return null;
 
-  if (isRemote && headers !== null) {
+  if (isRemote && headers !== undefined) {
     return {
       uri: normalizedUri,
       headers: { ...headers },

@@ -58,7 +58,7 @@ export function avatarTint(seed: string): string {
 function UserAvatarComponent({
   name,
   imageUrl = null,
-  imageHeaders = null,
+  imageHeaders,
   size = DEFAULT_SIZE,
   seed,
   ringColor = null,
