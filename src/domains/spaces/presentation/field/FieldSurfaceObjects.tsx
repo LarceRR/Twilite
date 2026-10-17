@@ -439,6 +439,12 @@ export function FieldSurfaceObjects({
         fly.retireInSec = Math.max(0, fly.retireInSec - delta);
       }
       advanceFirefly(fly, delta, fireflyConfig);
+      // The particle can cross a chunk boundary during this frame.
+      const movedFlyChunkIndex = Math.floor(fly.x / fieldChunkWorldWidth);
+      if (fly.x < 0 || !loadedChunkSet.has(movedFlyChunkIndex)) {
+        simulation.flies.splice(index, 1);
+        continue;
+      }
       if (
         fly.ageSec >= fly.lifetimeSec ||
         (fly.retireInSec !== null && fly.retireInSec <= 0)
