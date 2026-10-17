@@ -26,14 +26,14 @@ describe('fieldGridActiveCells', () => {
   });
 
   it('dims tiles symmetrically from the central row', () => {
-    expect(fieldGridSideBrightness(7, rows, 2)).toBe(1);
-    expect(fieldGridSideBrightness(6, rows, 2)).toBeCloseTo(0.58);
-    expect(fieldGridSideBrightness(8, rows, 2)).toBeCloseTo(0.58);
-    expect(fieldGridSideBrightness(5, rows, 2)).toBeCloseTo(0.58 ** 2);
-    expect(fieldGridSideBrightness(9, rows, 2)).toBeCloseTo(0.58 ** 2);
-    expect(fieldGridSideBrightness(3, rows, 2)).toBeCloseTo(0.58 ** 4);
-    expect(fieldGridSideBrightness(0, rows, 2)).toBe(0.1);
-    expect(fieldGridSideBrightness(14, rows, 2)).toBe(0.1);
+    expect(fieldGridSideBrightness(7, rows)).toBe(1);
+    expect(fieldGridSideBrightness(6, rows)).toBeCloseTo(0.58);
+    expect(fieldGridSideBrightness(8, rows)).toBeCloseTo(0.58);
+    expect(fieldGridSideBrightness(5, rows)).toBeCloseTo(0.58 ** 2);
+    expect(fieldGridSideBrightness(9, rows)).toBeCloseTo(0.58 ** 2);
+    expect(fieldGridSideBrightness(3, rows)).toBeCloseTo(0.58 ** 4);
+    expect(fieldGridSideBrightness(0, rows)).toBe(0.1);
+    expect(fieldGridSideBrightness(14, rows)).toBe(0.1);
   });
 
   it('center-row active cells use stable XY labels X2,Y8 X3,Y8 X4,Y8 X5,Y8…', () => {

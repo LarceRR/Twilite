@@ -30,11 +30,7 @@ export function fieldGridCenterRow(rows: number): number {
 const FIELD_SIDE_TILE_BRIGHTNESS_FALLOFF = 0.58;
 const FIELD_SIDE_TILE_MIN_BRIGHTNESS = 0.1;
 
-export function fieldGridSideBrightness(
-  row: number,
-  rows: number,
-  sideSpan: number = getFieldConfig().activeCells.sideSpan,
-): number {
+export function fieldGridSideBrightness(row: number, rows: number): number {
   const center = fieldGridCenterRow(rows);
   const distanceFromCenter = Math.abs(row - center);
   return Math.max(

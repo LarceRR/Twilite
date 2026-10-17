@@ -234,11 +234,7 @@ export function FieldGeneratedTiles({
         temp.scale.set(1, 1, 1);
         temp.updateMatrix();
         mesh.setMatrixAt(count, temp.matrix);
-        sideDim[count] = fieldGridSideBrightness(
-          row,
-          base.rows,
-          fieldConfig.activeCells.sideSpan,
-        );
+        sideDim[count] = fieldGridSideBrightness(row, base.rows);
         if (isOccupied) {
           glow[count * 3] = glowR / 255;
           glow[count * 3 + 1] = glowG / 255;
