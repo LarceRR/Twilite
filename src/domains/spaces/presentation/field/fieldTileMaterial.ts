@@ -11,9 +11,9 @@ import { FIELD_WAVE_MAX_COUNT } from './fieldGridWave';
 const TILE_ROUGHNESS = 0.9;
 const TILE_METALNESS = 0;
 /** A subtle glazed-metal finish used only where an object occupies the tile. */
-const OCCUPIED_TILE_ROUGHNESS = 0.42;
-const OCCUPIED_TILE_METALNESS = 0.18;
-const OCCUPIED_TILE_GLOW_TINT = 0.5;
+const OCCUPIED_TILE_ROUGHNESS = 0.34;
+const OCCUPIED_TILE_METALNESS = 0.24;
+const OCCUPIED_TILE_GLOW_TINT = 0.08;
 /** Procedural, low-cost pixel grain; no extra texture samples or geometry. */
 const OCCUPIED_TILE_MICRO_SCALE = 0.28;
 const OCCUPIED_TILE_COLOR_VARIATION = 0.06;
@@ -22,9 +22,9 @@ const OCCUPIED_TILE_ROUGHNESS_VARIATION = 0.09;
  * Preserve most physical lighting on glowing tiles. The old 0.9 suppression
  * made their emissive colour read as one flat, featureless rectangle.
  */
-const OCCUPIED_TILE_LIGHT_SUPPRESSION = 0.28;
+const OCCUPIED_TILE_LIGHT_SUPPRESSION = 0.08;
 /** Emission remains visible but no longer overwhelms all surface shading. */
-const TILE_EMISSIVE_GAIN = 1.65;
+const TILE_EMISSIVE_GAIN = 0.55;
 const TILE_EMISSIVE_MAX = 0.82;
 /** The warm "emissive floor" is only a faint bounce-light tint. */
 const TILE_EMISSIVE_FLOOR_SCALE = 0.18;
@@ -148,8 +148,8 @@ float fieldGlowMask = smoothstep( 0.001, 0.08, fieldGlowMax );
 vec3 fieldMicroCell = floor( vFieldWorldPos * ${OCCUPIED_TILE_MICRO_SCALE.toFixed(2)} );
 float fieldMicroNoise = fieldTileHash( fieldMicroCell );
 
-// Tint the base material towards the warm glow instead of letting emission
-// replace all its shading. This applies only to instances with aGlow set.
+// Keep only a slight warm tint in the albedo. A strong fixed tint makes the
+// whole tile stay yellow even when its actual light energy is reduced.
 diffuseColor.rgb = mix(
   diffuseColor.rgb,
   vGlow,
@@ -181,8 +181,8 @@ const fragmentBody = /* glsl */ `
   vec3 fieldNormal = normalize( inverseTransformDirection( normal, viewMatrix ) );
   vec3 fieldAlbedo = diffuseColor.rgb;
 
-  // Occupied tiles remain emissive, but real direct-light shading and highlights
-  // are now visible instead of being almost completely suppressed.
+  // Occupied tiles retain a restrained warm emission so direct lighting,
+  // material variation and bevel shading remain visible.
   float glowMax = max( vGlow.r, max( vGlow.g, vGlow.b ) );
   float glowMask = saturate( glowMax * 8.0 );
 
