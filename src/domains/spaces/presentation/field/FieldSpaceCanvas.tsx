@@ -12,6 +12,7 @@ import { FieldSpaceCamera } from './FieldSpaceCamera';
 import { FieldSpaceScene } from './FieldSpaceScene';
 import { fieldCameraOpticsFromConfig } from './fieldCameraFraming';
 import { getFieldConfig } from './fieldConfigStore';
+import { getFieldPerformanceSnapshot } from './fieldPerformanceDiagnostics';
 
 /**
  * Expo / R3F native canvas for the Field tab.
@@ -63,12 +64,37 @@ export function FieldSpaceCanvas({
   const recoveryPendingRef = useRef(false);
   const [canvasEpoch, setCanvasEpoch] = useState(0);
 
+  const lastCanvasRecoveryAtRef = useRef(0);
   const recoverCanvas = useCallback(() => {
     if (!recoveryPendingRef.current) return;
     recoveryPendingRef.current = false;
+    lastCanvasRecoveryAtRef.current = Date.now();
     requeueFieldChunkGpuUploadsAfterContextRestore();
     setCanvasEpoch((current) => current + 1);
   }, []);
+
+  // Some GL stalls happen without a route/AppState transition (for example
+  // after a long idle). If the R3F frame monitor stops publishing while this
+  // scene is still active, recreate the canvas once and re-upload its textures.
+  useEffect(() => {
+    if (!isFocused) return;
+
+    const watchdog = setInterval(() => {
+      if (AppState.currentState !== 'active' || !isFocusedRef.current) return;
+      const snapshot = getFieldPerformanceSnapshot();
+      if (snapshot === null) return;
+
+      const now = Date.now();
+      const staleForMs = now - snapshot.sampledAtMs;
+      const sinceRecoveryMs = now - lastCanvasRecoveryAtRef.current;
+      if (staleForMs < 12_000 || sinceRecoveryMs < 30_000) return;
+
+      recoveryPendingRef.current = true;
+      recoverCanvas();
+    }, 3_000);
+
+    return () => clearInterval(watchdog);
+  }, [isFocused, recoverCanvas]);
 
   useEffect(() => {
     if (!isFocused) {
