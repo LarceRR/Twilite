@@ -1,3 +1,4 @@
+import { useHeaderHeight } from '@react-navigation/elements';
 import { Stack, useIsFocused, usePathname, useRouter } from 'expo-router';
 import { memo, type ReactElement, type ReactNode } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
@@ -62,6 +63,7 @@ function ScreenComponent({
     resolvedTitle !== undefined &&
     !skipTopSafeArea &&
     (nativeHeader || !isTabRootPath(pathname));
+  const useGradientNativeHeader = useNativeHeader && Platform.OS === 'ios';
   const showBack = shouldShowScreenBack({
     hideBack,
     isFocused,
@@ -132,7 +134,14 @@ function ScreenComponent({
     return (
       <>
         {nativeHeader}
-        <View style={[styles.root, background, { paddingTop: topPadding }]}>
+        <View
+          style={[
+            styles.root,
+            background,
+            { paddingTop: useGradientNativeHeader ? 0 : topPadding },
+          ]}
+        >
+          {useGradientNativeHeader ? <NativeHeaderInset /> : null}
           {customHeader}
           <View
             style={[
@@ -156,23 +165,29 @@ function ScreenComponent({
         contentContainerStyle={[
           styles.scrollBody,
           {
-            paddingTop: topPadding,
+            paddingTop: useGradientNativeHeader ? 0 : topPadding,
             paddingBottom: bottomPadding,
             paddingHorizontal: contentGutter,
           },
         ]}
         contentInsetAdjustmentBehavior={
-          Platform.OS === 'ios' && (useNativeHeader || !reserveTabBar) ? 'automatic' : 'never'
+          Platform.OS === 'ios' && !useNativeHeader && !reserveTabBar ? 'automatic' : 'never'
         }
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {useGradientNativeHeader ? <NativeHeaderInset /> : null}
         {customHeader}
         {contentSubtitle}
         {children}
       </ScrollView>
     </>
   );
+}
+
+function NativeHeaderInset(): ReactElement {
+  const headerHeight = useHeaderHeight();
+  return <View style={{ height: headerHeight }} />;
 }
 
 export const Screen = memo(ScreenComponent);
