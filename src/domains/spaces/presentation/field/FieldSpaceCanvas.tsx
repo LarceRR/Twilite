@@ -12,7 +12,7 @@ import { FieldSpaceCamera } from './FieldSpaceCamera';
 import { FieldSpaceScene } from './FieldSpaceScene';
 import { fieldCameraOpticsFromConfig } from './fieldCameraFraming';
 import { getFieldConfig } from './fieldConfigStore';
-import { getFieldPerformanceSnapshot } from './fieldPerformanceDiagnostics';
+import { getLastFieldFrameAtMs } from './fieldPerformanceDiagnostics';
 
 /**
  * Expo / R3F native canvas for the Field tab.
@@ -65,13 +65,21 @@ export function FieldSpaceCanvas({
   const [canvasEpoch, setCanvasEpoch] = useState(0);
 
   const lastCanvasRecoveryAtRef = useRef(0);
+  const canvasMountedAtRef = useRef(Date.now());
+  const watchdogArmedRef = useRef(true);
+
   const recoverCanvas = useCallback(() => {
     if (!recoveryPendingRef.current) return;
     recoveryPendingRef.current = false;
     lastCanvasRecoveryAtRef.current = Date.now();
+    watchdogArmedRef.current = false;
     requeueFieldChunkGpuUploadsAfterContextRestore();
     setCanvasEpoch((current) => current + 1);
   }, []);
+
+  useEffect(() => {
+    canvasMountedAtRef.current = Date.now();
+  }, [canvasEpoch]);
 
   // Some GL stalls happen without a route/AppState transition (for example
   // after a long idle). If the R3F frame monitor stops publishing while this
@@ -81,13 +89,20 @@ export function FieldSpaceCanvas({
 
     const watchdog = setInterval(() => {
       if (AppState.currentState !== 'active' || !isFocusedRef.current) return;
-      const snapshot = getFieldPerformanceSnapshot();
-      if (snapshot === null) return;
 
       const now = Date.now();
-      const staleForMs = now - snapshot.sampledAtMs;
-      const sinceRecoveryMs = now - lastCanvasRecoveryAtRef.current;
-      if (staleForMs < 12_000 || sinceRecoveryMs < 30_000) return;
+      const lastFrameAtMs = getLastFieldFrameAtMs();
+      const currentCanvasHasFramed =
+        lastFrameAtMs >= canvasMountedAtRef.current &&
+        lastFrameAtMs > lastCanvasRecoveryAtRef.current;
+
+      // Re-arm only after the current Canvas renders a frame. If recreation
+      // fails, do not cycle through context allocations every few seconds.
+      if (currentCanvasHasFramed) watchdogArmedRef.current = true;
+      if (!watchdogArmedRef.current) return;
+
+      const heartbeatAt = currentCanvasHasFramed ? lastFrameAtMs : canvasMountedAtRef.current;
+      if (now - heartbeatAt < 12_000) return;
 
       recoveryPendingRef.current = true;
       recoverCanvas();
