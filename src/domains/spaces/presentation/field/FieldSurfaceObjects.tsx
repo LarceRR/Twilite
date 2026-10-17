@@ -62,6 +62,11 @@ import {
   type FireflyEmitter,
 } from './fieldFireflies';
 
+// Keep object IDs that have already appeared across Canvas/route remounts.
+// The set lives at module scope because a new GL context must not replay the
+// entrance animation of objects that were already visible before recovery.
+const seenFieldObjectIds = new Set<string>();
+
 const billboardCameraPosition = new Vector3();
 const fireflyVertexShader = /* glsl */ `
 precision highp float;
@@ -778,7 +783,9 @@ type AppearanceState = {
 
 function useAppearingObjects(objects: readonly SurfaceObject[]): AppearanceState {
   const [appearing, setAppearing] = useState<ReadonlyMap<string, number>>(() =>
-    staggerAppearanceDelays(objects.map((object) => object.id)),
+    staggerAppearanceDelays(
+      objects.filter((object) => !seenFieldObjectIds.has(object.id)).map((object) => object.id),
+    ),
   );
   const known = useRef(new Set(objects.map((object) => object.id)));
   const nextAppearanceAt = useRef(
@@ -787,7 +794,10 @@ function useAppearingObjects(objects: readonly SurfaceObject[]): AppearanceState
 
   useLayoutEffect(() => {
     const newIds = collectNewObjectIds(objects, known.current);
-    for (const object of objects) known.current.add(object.id);
+    for (const object of objects) {
+      known.current.add(object.id);
+      seenFieldObjectIds.add(object.id);
+    }
     if (newIds.length > 0) {
       const now = Date.now();
       const firstDelayMs = Math.max(0, nextAppearanceAt.current - now);
@@ -826,5 +836,7 @@ function collectNewObjectIds(
   objects: readonly SurfaceObject[],
   known: ReadonlySet<string>,
 ): readonly string[] {
-  return objects.filter((object) => !known.has(object.id)).map((object) => object.id);
+  return objects
+    .filter((object) => !known.has(object.id) && !seenFieldObjectIds.has(object.id))
+    .map((object) => object.id);
 }

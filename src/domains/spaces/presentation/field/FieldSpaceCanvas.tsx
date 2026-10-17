@@ -59,7 +59,6 @@ export function FieldSpaceCanvas({
   const isFocused = useIsFocused();
   const isFocusedRef = useRef(isFocused);
   isFocusedRef.current = isFocused;
-  const previousFocusRef = useRef(isFocused);
   const appStateRef = useRef<AppStateStatus | null>(AppState.currentState ?? null);
   const recoveryPendingRef = useRef(false);
   const [canvasEpoch, setCanvasEpoch] = useState(0);
@@ -112,13 +111,11 @@ export function FieldSpaceCanvas({
   }, [isFocused, recoverCanvas]);
 
   useEffect(() => {
-    if (!isFocused) {
-      recoveryPendingRef.current = true;
-    } else if (!previousFocusRef.current && recoveryPendingRef.current) {
-      recoverCanvas();
-    }
-    previousFocusRef.current = isFocused;
-  }, [isFocused, recoverCanvas]);
+    // Losing route focus is not proof that GL is stale. In particular, closing
+    // a create sheet must not recreate the whole scene. The frame watchdog
+    // will recover only if the renderer really stopped producing frames.
+    if (!isFocused) recoveryPendingRef.current = true;
+  }, [isFocused]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
