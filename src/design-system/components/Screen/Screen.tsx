@@ -1,4 +1,4 @@
-import { useIsFocused, usePathname, useRouter } from 'expo-router';
+import { Stack, useIsFocused, usePathname, useRouter } from 'expo-router';
 import { memo, type ReactElement, type ReactNode } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,6 +30,8 @@ export type ScreenProps = {
   readonly hideHeader?: boolean;
   /** Horizontal inset. Sheets that specify their own gutter pass it here. */
   readonly contentGutter?: number;
+  /** Optional trailing action in the native navigation header. */
+  readonly headerRight?: ReactNode;
 };
 
 function ScreenComponent({
@@ -42,6 +44,7 @@ function ScreenComponent({
   skipTopSafeArea = false,
   hideHeader = false,
   contentGutter = layout.screenGutter,
+  headerRight,
 }: ScreenProps): ReactElement {
   const insets = useSafeAreaInsets();
   const theme = useThemeColors();
@@ -49,6 +52,10 @@ function ScreenComponent({
   const pathname = usePathname();
   const isFocused = useIsFocused();
   const resolvedTitle = screenHeaderTitle(hideHeader, title, resolvePageTitle(pathname));
+  // Regular pushed pages use the platform navigation header. Tab roots and
+  // native sheets retain their custom chrome, while iOS owns the back animation.
+  const useNativeHeader =
+    resolvedTitle !== undefined && !skipTopSafeArea && !isTabRootPath(pathname);
   const showBack = shouldShowScreenBack({
     hideBack,
     isFocused,
@@ -56,11 +63,35 @@ function ScreenComponent({
     canGoBack: router.canGoBack(),
   });
   const bottomPadding = tabScreenBottomPadding(insets.bottom, reserveTabBar);
-  const topPadding = screenTopPadding(insets.top, skipTopSafeArea);
+  const topPadding = screenTopPadding(insets.top, skipTopSafeArea || useNativeHeader);
   const background = { backgroundColor: theme.surface };
 
-  const header =
-    resolvedTitle === undefined ? null : (
+  const nativeHeader = useNativeHeader ? (
+    <Stack.Screen
+      options={{
+        headerShown: true,
+        title: resolvedTitle,
+        headerTitleAlign: 'center',
+        headerBackButtonDisplayMode: 'minimal',
+        headerBackVisible: !hideBack,
+        headerTintColor: theme.textPrimary,
+        headerTitleStyle: { color: theme.textPrimary },
+        headerShadowVisible: false,
+        ...(Platform.OS === 'ios' ? {} : { headerStyle: { backgroundColor: theme.surface } }),
+        ...(headerRight === undefined ? {} : { headerRight: () => headerRight }),
+      }}
+    />
+  ) : null;
+
+  const contentSubtitle =
+    useNativeHeader && subtitle !== undefined ? (
+      <Text variant="caption" color={theme.textSecondary} style={styles.contentSubtitle}>
+        {subtitle}
+      </Text>
+    ) : null;
+
+  const customHeader =
+    useNativeHeader || resolvedTitle === undefined ? null : (
       <View style={styles.header}>
         <View style={[styles.titleRow, showBack ? styles.titleRowWithBack : null]}>
           {showBack ? (
@@ -87,36 +118,48 @@ function ScreenComponent({
 
   if (!scroll) {
     return (
-      <View style={[styles.root, background, { paddingTop: topPadding }]}>
-        {header}
-        <View
-          style={[
-            styles.flexBody,
-            { paddingBottom: bottomPadding, paddingHorizontal: contentGutter },
-          ]}
-        >
-          {children}
+      <>
+        {nativeHeader}
+        <View style={[styles.root, background, { paddingTop: topPadding }]}>
+          {customHeader}
+          <View
+            style={[
+              styles.flexBody,
+              { paddingBottom: bottomPadding, paddingHorizontal: contentGutter },
+            ]}
+          >
+            {contentSubtitle}
+            {children}
+          </View>
         </View>
-      </View>
+      </>
     );
   }
 
   return (
-    <ScrollView
-      style={[styles.root, background]}
-      contentContainerStyle={[
-        styles.scrollBody,
-        { paddingTop: topPadding, paddingBottom: bottomPadding, paddingHorizontal: contentGutter },
-      ]}
-      contentInsetAdjustmentBehavior={
-        Platform.OS === 'ios' && !reserveTabBar ? 'automatic' : 'never'
-      }
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-    >
-      {header}
-      {children}
-    </ScrollView>
+    <>
+      {nativeHeader}
+      <ScrollView
+        style={[styles.root, background]}
+        contentContainerStyle={[
+          styles.scrollBody,
+          {
+            paddingTop: topPadding,
+            paddingBottom: bottomPadding,
+            paddingHorizontal: contentGutter,
+          },
+        ]}
+        contentInsetAdjustmentBehavior={
+          Platform.OS === 'ios' && !reserveTabBar && !useNativeHeader ? 'automatic' : 'never'
+        }
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {customHeader}
+        {contentSubtitle}
+        {children}
+      </ScrollView>
+    </>
   );
 }
 
@@ -156,6 +199,9 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   subtitle: {
+    maxWidth: layout.maxContentWidth,
+  },
+  contentSubtitle: {
     maxWidth: layout.maxContentWidth,
   },
 });

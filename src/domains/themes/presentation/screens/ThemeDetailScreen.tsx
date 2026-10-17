@@ -53,7 +53,21 @@ export function ThemeDetailScreen(): ReactElement {
   const isActive = detail.data !== undefined && detail.data.id === active.id;
 
   return (
-    <Screen title={detail.data?.name ?? 'Тема'} reserveTabBar={false}>
+    <Screen
+      title={detail.data?.name ?? 'Тема'}
+      reserveTabBar={false}
+      headerRight={
+        detail.data === undefined ? undefined : (
+          <Button
+            label={isActive ? 'Уже используется' : 'Выбрать'}
+            compact
+            onPress={() => apply.mutate(detail.data!)}
+            disabled={isActive || apply.isPending}
+            loading={apply.isPending}
+          />
+        )
+      }
+    >
       {detail.isLoading ? (
         <ActivityIndicator color={theme.textSecondary} style={{ marginTop: spacing.xl }} />
       ) : null}
@@ -108,12 +122,6 @@ export function ThemeDetailScreen(): ReactElement {
             </View>
           </BlurCard>
 
-          <Button
-            label={isActive ? 'Уже используется' : 'Использовать'}
-            onPress={() => apply.mutate(detail.data)}
-            disabled={isActive || apply.isPending}
-            loading={apply.isPending}
-          />
         </>
       ) : null}
     </Screen>
