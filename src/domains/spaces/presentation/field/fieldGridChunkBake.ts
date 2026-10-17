@@ -170,6 +170,19 @@ export function syncMountedChunkWindow(
   };
 }
 
+/**
+ * A recreated Expo GL context owns a new GPU resource state. Requeue pooled
+ * textures so readiness from the previous renderer is never reused.
+ */
+export function requeueFieldChunkGpuUploadsAfterContextRestore(): void {
+  uploadQueue.length = 0;
+  for (const entry of texturePool.values()) {
+    entry.gpuReady = false;
+    entry.texture.needsUpdate = true;
+    uploadQueue.push(entry.key);
+  }
+}
+
 export function pendingFieldChunkGpuUploads(): number {
   return uploadQueue.length;
 }

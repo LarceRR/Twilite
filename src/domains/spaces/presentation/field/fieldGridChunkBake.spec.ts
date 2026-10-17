@@ -15,6 +15,7 @@ import {
   prioritizeFieldChunkGpuUploads,
   isFieldChunkGpuReady,
   resolveMountedChunkIds,
+  requeueFieldChunkGpuUploadsAfterContextRestore,
   syncMountedChunkWindow,
   evictFieldChunkBakes,
 } from './fieldGridChunkBake';
@@ -133,6 +134,23 @@ describe('fieldGridChunkBake', () => {
     expect(isFieldChunkGpuReady(req)).toBe(true);
     expect(pendingFieldChunkGpuUploads()).toBe(0);
     expect(prepareFieldChunkTexture(req)).toBe(texture);
+  });
+
+  it('requeues pooled textures after a renderer context restore', () => {
+    const req = request(2);
+    const texture = prepareFieldChunkTexture(req);
+    const firstRenderer = { initTexture: vi.fn() } as unknown as WebGLRenderer;
+    pumpFieldChunkGpuUploads(firstRenderer, 1);
+    expect(isFieldChunkGpuReady(req)).toBe(true);
+
+    requeueFieldChunkGpuUploadsAfterContextRestore();
+
+    expect(isFieldChunkGpuReady(req)).toBe(false);
+    expect(pendingFieldChunkGpuUploads()).toBe(1);
+    const restoredRenderer = { initTexture: vi.fn() } as unknown as WebGLRenderer;
+    expect(pumpFieldChunkGpuUploads(restoredRenderer, 1)).toBe(1);
+    expect(restoredRenderer.initTexture).toHaveBeenCalledWith(texture);
+    expect(isFieldChunkGpuReady(req)).toBe(true);
   });
 
   it('uploads the chunk nearest the camera before older prefetch work', () => {

@@ -1,10 +1,12 @@
 import { Canvas } from '@react-three/fiber/native';
-import { useMemo, type ReactElement } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useIsFocused } from 'expo-router';
+import { AppState, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import type { AuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAssetHeaders';
 import { useSceneColors } from '@/design-system/colors/colors';
 import type { SurfaceObject } from '@/domains/spaces/domain/entities/SurfaceObject';
 import { FieldCameraSwipeControls } from './FieldCameraSwipeControls';
+import { requeueFieldChunkGpuUploadsAfterContextRestore } from './fieldGridChunkBake';
 import { FieldPerformanceOverlay } from './FieldPerformanceOverlay';
 import { FieldSpaceCamera } from './FieldSpaceCamera';
 import { FieldSpaceScene } from './FieldSpaceScene';
@@ -53,11 +55,55 @@ export function FieldSpaceCanvas({
     ],
   );
   const gl = useMemo(() => ({ antialias: true }), []);
+  const isFocused = useIsFocused();
+  const isFocusedRef = useRef(isFocused);
+  isFocusedRef.current = isFocused;
+  const previousFocusRef = useRef(isFocused);
+  const appStateRef = useRef(AppState.currentState);
+  const recoveryPendingRef = useRef(false);
+  const [canvasEpoch, setCanvasEpoch] = useState(0);
+
+  const recoverCanvas = useCallback(() => {
+    if (!recoveryPendingRef.current) return;
+    recoveryPendingRef.current = false;
+    requeueFieldChunkGpuUploadsAfterContextRestore();
+    setCanvasEpoch((current) => current + 1);
+  }, []);
+
+  useEffect(() => {
+    if (!isFocused) {
+      recoveryPendingRef.current = true;
+    } else if (!previousFocusRef.current && recoveryPendingRef.current) {
+      recoverCanvas();
+    }
+    previousFocusRef.current = isFocused;
+  }, [isFocused, recoverCanvas]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      const previousState = appStateRef.current;
+      appStateRef.current = nextState;
+
+      if (nextState !== 'active') {
+        if (previousState === 'active') recoveryPendingRef.current = true;
+        return;
+      }
+
+      // Ignore the initial unknown/null -> active notification.
+      if (previousState !== 'active' && previousState !== null && previousState !== 'unknown') {
+        recoveryPendingRef.current = true;
+      }
+      if (recoveryPendingRef.current && isFocusedRef.current) recoverCanvas();
+    });
+
+    return () => subscription.remove();
+  }, [recoverCanvas]);
 
   return (
     <View style={[styles.root, { backgroundColor: scene.background }]}>
       <FieldCameraSwipeControls>
         <Canvas
+          key={canvasEpoch}
           style={styles.canvas}
           camera={camera}
           gl={gl}
