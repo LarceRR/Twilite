@@ -11,6 +11,7 @@ import { icons } from '../../icons/icons';
 import { layout, spacing } from '../../spacing/spacing';
 import { IconButton } from '../IconButton/IconButton';
 import { Text } from '../Text/Text';
+import { NavigationHeaderBackground } from '../NavigationHeaderBackground/NavigationHeaderBackground';
 import { screenHeaderTitle } from './screenHeaderTitle';
 import { screenTopPadding } from './screenTopPadding';
 import { shouldShowScreenBack } from './shouldShowScreenBack';
@@ -32,6 +33,8 @@ export type ScreenProps = {
   readonly contentGutter?: number;
   /** Optional trailing action in the native navigation header. */
   readonly headerRight?: ReactNode;
+  /** Opt a tab root into its own nested native-stack header. */
+  readonly nativeHeader?: boolean;
 };
 
 function ScreenComponent({
@@ -45,6 +48,7 @@ function ScreenComponent({
   hideHeader = false,
   contentGutter = layout.screenGutter,
   headerRight,
+  nativeHeader = false,
 }: ScreenProps): ReactElement {
   const insets = useSafeAreaInsets();
   const theme = useThemeColors();
@@ -55,7 +59,9 @@ function ScreenComponent({
   // Regular pushed pages use the platform navigation header. Tab roots and
   // native sheets retain their custom chrome, while iOS owns the back animation.
   const useNativeHeader =
-    resolvedTitle !== undefined && !skipTopSafeArea && !isTabRootPath(pathname);
+    resolvedTitle !== undefined &&
+    !skipTopSafeArea &&
+    (nativeHeader || !isTabRootPath(pathname));
   const showBack = shouldShowScreenBack({
     hideBack,
     isFocused,
@@ -77,7 +83,13 @@ function ScreenComponent({
         headerTintColor: theme.textPrimary,
         headerTitleStyle: { color: theme.textPrimary },
         headerShadowVisible: false,
-        ...(Platform.OS === 'ios' ? {} : { headerStyle: { backgroundColor: theme.surface } }),
+        ...(Platform.OS === 'ios'
+          ? {
+              headerTransparent: true,
+              headerBackground: () => <NavigationHeaderBackground />,
+              headerStyle: { backgroundColor: 'transparent' },
+            }
+          : { headerStyle: { backgroundColor: theme.surface } }),
         ...(headerRight === undefined ? {} : { headerRight: () => headerRight }),
       }}
     />
