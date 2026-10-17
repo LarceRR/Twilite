@@ -251,7 +251,9 @@ function createRoughnessData(): Uint8Array {
 
 function createTexture(data: Uint8Array): DataTexture {
   const texture = new DataTexture(data, MAP_SIZE, MAP_SIZE, RGBAFormat);
-  // The albedo bytes are sRGB-encoded and decoded explicitly by the custom shader.\n  // Keep the texture itself in NoColorSpace to avoid hardware double-decoding.\n  texture.colorSpace = NoColorSpace;
+  // The albedo bytes are sRGB-encoded and decoded explicitly by the custom shader.
+  // Keep the texture itself in NoColorSpace to avoid hardware double-decoding.
+  texture.colorSpace = NoColorSpace;
   texture.wrapS = ClampToEdgeWrapping;
   texture.wrapT = ClampToEdgeWrapping;
   texture.magFilter = LinearFilter;
