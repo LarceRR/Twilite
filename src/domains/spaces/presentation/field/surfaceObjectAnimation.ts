@@ -27,6 +27,17 @@ export function staggerAppearanceDelays(
   );
 }
 
+/** Returns only IDs that have not been animated before and are not in the current instance. */
+export function collectNewlyAppearingObjectIds(
+  currentIds: readonly string[],
+  knownIds: ReadonlySet<string>,
+  previouslySeenIds: ReadonlySet<string>,
+): readonly string[] {
+  return currentIds.filter(
+    (id) => !knownIds.has(id) && !previouslySeenIds.has(id),
+  );
+}
+
 export function easeOutCubic(progress: number): number {
   const bounded = Math.max(0, Math.min(1, progress));
   return 1 - (1 - bounded) ** 3;

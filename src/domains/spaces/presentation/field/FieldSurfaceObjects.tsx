@@ -39,6 +39,7 @@ import {
 } from './surfaceObjectLighting';
 import {
   advanceSpritePlayback,
+  collectNewlyAppearingObjectIds,
   surfaceObjectRiseProgress,
   type SpritePlaybackCursor,
   SURFACE_OBJECT_ANIMATION_CONFIG,
@@ -793,7 +794,11 @@ function useAppearingObjects(objects: readonly SurfaceObject[]): AppearanceState
   );
 
   useLayoutEffect(() => {
-    const newIds = collectNewObjectIds(objects, known.current);
+    const newIds = collectNewlyAppearingObjectIds(
+      objects.map((object) => object.id),
+      known.current,
+      seenFieldObjectIds,
+    );
     for (const object of objects) {
       known.current.add(object.id);
       seenFieldObjectIds.add(object.id);
@@ -832,11 +837,3 @@ function resolveAppearanceDelay(
   return appearance.known.has(objectId) ? null : 0;
 }
 
-function collectNewObjectIds(
-  objects: readonly SurfaceObject[],
-  known: ReadonlySet<string>,
-): readonly string[] {
-  return objects
-    .filter((object) => !known.has(object.id) && !seenFieldObjectIds.has(object.id))
-    .map((object) => object.id);
-}

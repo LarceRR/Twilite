@@ -1,6 +1,7 @@
 import MaskedView from '@react-native-masked-view/masked-view';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import type { ReactElement } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 
 import { useIsDarkTheme, useThemeColors, withAlpha } from '../../colors/colors';
@@ -10,7 +11,7 @@ import { useIsDarkTheme, useThemeColors, withAlpha } from '../../colors/colors';
  * iOS gets a gradient-masked native blur; other platforms keep the color fade
  * without paying for a blur layer that is not consistently supported there.
  */
-export function NavigationHeaderBackground(): React.ReactElement {
+export function NavigationHeaderBackground(): ReactElement {
   const theme = useThemeColors();
   const isDark = useIsDarkTheme();
 
