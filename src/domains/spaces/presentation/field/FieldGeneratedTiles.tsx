@@ -149,7 +149,7 @@ export function FieldGeneratedTiles({
   }, [settings.textureUri]);
 
   useLayoutEffect(() => {
-    setFieldTileMaterialMap(material, customTexture ?? fallbackTexture);
+    setFieldTileMaterialMap(material, customTexture ?? fallbackTexture, customTexture === null);
     if (customTexture !== null) customTexture.needsUpdate = true;
   }, [material, customTexture, fallbackTexture]);
 
