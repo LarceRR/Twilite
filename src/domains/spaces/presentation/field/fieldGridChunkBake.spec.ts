@@ -169,6 +169,17 @@ describe('fieldGridChunkBake', () => {
     expect(resolveMountedChunkIds([4, 5], [1, 2, 3], () => false, false)).toEqual([1, 2, 3]);
   });
 
+  it('keeps mounted chunks visible while theme-specific textures upload again', () => {
+    const mounted = [2, 3, 4, 5];
+    const gpuReady = new Set([3]);
+
+    // Applying a theme creates new GPU texture variants for all mounted chunks.
+    // Uploading one variant must not hide every other visible chunk/tile.
+    expect(
+      resolveMountedChunkIds(mounted, mounted, (id) => gpuReady.has(id), false),
+    ).toEqual(mounted);
+  });
+
   it('syncMountedChunkWindow reports change only when mount set changes', () => {
     const ready = () => true;
     const first = syncMountedChunkWindow(-469, 60, [], ready, true);
