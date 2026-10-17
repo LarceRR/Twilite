@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useServices } from '@/app/providers/ContainerProvider';
+import { useAuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAssetHeaders';
 import { BlurCard } from '@/design-system/components/BlurCard/BlurCard';
 import { Button } from '@/design-system/components/Button/Button';
 import { Divider } from '@/design-system/components/Divider/Divider';
@@ -27,6 +28,7 @@ export function ProfileScreen(): ReactElement {
   const profile = useAuthStore((state) => state.profile);
   const auth = useAuthActions();
   const avatars = useAvatarActions();
+  const imageHeaders = useAuthenticatedAssetHeaders();
 
   const displayName = profile?.displayName ?? 'Гость';
   const email =
@@ -46,6 +48,7 @@ export function ProfileScreen(): ReactElement {
             <UserAvatar
               name={displayName}
               imageUrl={profile?.avatarUrl ?? null}
+              imageHeaders={imageHeaders}
               seed={profile?.id ?? displayName}
               size={56}
             />

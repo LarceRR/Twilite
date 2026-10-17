@@ -1,14 +1,17 @@
-import { memo, type ReactElement, useEffect, useState } from 'react';
+import { memo, type ReactElement, useEffect, useMemo, useState } from 'react';
 import { Image, StyleSheet, type StyleProp, View, type ViewStyle } from 'react-native';
 
 import { colorRamps } from '../../colors/palette';
 import { useThemeColors } from '../../colors/themeStore';
 import { Text } from '../Text/Text';
+import { userAvatarImageSource } from './userAvatarImageSource';
 
 export type UserAvatarProps = {
   readonly name: string;
   /** Photo. Falls back to the first letter of the name when absent or blank. */
   readonly imageUrl?: string | null;
+  /** Session headers for remote photos; local file URIs do not need them. */
+  readonly imageHeaders?: Readonly<Record<string, string>> | null;
   readonly size?: number;
   /** Stable colour seed — pass a user id so the tint never changes. */
   readonly seed?: string;
@@ -55,6 +58,7 @@ export function avatarTint(seed: string): string {
 function UserAvatarComponent({
   name,
   imageUrl = null,
+  imageHeaders = null,
   size = DEFAULT_SIZE,
   seed,
   ringColor = null,
@@ -66,12 +70,16 @@ function UserAvatarComponent({
   const theme = useThemeColors();
   const uri = typeof imageUrl === 'string' ? imageUrl.trim() : '';
   const [failed, setFailed] = useState(false);
-  const hasPhoto = uri.length > 0 && !failed;
+  const source = useMemo(
+    () => userAvatarImageSource(uri, imageHeaders),
+    [uri, imageHeaders],
+  );
+  const hasPhoto = source !== null && !failed;
   const shape = { width: size, height: size, borderRadius: size / 2 };
 
   useEffect(() => {
     setFailed(false);
-  }, [uri]);
+  }, [uri, imageHeaders]);
 
   return (
     <View
@@ -86,7 +94,7 @@ function UserAvatarComponent({
     >
       {hasPhoto ? (
         <Image
-          source={{ uri }}
+          source={source!}
           resizeMode="cover"
           style={shape}
           onError={() => setFailed(true)}
