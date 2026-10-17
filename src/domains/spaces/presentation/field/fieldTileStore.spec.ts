@@ -11,35 +11,34 @@ describe('fieldTileStore', () => {
     useFieldTileStore.getState().reset();
   });
 
-  it('keeps separate elevation ranges while sharing a single tile type', () => {
+  it('keeps separate height controls independently configurable from 0 to 100', () => {
     useFieldTileStore.getState().setOption('worldSeed', 'stable-world');
-    useFieldTileStore.getState().setOption('tileMinHeight', 1);
-    useFieldTileStore.getState().setOption('tileMaxHeight', 2);
-    useFieldTileStore.getState().setOption('objectMinHeight', 6);
-    useFieldTileStore.getState().setOption('objectMaxHeight', 8);
+    useFieldTileStore.getState().setOption('tileMinHeight', 100);
+    useFieldTileStore.getState().setOption('tileMaxHeight', 0);
+    useFieldTileStore.getState().setOption('objectMinHeight', 87);
+    useFieldTileStore.getState().setOption('objectMaxHeight', 2);
 
     expect(persistedFieldTilePreferences(useFieldTileStore.getState())).toMatchObject({
       worldSeed: 'stable-world',
-      tileMinHeight: 1,
-      tileMaxHeight: 2,
-      objectMinHeight: 6,
-      objectMaxHeight: 8,
+      tileMinHeight: 100,
+      tileMaxHeight: 0,
+      objectMinHeight: 87,
+      objectMaxHeight: 2,
     });
   });
 
-  it('always keeps object platforms above the regular tile range', () => {
-    useFieldTileStore.getState().setOption('tileMaxHeight', 3);
-    useFieldTileStore.getState().setOption('objectMinHeight', 1);
+  it('clamps values outside the supported slider range', () => {
+    useFieldTileStore.getState().setOption('tileMinHeight', -20);
+    useFieldTileStore.getState().setOption('tileMaxHeight', 120);
+    useFieldTileStore.getState().setOption('objectMinHeight', -1);
+    useFieldTileStore.getState().setOption('objectMaxHeight', 101);
 
-    const state = useFieldTileStore.getState();
-    expect(state.objectMinHeight).toBeGreaterThan(state.tileMaxHeight * 2);
-    expect(state.objectMaxHeight).toBeGreaterThanOrEqual(state.objectMinHeight);
-  });
-
-  it('keeps object elevations above the minimum allowed object height', () => {
-    useFieldTileStore.getState().setOption('tileMaxHeight', 0);
-    useFieldTileStore.getState().setOption('objectMinHeight', 0);
-    expect(useFieldTileStore.getState().objectMinHeight).toBe(4);
+    expect(useFieldTileStore.getState()).toMatchObject({
+      tileMinHeight: 0,
+      tileMaxHeight: 100,
+      objectMinHeight: 0,
+      objectMaxHeight: 100,
+    });
   });
 
   it('migrates previously saved seed and height options', () => {

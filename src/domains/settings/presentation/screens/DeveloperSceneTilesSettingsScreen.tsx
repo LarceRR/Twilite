@@ -225,41 +225,29 @@ export function DeveloperSceneTilesSettingsScreen(): ReactElement {
           ({fieldConfig.platform.height} единиц) и не зависит от высоты расположения.
           Меняется только положение верхней грани.
         </Text>
+        <Text variant="caption">
+          Каждый ползунок имеет независимый диапазон от 0 до 100. Значения минимума и максимума
+          не ограничивают друг друга.
+        </Text>
         <NumberSetting
           title="Обычные ячейки: минимум"
           value={settings.tileMinHeight}
-          min={0}
-          max={3}
-          onValueChange={(value) =>
-            setHeightOptionDebounced('tileMinHeight', Math.min(value, settings.tileMaxHeight))
-          }
+          onValueChange={(value) => setHeightOptionDebounced('tileMinHeight', value)}
         />
         <NumberSetting
           title="Обычные ячейки: максимум"
           value={settings.tileMaxHeight}
-          min={0}
-          max={3}
-          onValueChange={(value) =>
-            setHeightOptionDebounced('tileMaxHeight', Math.max(value, settings.tileMinHeight))
-          }
+          onValueChange={(value) => setHeightOptionDebounced('tileMaxHeight', value)}
         />
         <NumberSetting
           title="Ячейки с объектами: минимум"
           value={settings.objectMinHeight}
-          min={Math.min(24, Math.max(4, settings.tileMaxHeight * 2 + 1))}
-          max={24}
-          onValueChange={(value) =>
-            setHeightOptionDebounced('objectMinHeight', Math.min(value, settings.objectMaxHeight))
-          }
+          onValueChange={(value) => setHeightOptionDebounced('objectMinHeight', value)}
         />
         <NumberSetting
           title="Ячейки с объектами: максимум"
           value={settings.objectMaxHeight}
-          min={settings.objectMinHeight}
-          max={24}
-          onValueChange={(value) =>
-            setHeightOptionDebounced('objectMaxHeight', Math.max(value, settings.objectMinHeight))
-          }
+          onValueChange={(value) => setHeightOptionDebounced('objectMaxHeight', value)}
         />
       </BlurCard>
 
@@ -302,14 +290,10 @@ export function DeveloperSceneTilesSettingsScreen(): ReactElement {
 function NumberSetting({
   title,
   value,
-  min,
-  max,
   onValueChange,
 }: {
   readonly title: string;
   readonly value: number;
-  readonly min: number;
-  readonly max: number;
   readonly onValueChange: (value: number) => void;
 }): ReactElement {
   const theme = useThemeColors();
@@ -321,8 +305,8 @@ function NumberSetting({
         <Text variant="caption">{value}</Text>
       </View>
       <Slider
-        minimumValue={min}
-        maximumValue={max}
+        minimumValue={0}
+        maximumValue={100}
         step={1}
         value={value}
         onValueChange={onValueChange}

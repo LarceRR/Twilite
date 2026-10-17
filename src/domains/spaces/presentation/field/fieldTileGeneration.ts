@@ -9,9 +9,7 @@ export type FieldTileVariant = {
 
 /** World units of elevation per regular tile height level. */
 export const FIELD_TILE_HEIGHT_STEP = 2;
-const REGULAR_TILE_MAX_LEVEL = 3;
-const OBJECT_PLATFORM_MIN = 4;
-const OBJECT_PLATFORM_MAX = 24;
+const MAX_CONFIGURED_TILE_HEIGHT = 100;
 
 /** FNV-1a seeded from world coordinates: tile layout stays stable while chunks recycle. */
 export function fieldTileRandom(seed: string, col: number, row: number, channel = 0): number {
@@ -30,8 +28,9 @@ export function fieldTileRandom(seed: string, col: number, row: number, channel 
 }
 
 /**
- * Shared height distribution for every unoccupied tile, including the five-row
- * spawn band. "Active" only marks eligible object positions; it does not affect height.
+ * Seeded height distribution for every unoccupied tile, including the spawn band.
+ * Every setting can span 0..100. The original four-level range retains its existing
+ * weighting; wider ranges use a mild low-height bias and all configured levels.
  */
 export function fieldTileHeight(
   seed: string,
@@ -40,14 +39,20 @@ export function fieldTileHeight(
   minHeight = 0,
   maxHeight = 3,
 ): number {
-  const min = clampInteger(minHeight, 0, REGULAR_TILE_MAX_LEVEL);
-  const max = clampInteger(maxHeight, min, REGULAR_TILE_MAX_LEVEL);
+  const [min, max] = normalizeHeightRange(minHeight, maxHeight);
   const sample = fieldTileRandom(seed, col, row, 1);
-  const weighted = sample < 0.035 ? 0 : sample < 0.755 ? 1 : sample < 0.96 ? 2 : 3;
-  return clampInteger(weighted, min, max);
+  const span = max - min + 1;
+
+  if (span <= 4) {
+    const weighted = sample < 0.035 ? 0 : sample < 0.755 ? 1 : sample < 0.96 ? 2 : 3;
+    return clampInteger(weighted, min, max);
+  }
+
+  const lowBiasedSample = Math.pow(sample, 1.35);
+  return Math.min(max, min + Math.floor(lowBiasedSample * span));
 }
 
-/** Object platforms always use a range higher than the maximum regular tile height. */
+/** Object platforms use their configured range without a forced minimum elevation. */
 export function objectPlatformHeight(
   seed: string,
   col: number,
@@ -55,8 +60,7 @@ export function objectPlatformHeight(
   minHeight = 6,
   maxHeight = 9,
 ): number {
-  const min = clampInteger(minHeight, OBJECT_PLATFORM_MIN, OBJECT_PLATFORM_MAX);
-  const max = clampInteger(maxHeight, min, OBJECT_PLATFORM_MAX);
+  const [min, max] = normalizeHeightRange(minHeight, maxHeight);
   const span = max - min + 1;
   return min + Math.floor(fieldTileRandom(seed, col, row, 2) * span);
 }
@@ -68,10 +72,11 @@ export function fieldTileMaxTopHeight(settings: {
   readonly objectMinHeight: number;
   readonly objectMaxHeight: number;
 }): number {
-  const objectMin = clampInteger(settings.objectMinHeight, OBJECT_PLATFORM_MIN, OBJECT_PLATFORM_MAX);
-  const objectMax = clampInteger(settings.objectMaxHeight, objectMin, OBJECT_PLATFORM_MAX);
-  const tileMin = clampInteger(settings.tileMinHeight, 0, REGULAR_TILE_MAX_LEVEL);
-  const tileMax = clampInteger(settings.tileMaxHeight, tileMin, REGULAR_TILE_MAX_LEVEL);
+  const [, objectMax] = normalizeHeightRange(
+    settings.objectMinHeight,
+    settings.objectMaxHeight,
+  );
+  const [, tileMax] = normalizeHeightRange(settings.tileMinHeight, settings.tileMaxHeight);
   return Math.max(objectMax, tileMax * FIELD_TILE_HEIGHT_STEP);
 }
 
@@ -84,6 +89,12 @@ export function fieldTileVariant(
   return {
     height: fieldTileHeight(seed, col, row, heights.tileMinHeight, heights.tileMaxHeight),
   };
+}
+
+function normalizeHeightRange(first: number, second: number): readonly [number, number] {
+  const a = clampInteger(first, 0, MAX_CONFIGURED_TILE_HEIGHT);
+  const b = clampInteger(second, 0, MAX_CONFIGURED_TILE_HEIGHT);
+  return [Math.min(a, b), Math.max(a, b)];
 }
 
 function clampInteger(value: number, min: number, max: number): number {

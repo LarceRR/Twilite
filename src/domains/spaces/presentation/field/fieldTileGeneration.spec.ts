@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   fieldTileHeight,
+  fieldTileMaxTopHeight,
   fieldTileVariant,
   objectPlatformHeight,
 } from './fieldTileGeneration';
@@ -22,26 +23,47 @@ describe('seeded field tile generation', () => {
     expect(first).not.toEqual(second);
   });
 
-  it('keeps regular tiles in the shared configured range', () => {
-    for (let col = 0; col < 300; col += 1) {
-      const height = fieldTileHeight('weighted', col, 3, 1, 3);
-      expect(height).toBeGreaterThanOrEqual(1);
-      expect(height).toBeLessThanOrEqual(3);
-    }
-  });
-
-  it('generates varied heights across the field without active-band special cases', () => {
-    const settings = { tileMinHeight: 0, tileMaxHeight: 3 };
-    const heights = Array.from({ length: 50 }, (_, col) =>
-      fieldTileVariant('shared-range', col, 7, settings).height,
-    );
+  it('preserves the original weighted distribution in the four-level range', () => {
+    const heights = Array.from({ length: 200 }, (_, col) => fieldTileHeight('weighted', col, 3));
     expect(heights.every((height) => height >= 0 && height <= 3)).toBe(true);
     expect(new Set(heights).size).toBeGreaterThan(1);
   });
 
-  it('keeps object platforms higher than the maximum regular tile height', () => {
+  it('uses the full configured range up to 100 for regular tiles', () => {
+    const heights = Array.from({ length: 300 }, (_, col) =>
+      fieldTileHeight('full-range', col, 3, 0, 100),
+    );
+    expect(heights.every((height) => height >= 0 && height <= 100)).toBe(true);
+    expect(Math.max(...heights)).toBeGreaterThan(3);
+    expect(new Set(heights).size).toBeGreaterThan(10);
+  });
+
+  it('normalizes independently configured reversed bounds for generation', () => {
     for (let col = 0; col < 100; col += 1) {
-      expect(objectPlatformHeight('objects', col, 7, 6, 9)).toBeGreaterThan(3);
+      const tile = fieldTileHeight('reversed', col, 5, 90, 10);
+      const object = objectPlatformHeight('reversed', col, 5, 100, 0);
+      expect(tile).toBeGreaterThanOrEqual(10);
+      expect(tile).toBeLessThanOrEqual(90);
+      expect(object).toBeGreaterThanOrEqual(0);
+      expect(object).toBeLessThanOrEqual(100);
+    }
+  });
+
+  it('calculates the highest elevation from unrestricted settings', () => {
+    expect(
+      fieldTileMaxTopHeight({
+        tileMinHeight: 0,
+        tileMaxHeight: 100,
+        objectMinHeight: 0,
+        objectMaxHeight: 100,
+      }),
+    ).toBe(200);
+  });
+
+  it('respects the configured object platform range', () => {
+    for (let col = 0; col < 100; col += 1) {
+      expect(objectPlatformHeight('objects', col, 7, 6, 9)).toBeGreaterThanOrEqual(6);
+      expect(objectPlatformHeight('objects', col, 7, 6, 9)).toBeLessThanOrEqual(9);
     }
   });
 });
