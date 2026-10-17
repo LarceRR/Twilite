@@ -108,7 +108,10 @@ export function FieldGeneratedTiles({
     () => createSolidTileTexture(shadeHex(theme.surfaceRaised, GROUND_SHADE)),
     [theme.surfaceRaised],
   );
-  const material = useMemo(() => createFieldTileMaterial(fallbackTexture), [fallbackTexture]);
+  // Keep the InstancedMesh material identity stable. It is passed through
+  // instancedMesh args, so replacing it reconstructs the mesh and clears its
+  // per-instance matrices; the texture itself is updated in the layout effect.
+  const [material] = useState(() => createFieldTileMaterial(fallbackTexture));
   const groundMaterial = useMemo(() => createFieldTileMaterial(groundTexture), [groundTexture]);
 
   useEffect(() => {
@@ -254,9 +257,6 @@ export function FieldGeneratedTiles({
     columnCount,
     columnDepth,
     geometry,
-    // The material is passed through instancedMesh args. R3F may reconstruct
-    // the InstancedMesh when a theme changes it, so repopulate instance matrices.
-    material,
     glowHex,
     groundZ,
     occupiedCellKeys,
