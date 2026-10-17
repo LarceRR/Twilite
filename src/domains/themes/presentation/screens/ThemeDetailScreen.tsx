@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { router, useLocalSearchParams } from 'expo-router';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { type ReactElement, useMemo } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 
 import { useUseCases } from '@/app/providers/ContainerProvider';
 import { useUiStore } from '@/app/stores/uiStore';
@@ -53,21 +53,36 @@ export function ThemeDetailScreen(): ReactElement {
   const isActive = detail.data !== undefined && detail.data.id === active.id;
 
   return (
-    <Screen
-      title={detail.data?.name ?? 'Тема'}
-      reserveTabBar={false}
-      headerRight={
-        detail.data === undefined ? undefined : (
-          <Button
-            label={isActive ? 'Уже используется' : 'Выбрать'}
-            compact
-            onPress={() => apply.mutate(detail.data!)}
-            disabled={isActive || apply.isPending}
-            loading={apply.isPending}
-          />
-        )
-      }
-    >
+    <>
+      {Platform.OS === 'web' ? null : (
+        <Stack.Toolbar placement="right">
+          <Stack.Toolbar.Button
+            accessibilityLabel={isActive ? 'Тема уже используется' : 'Выбрать тему'}
+            disabled={detail.data === undefined || isActive || apply.isPending}
+            onPress={() => {
+              const pack = detail.data;
+              if (pack !== undefined) apply.mutate(pack);
+            }}
+          >
+            {isActive ? 'Уже используется' : apply.isPending ? 'Применение…' : 'Выбрать'}
+          </Stack.Toolbar.Button>
+        </Stack.Toolbar>
+      )}
+      <Screen
+        title={detail.data?.name ?? 'Тема'}
+        reserveTabBar={false}
+        headerRight={
+          Platform.OS === 'web' && detail.data !== undefined ? (
+            <Button
+              label={isActive ? 'Уже используется' : 'Выбрать'}
+              compact
+              onPress={() => apply.mutate(detail.data!)}
+              disabled={isActive || apply.isPending}
+              loading={apply.isPending}
+            />
+          ) : undefined
+        }
+      >
       {detail.isLoading ? (
         <ActivityIndicator color={theme.textSecondary} style={{ marginTop: spacing.xl }} />
       ) : null}
@@ -124,7 +139,8 @@ export function ThemeDetailScreen(): ReactElement {
 
         </>
       ) : null}
-    </Screen>
+      </Screen>
+    </>
   );
 }
 
