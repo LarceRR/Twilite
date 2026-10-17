@@ -74,7 +74,8 @@ function UserAvatarComponent({
     () => userAvatarImageSource(uri, imageHeaders),
     [uri, imageHeaders],
   );
-  const hasPhoto = source !== null && !failed;
+  const photoSource = failed ? null : source;
+  const hasPhoto = photoSource !== null;
   const shape = { width: size, height: size, borderRadius: size / 2 };
 
   useEffect(() => {
@@ -92,9 +93,9 @@ function UserAvatarComponent({
         style,
       ]}
     >
-      {hasPhoto ? (
+      {photoSource !== null ? (
         <Image
-          source={source!}
+          source={photoSource}
           resizeMode="cover"
           style={shape}
           onError={() => setFailed(true)}
