@@ -4,6 +4,7 @@ import type { ReactElement } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { useThemeColors } from '@/design-system/colors/colors';
+import { useAuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAssetHeaders';
 import { useAuthStore } from '@/domains/auth/presentation/stores/authStore';
 
 import { getNativeTabIconSources } from './nativeTabIconSources';
@@ -31,8 +32,9 @@ export function NativeTabsLayout(): ReactElement {
   const theme = useThemeColors();
   const router = useRouter();
   const avatarUrl = useAuthStore((state) => state.profile?.avatarUrl ?? null);
+  const imageHeaders = useAuthenticatedAssetHeaders();
   const iconSources = getNativeTabIconSources();
-  const tabAvatar = useCachedTabAvatar(avatarUrl);
+  const tabAvatar = useCachedTabAvatar(avatarUrl, imageHeaders);
 
   if (iconSources === null) {
     return (
