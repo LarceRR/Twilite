@@ -5,7 +5,6 @@ import {
   LinearMipmapLinearFilter,
   NoColorSpace,
   RGBAFormat,
-  SRGBColorSpace,
 } from 'three';
 
 const MAP_SIZE = 256;
@@ -250,9 +249,9 @@ function createRoughnessData(): Uint8Array {
   return data;
 }
 
-function createTexture(data: Uint8Array, colorSpace: typeof NoColorSpace | typeof SRGBColorSpace): DataTexture {
+function createTexture(data: Uint8Array): DataTexture {
   const texture = new DataTexture(data, MAP_SIZE, MAP_SIZE, RGBAFormat);
-  texture.colorSpace = colorSpace;
+  // The albedo bytes are sRGB-encoded and decoded explicitly by the custom shader.\n  // Keep the texture itself in NoColorSpace to avoid hardware double-decoding.\n  texture.colorSpace = NoColorSpace;
   texture.wrapS = ClampToEdgeWrapping;
   texture.wrapT = ClampToEdgeWrapping;
   texture.magFilter = LinearFilter;
@@ -270,8 +269,8 @@ export function getFieldOccupiedTileMaps(): FieldOccupiedTileMaps {
   if (cachedMaps !== null) return cachedMaps;
   const scratches = createScratches();
   cachedMaps = {
-    albedo: createTexture(createAlbedoData(scratches), SRGBColorSpace),
-    roughness: createTexture(createRoughnessData(), NoColorSpace),
+    albedo: createTexture(createAlbedoData(scratches)),
+    roughness: createTexture(createRoughnessData()),
   };
   return cachedMaps;
 }
