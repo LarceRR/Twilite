@@ -81,7 +81,7 @@ function ScreenComponent({
         title: resolvedTitle,
         headerTitleAlign: 'center',
         headerBackButtonDisplayMode: 'minimal',
-        headerBackVisible: !hideBack,
+        headerBackVisible: !hideBack && !isTabRootPath(pathname),
         headerTintColor: theme.textPrimary,
         headerTitleStyle: { color: theme.textPrimary },
         headerShadowVisible: false,
