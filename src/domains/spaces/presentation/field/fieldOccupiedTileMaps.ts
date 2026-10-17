@@ -7,7 +7,7 @@ import {
   RGBAFormat,
 } from 'three';
 
-const MAP_SIZE = 256;
+const MAP_SIZE = 128;
 const TOP_UV_START = 0.2;
 const TOP_UV_SIZE = 0.6;
 const SIDE_UV_WIDTH = 0.06;
