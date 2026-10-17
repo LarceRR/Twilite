@@ -43,7 +43,7 @@ export function fieldTileHeight(
   const sample = fieldTileRandom(seed, col, row, 1);
   const span = max - min + 1;
 
-  if (span <= 4) {
+  if (min === 0 && max === 3) {
     const weighted = sample < 0.035 ? 0 : sample < 0.755 ? 1 : sample < 0.96 ? 2 : 3;
     return clampInteger(weighted, min, max);
   }

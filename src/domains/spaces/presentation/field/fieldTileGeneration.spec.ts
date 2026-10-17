@@ -29,6 +29,11 @@ describe('seeded field tile generation', () => {
     expect(new Set(heights).size).toBeGreaterThan(1);
   });
 
+  it('supports both ends of the 0..100 scale without a forced object minimum', () => {
+    expect(fieldTileHeight('endpoint', 0, 0, 100, 100)).toBe(100);
+    expect(objectPlatformHeight('endpoint', 0, 0, 0, 0)).toBe(0);
+  });
+
   it('uses the full configured range up to 100 for regular tiles', () => {
     const heights = Array.from({ length: 300 }, (_, col) =>
       fieldTileHeight('full-range', col, 3, 0, 100),
