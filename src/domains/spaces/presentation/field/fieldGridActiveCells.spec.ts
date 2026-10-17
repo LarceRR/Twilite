@@ -25,12 +25,13 @@ describe('fieldGridActiveCells', () => {
     expect(isActiveFieldGridCell(10, rows)).toBe(false);
   });
 
-  it('dims tiles progressively outside the five active center rows', () => {
-    expect(fieldGridSideBrightness(5, rows, 2)).toBe(1);
-    expect(fieldGridSideBrightness(9, rows, 2)).toBe(1);
-    expect(fieldGridSideBrightness(4, rows, 2)).toBeCloseTo(0.58);
-    expect(fieldGridSideBrightness(3, rows, 2)).toBeCloseTo(0.58 ** 2);
-    expect(fieldGridSideBrightness(2, rows, 2)).toBeCloseTo(0.58 ** 3);
+  it('dims tiles symmetrically from the central row', () => {
+    expect(fieldGridSideBrightness(7, rows, 2)).toBe(1);
+    expect(fieldGridSideBrightness(6, rows, 2)).toBeCloseTo(0.58);
+    expect(fieldGridSideBrightness(8, rows, 2)).toBeCloseTo(0.58);
+    expect(fieldGridSideBrightness(5, rows, 2)).toBeCloseTo(0.58 ** 2);
+    expect(fieldGridSideBrightness(9, rows, 2)).toBeCloseTo(0.58 ** 2);
+    expect(fieldGridSideBrightness(3, rows, 2)).toBeCloseTo(0.58 ** 4);
     expect(fieldGridSideBrightness(0, rows, 2)).toBe(0.1);
     expect(fieldGridSideBrightness(14, rows, 2)).toBe(0.1);
   });

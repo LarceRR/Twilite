@@ -24,8 +24,8 @@ export function fieldGridCenterRow(rows: number): number {
 }
 
 /**
- * Returns a stable per-row luminance multiplier for tiles outside the active band.
- * One row beyond the band is noticeably dimmer; farther rows fade quickly.
+ * Returns a stable luminance multiplier that fades symmetrically from the center row.
+ * The center row stays bright; each row farther away becomes progressively darker.
  */
 const FIELD_SIDE_TILE_BRIGHTNESS_FALLOFF = 0.58;
 const FIELD_SIDE_TILE_MIN_BRIGHTNESS = 0.1;
@@ -36,12 +36,10 @@ export function fieldGridSideBrightness(
   sideSpan: number = getFieldConfig().activeCells.sideSpan,
 ): number {
   const center = fieldGridCenterRow(rows);
-  const activeSpan = Math.max(0, Math.floor(sideSpan));
-  const distanceOutsideBand = Math.max(0, Math.abs(row - center) - activeSpan);
-  if (distanceOutsideBand === 0) return 1;
+  const distanceFromCenter = Math.abs(row - center);
   return Math.max(
     FIELD_SIDE_TILE_MIN_BRIGHTNESS,
-    FIELD_SIDE_TILE_BRIGHTNESS_FALLOFF ** distanceOutsideBand,
+    FIELD_SIDE_TILE_BRIGHTNESS_FALLOFF ** distanceFromCenter,
   );
 }
 
