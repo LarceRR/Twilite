@@ -1,4 +1,5 @@
 import { useActionSheet } from '@expo/react-native-action-sheet';
+import { File, UploadType } from 'expo-file-system';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useState } from 'react';
@@ -62,17 +63,53 @@ async function uploadToR2(
   headers: { readonly 'Content-Type': string; readonly 'Cache-Control': string },
   uri: string,
 ): Promise<void> {
-  const result = await FileSystem.uploadAsync(uploadUrl, uri, {
-    httpMethod: 'PUT',
-    uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-    headers: {
-      'Content-Type': headers['Content-Type'],
-      'Cache-Control': headers['Cache-Control'],
-    },
-  });
+  const cacheDirectory = FileSystem.cacheDirectory;
+  if (cacheDirectory === null) {
+    throw new Error('Не удалось получить временный каталог для загрузки аватара');
+  }
 
-  if (result.status < 200 || result.status >= 300) {
-    throw new Error(`Не удалось загрузить файл (${result.status})`);
+  const extension =
+    headers['Content-Type'] === 'image/png'
+      ? 'png'
+      : headers['Content-Type'] === 'image/webp'
+        ? 'webp'
+        : 'jpg';
+  const stagedUri =
+    `${cacheDirectory}twilite-avatar-upload-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${extension}`;
+
+  try {
+    // ImagePicker may return an iOS photo-library URI (ph://). The legacy
+    // uploader accepts only file:// URIs on iOS, so stage the asset into the
+    // app's cache before starting the network upload.
+    await FileSystem.copyAsync({ from: uri, to: stagedUri });
+
+    const stagedInfo = await FileSystem.getInfoAsync(stagedUri);
+    if (!stagedInfo.exists || typeof stagedInfo.size !== 'number' || stagedInfo.size <= 0) {
+      throw new Error('Не удалось подготовить фотографию для загрузки');
+    }
+
+    // Use the current File upload API rather than the legacy uploadAsync path.
+    const file = new File(stagedUri);
+    const task = file.createUploadTask(uploadUrl, {
+      httpMethod: 'PUT',
+      uploadType: UploadType.BINARY_CONTENT,
+      headers: {
+        'Content-Type': headers['Content-Type'],
+        'Cache-Control': headers['Cache-Control'],
+      },
+    });
+    const result = await task.uploadAsync();
+
+    if (result.status < 200 || result.status >= 300) {
+      throw new Error(`Не удалось загрузить файл (${result.status})`);
+    }
+  } finally {
+    // The staged copy is temporary, and should not accumulate after retries.
+    try {
+      await FileSystem.deleteAsync(stagedUri, { idempotent: true });
+    } catch {
+      // Cleanup is best-effort; do not hide the actual upload result.
+    }
   }
 }
 
