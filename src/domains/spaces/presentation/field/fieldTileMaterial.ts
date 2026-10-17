@@ -7,27 +7,32 @@ import {
 } from './fieldGridWaveMaterial';
 import { FIELD_WAVE_MAX_COUNT } from './fieldGridWave';
 
-/** Matte, slightly rough clay-like finish for the physical tiles. */
+/** Default finish for ordinary, non-occupied tiles. */
 const TILE_ROUGHNESS = 0.9;
 const TILE_METALNESS = 0;
+/** A subtle glazed-metal finish used only where an object occupies the tile. */
+const OCCUPIED_TILE_ROUGHNESS = 0.42;
+const OCCUPIED_TILE_METALNESS = 0.18;
+const OCCUPIED_TILE_GLOW_TINT = 0.5;
+/** Procedural, low-cost pixel grain; no extra texture samples or geometry. */
+const OCCUPIED_TILE_MICRO_SCALE = 0.28;
+const OCCUPIED_TILE_COLOR_VARIATION = 0.06;
+const OCCUPIED_TILE_ROUGHNESS_VARIATION = 0.09;
 /**
- * The warm "emissive floor" is only a faint bounce-light tint. It must never
- * flatten the directional shading or fill shadows completely.
+ * Preserve most physical lighting on glowing tiles. The old 0.9 suppression
+ * made their emissive colour read as one flat, featureless rectangle.
  */
+const OCCUPIED_TILE_LIGHT_SUPPRESSION = 0.28;
+/** Emission remains visible but no longer overwhelms all surface shading. */
+const TILE_EMISSIVE_GAIN = 1.65;
+const TILE_EMISSIVE_MAX = 0.82;
+/** The warm "emissive floor" is only a faint bounce-light tint. */
 const TILE_EMISSIVE_FLOOR_SCALE = 0.18;
-/**
- * Occupied tiles are self-emissive. Their radiance is the per-instance glow
- * colour times the configured emissive intensity, times this gain.
- */
-const TILE_EMISSIVE_GAIN = 4;
 /** Candle falloff curvature: higher values concentrate the light near its source. */
 const CANDLE_INVERSE_SQUARE_SCALE = 16;
-/**
- * Candle light is added on top of the albedo instead of being multiplied by it.
- * The tiles are very dark, so a pure albedo product made the light invisible.
- */
+/** Add candle light on top of dark albedo so nearby surfaces remain readable. */
 const CANDLE_ALBEDO_FLOOR = 0.35;
-const PROGRAM_CACHE_KEY = 'twilite-field-tile-v4';
+const PROGRAM_CACHE_KEY = 'twilite-field-tile-v5';
 
 export type FieldTileMaterial = MeshStandardMaterial & FieldGridEffectMaterial;
 
@@ -76,6 +81,13 @@ float fieldSmoother(float x) {
   return x * x * (3.0 - 2.0 * x);
 }
 
+// Stable 3D hash used as subtle surface grain. It needs no sampler or extra draw.
+float fieldTileHash(vec3 p) {
+  p = fract(p * 0.1031);
+  p += dot(p, p.yzx + 33.33);
+  return fract((p.x + p.y) * p.z);
+}
+
 float fieldSampleWave(vec2 p, vec2 origin, float startTime) {
   if (startTime < 0.0) return 0.0;
   float elapsed = uTime - startTime;
@@ -100,9 +112,7 @@ float fieldSampleWave(vec2 p, vec2 origin, float startTime) {
   return (dist / radius) * uMaxAlpha * life;
 }
 
-// Local candle lights. Each surface pixel-cell is lit with a Lambert term and a
-// windowed inverse-square falloff, so light reaches every neighbouring tile that
-// is inside the configured radius, including the faces that are in shadow.
+// Local candle lights illuminate all nearby faces, with a soft radius falloff.
 vec3 fieldCandleIrradiance(vec3 worldPos, vec3 worldNormal) {
   float cellSize = max(uLightPixelSize, 0.0001);
   vec3 snapped = floor(worldPos / cellSize) * cellSize + vec3(cellSize * 0.5);
@@ -132,30 +142,67 @@ vec3 fieldCandleIrradiance(vec3 worldPos, vec3 worldNormal) {
 }
 `;
 
+const occupiedTileColorBody = /* glsl */ `
+float fieldGlowMax = max( vGlow.r, max( vGlow.g, vGlow.b ) );
+float fieldGlowMask = smoothstep( 0.001, 0.08, fieldGlowMax );
+vec3 fieldMicroCell = floor( vFieldWorldPos * ${OCCUPIED_TILE_MICRO_SCALE.toFixed(2)} );
+float fieldMicroNoise = fieldTileHash( fieldMicroCell );
+
+// Tint the base material towards the warm glow instead of letting emission
+// replace all its shading. This applies only to instances with aGlow set.
+diffuseColor.rgb = mix(
+  diffuseColor.rgb,
+  vGlow,
+  fieldGlowMask * ${OCCUPIED_TILE_GLOW_TINT.toFixed(2)}
+);
+diffuseColor.rgb *= 1.0 +
+  ( fieldMicroNoise - 0.5 ) * ${OCCUPIED_TILE_COLOR_VARIATION.toFixed(2)} * fieldGlowMask;
+`;
+
+const occupiedTileSurfaceBody = /* glsl */ `
+// Change the PBR response only on occupied cells: a satin, warm reflective
+// surface with slight roughness variation to break up the specular highlight.
+float fieldOccupiedRoughness = ${OCCUPIED_TILE_ROUGHNESS.toFixed(2)} +
+  ( fieldMicroNoise - 0.5 ) * ${OCCUPIED_TILE_ROUGHNESS_VARIATION.toFixed(2)};
+roughnessFactor = mix(
+  roughnessFactor,
+  clamp( fieldOccupiedRoughness, 0.28, 0.62 ),
+  fieldGlowMask
+);
+metalnessFactor = mix(
+  metalnessFactor,
+  ${OCCUPIED_TILE_METALNESS.toFixed(2)},
+  fieldGlowMask
+);
+`;
+
 const fragmentBody = /* glsl */ `
 {
   vec3 fieldNormal = normalize( inverseTransformDirection( normal, viewMatrix ) );
   vec3 fieldAlbedo = diffuseColor.rgb;
 
-  // Occupied tiles: how strongly this fragment is self-emissive (0 on empty tiles).
+  // Occupied tiles remain emissive, but real direct-light shading and highlights
+  // are now visible instead of being almost completely suppressed.
   float glowMax = max( vGlow.r, max( vGlow.g, vGlow.b ) );
   float glowMask = saturate( glowMax * 8.0 );
 
-  // Candle light is added on top of the albedo, not multiplied by it, so dark
-  // tiles still visibly catch light from neighbouring candles.
   vec3 lit = ( fieldAlbedo + vec3( ${CANDLE_ALBEDO_FLOOR.toFixed(2)} ) ) *
     fieldCandleIrradiance( vFieldWorldPos, fieldNormal );
   lit += fieldAlbedo * uAmbientColor *
     ( ( uAmbientIntensity + uTileEmissiveIntensity ) * ${TILE_EMISSIVE_FLOOR_SCALE.toFixed(3)} );
-  // White scene light on a glowing face would wash the colour out to white-pink,
-  // so an emissive face keeps only a sliver of its lit term.
-  outgoingLight = mix( outgoingLight + lit, vec3( 0.0 ), glowMask * 0.9 ) ;
+  outgoingLight = mix(
+    outgoingLight + lit,
+    vec3( 0.0 ),
+    glowMask * ${OCCUPIED_TILE_LIGHT_SUPPRESSION.toFixed(2)}
+  );
 
-  // Emission keeps the requested hue: scale the whole colour down when a channel
-  // would clip, instead of clipping each channel to 1 independently.
-  vec3 emitted = vGlow * uTileEmissiveIntensity * ${TILE_EMISSIVE_GAIN.toFixed(1)};
+  // Cap emission without independently clipping colour channels, preserving
+  // the warm hue while letting the base material and bevels show through.
+  vec3 emitted = vGlow * uTileEmissiveIntensity * ${TILE_EMISSIVE_GAIN.toFixed(2)};
   float emittedMax = max( emitted.r, max( emitted.g, emitted.b ) );
-  if ( emittedMax > 1.0 ) emitted /= emittedMax;
+  if ( emittedMax > ${TILE_EMISSIVE_MAX.toFixed(2)} ) {
+    emitted *= ${TILE_EMISSIVE_MAX.toFixed(2)} / emittedMax;
+  }
   outgoingLight += emitted;
 
   // Interaction waves live on the tile tops, at their real elevation.
@@ -186,9 +233,8 @@ function injectBefore(source: string, anchor: string, addition: string): string 
 }
 
 /**
- * Physically lit tile material: standard PBR shading for ambient + the shared
- * directional light (with real shadow maps), extended with the field's pixel
- * candle lights, per-instance self-emission for occupied tiles and tap waves.
+ * Physically lit tiles use standard PBR shading, with a warm glazed finish and
+ * procedural grain applied only to occupied instances. Empty tiles stay matte.
  */
 export function createFieldTileMaterial(map: Texture): FieldTileMaterial {
   const material = new MeshStandardMaterial({
@@ -209,6 +255,8 @@ export function createFieldTileMaterial(map: Texture): FieldTileMaterial {
     shader.vertexShader = inject(shader.vertexShader, '#include <common>', vertexDeclarations);
     shader.vertexShader = inject(shader.vertexShader, '#include <project_vertex>', vertexBody);
     shader.fragmentShader = inject(shader.fragmentShader, '#include <common>', fragmentDeclarations);
+    shader.fragmentShader = inject(shader.fragmentShader, '#include <color_fragment>', occupiedTileColorBody);
+    shader.fragmentShader = inject(shader.fragmentShader, '#include <metalnessmap_fragment>', occupiedTileSurfaceBody);
     shader.fragmentShader = injectBefore(
       shader.fragmentShader,
       '#include <opaque_fragment>',
