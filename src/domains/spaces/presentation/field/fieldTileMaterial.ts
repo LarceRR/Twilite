@@ -90,13 +90,6 @@ vec3 fieldSrgbToLinear(vec3 color) {
   );
 }
 
-// Stable 3D hash used as subtle surface grain. It needs no sampler or extra draw.
-float fieldTileHash(vec3 p) {
-  p = fract(p * 0.1031);
-  p += dot(p, p.yzx + 33.33);
-  return fract((p.x + p.y) * p.z);
-}
-
 float fieldSampleWave(vec2 p, vec2 origin, float startTime) {
   if (startTime < 0.0) return 0.0;
   float elapsed = uTime - startTime;
