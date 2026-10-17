@@ -17,7 +17,7 @@ import {
 export type Rgba = readonly [number, number, number, number];
 
 export type FieldGridTextureColors = {
-  /** Base surface color used for cache identity; transparent pixels reveal the lit mesh underneath. */
+  /** Theme background color retained in the cache key; untouched pixels reveal tile geometry below. */
   readonly fill: Rgba;
   readonly line: Rgba;
   readonly text: Rgba;

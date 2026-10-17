@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createRoundedSquarePlatformGeometry,
+  createRoundedSquarePlatformUvSvg,
   createRoundedSquareShape,
   createRoundedSquareTopGeometry,
 } from './fieldPlatformGeometry';
@@ -62,6 +63,25 @@ describe('rounded square platform geometry', () => {
     expect(geometry.boundingBox?.max.y).toBe(30);
     expect(geometry.boundingBox?.min.z).toBe(-3);
     expect(geometry.boundingBox?.max.z).toBe(3);
+    geometry.dispose();
+  });
+
+  it('creates normalized UV coordinates and an export generated from the same geometry', () => {
+    const geometry = createRoundedSquarePlatformGeometry(60, 6, 3, 1);
+    const uv = geometry.getAttribute('uv');
+
+    expect(uv.count).toBe(geometry.getAttribute('position').count);
+    for (let index = 0; index < uv.count; index += 1) {
+      expect(uv.getX(index)).toBeGreaterThanOrEqual(0);
+      expect(uv.getX(index)).toBeLessThanOrEqual(1);
+      expect(uv.getY(index)).toBeGreaterThanOrEqual(0);
+      expect(uv.getY(index)).toBeLessThanOrEqual(1);
+    }
+
+    const svg = createRoundedSquarePlatformUvSvg(60, 6, 3, 1);
+    expect(svg).toContain('<svg');
+    expect(svg).toContain('<line ');
+    expect(svg).toContain('width="1080"');
     geometry.dispose();
   });
 

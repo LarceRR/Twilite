@@ -21,7 +21,10 @@ import {
   pickFieldWaveSlot,
 } from './fieldGridWave';
 
-export const FIELD_GRID_MAX_PIXEL_LIGHTS = 12;
+export const FIELD_GRID_MAX_OBJECT_PIXEL_LIGHTS = 8;
+export const FIELD_GRID_MAX_FIREFLY_LIGHTS = 4;
+export const FIELD_GRID_MAX_PIXEL_LIGHTS =
+  FIELD_GRID_MAX_OBJECT_PIXEL_LIGHTS + FIELD_GRID_MAX_FIREFLY_LIGHTS;
 const vertexShader = /* glsl */ `
 precision highp float;
 
@@ -31,17 +34,21 @@ varying float vWorldZ;
 
 void main() {
   vUv = uv;
-  vec4 world = modelMatrix * vec4(position, 1.0);
+  vec4 localPosition = vec4(position, 1.0);
+  #ifdef USE_INSTANCING
+    localPosition = instanceMatrix * localPosition;
+  #endif
+  vec4 world = modelMatrix * localPosition;
   vWorldXY = world.xy;
   vWorldZ = world.z;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  gl_Position = projectionMatrix * viewMatrix * world;
 }
 `;
 
 const fragmentShader = /* glsl */ `
 precision highp float;
 
-#define WAVE_COUNT 4
+#define WAVE_COUNT ${FIELD_WAVE_MAX_COUNT}
 #define LIGHT_COUNT ${FIELD_GRID_MAX_PIXEL_LIGHTS}
 
 uniform sampler2D uMap;
@@ -64,6 +71,7 @@ uniform float uLightMaxAlpha;
 uniform float uLightSurfaceColorMix;
 uniform vec3 uAmbientColor;
 uniform float uAmbientIntensity;
+uniform float uTileEmissiveIntensity;
 
 varying vec2 vUv;
 varying vec2 vWorldXY;
@@ -92,7 +100,7 @@ float sampleWave(vec2 origin, float startTime) {
   float fadeIn = fadeInEnd <= 0.0 ? 1.0 : saturate(elapsed / fadeInEnd);
   float fadeOut = elapsed <= fadeOutStart
     ? 1.0
-    : 1.0 - saturate((elapsed - fadeOutStart) / (uDuration - fadeOutStart));
+    : 1.0 - saturate((elapsed - fadeOutStart) / max(uDuration - fadeOutStart, 0.0001));
   float life = smoother(fadeIn) * smoother(fadeOut);
 
   vec2 cell = floor(vWorldXY / uPixelSize);
@@ -133,12 +141,10 @@ void main() {
   vec3 color = base.rgb;
   float alpha = base.a;
 
-  // The baked surface texture bypasses Three.js lighting, so give dark pixels a
-  // low, warm ambient floor without washing out brighter grid lines or highlights.
-  if (alpha > 0.001 && uAmbientIntensity > 0.0) {
+  if (alpha > 0.001 && (uAmbientIntensity + uTileEmissiveIntensity) > 0.0) {
     float baseBrightness = max(max(color.r, color.g), color.b);
     float ambientRoom = 1.0 - clamp(baseBrightness, 0.0, 1.0);
-    color = min(vec3(1.0), color + uAmbientColor * (uAmbientIntensity * ambientRoom));
+    color = min(vec3(1.0), color + uAmbientColor * ((uAmbientIntensity + uTileEmissiveIntensity) * ambientRoom));
   }
 
   vec4 light = samplePixelLight();
@@ -166,6 +172,7 @@ void main() {
     alpha = max(alpha, wave);
   }
 
+  if (alpha <= 0.001) discard;
   gl_FragColor = vec4(color, alpha);
 }
 `;
@@ -211,37 +218,48 @@ export type FieldGridPixelLight = {
   distance: number;
 };
 
-export type FieldGridWaveMaterial = ShaderMaterial & {
-  uniforms: {
-    uMap: { value: Texture | null };
-    uOrigins: { value: Vector2[] };
-    uStartTimes: { value: number[] };
-    uTime: { value: number };
-    uDuration: { value: number };
-    uMaxRadiusSteps: { value: number };
-    uPixelSize: { value: number };
-    uMaxAlpha: { value: number };
-    uFadeInEnd: { value: number };
-    uFadeOutStart: { value: number };
-    uLightPositions: { value: Vector3[] };
-    uLightColors: { value: Color[] };
-    uLightParams: { value: Vector2[] };
-    uLightPixelSize: { value: number };
-    uLightIntensityScale: { value: number };
-    uLightAlphaScale: { value: number };
-    uLightMaxAlpha: { value: number };
-    uLightSurfaceColorMix: { value: number };
-    uAmbientColor: { value: Color };
-    uAmbientIntensity: { value: number };
-  };
+export type FieldGridEffectUniforms = {
+  uMap: { value: Texture | null };
+  uOrigins: { value: Vector2[] };
+  uStartTimes: { value: number[] };
+  uTime: { value: number };
+  uDuration: { value: number };
+  uMaxRadiusSteps: { value: number };
+  uPixelSize: { value: number };
+  uMaxAlpha: { value: number };
+  uFadeInEnd: { value: number };
+  uFadeOutStart: { value: number };
+  uLightPositions: { value: Vector3[] };
+  uLightColors: { value: Color[] };
+  uLightParams: { value: Vector2[] };
+  uLightPixelSize: { value: number };
+  uLightIntensityScale: { value: number };
+  uLightAlphaScale: { value: number };
+  uLightMaxAlpha: { value: number };
+  uLightSurfaceColorMix: { value: number };
+  uAmbientColor: { value: Color };
+  uAmbientIntensity: { value: number };
+  uTileEmissiveIntensity: { value: number };
 };
 
-const sceneWaveMaterials = new Set<FieldGridWaveMaterial>();
+/**
+ * Anything that participates in the shared wave / pixel-light effects: the
+ * transparent grid overlay shader and the lit physical tile material.
+ */
+export type FieldGridEffectMaterial = {
+  receivesPixelLights: boolean;
+  uniforms: FieldGridEffectUniforms;
+};
+
+export type FieldGridWaveMaterial = ShaderMaterial & FieldGridEffectMaterial;
+
+const sceneWaveMaterials = new Set<FieldGridEffectMaterial>();
 const sceneWaveOrigins = createOrigins();
 const sceneWaveStartTimes = createStartTimes();
 let sceneWaveTime = 0;
+let sceneWaveDurationSec = getFieldConfig().wave.durationSec;
 
-function copySceneWaveState(material: FieldGridWaveMaterial): void {
+function copySceneWaveState(material: FieldGridEffectMaterial): void {
   material.uniforms.uTime.value = sceneWaveTime;
   for (let index = 0; index < FIELD_WAVE_MAX_COUNT; index += 1) {
     material.uniforms.uOrigins.value[index]!.copy(sceneWaveOrigins[index]!);
@@ -250,7 +268,7 @@ function copySceneWaveState(material: FieldGridWaveMaterial): void {
 }
 
 function setPixelLightsOnMaterial(
-  material: FieldGridWaveMaterial,
+  material: FieldGridEffectMaterial,
   lights: readonly FieldGridPixelLight[],
 ): void {
   for (let index = 0; index < FIELD_GRID_MAX_PIXEL_LIGHTS; index += 1) {
@@ -280,48 +298,64 @@ function setPixelLightsOnMaterial(
   }
 }
 
-export function createFieldGridWaveMaterial(
-  map: Texture | null = null,
-): FieldGridWaveMaterial {
+export type FieldGridWaveMaterialOptions = {
+  readonly depthWrite?: boolean;
+  readonly depthTest?: boolean;
+  readonly receivesPixelLights?: boolean;
+};
+
+/** One uniform set definition shared by the overlay shader and the lit tile material. */
+export function createFieldGridEffectUniforms(map: Texture | null = null): FieldGridEffectUniforms {
   const fieldConfig = getFieldConfig();
   const wave = fieldConfig.wave;
   const pixelGlow = fieldConfig.lighting.objectGlow.pixelOverlay;
-  return new ShaderMaterial({
-    uniforms: {
-      uMap: { value: map ?? transparentPixelTexture },
-      uOrigins: { value: createOrigins() },
-      uStartTimes: { value: createStartTimes() },
-      uTime: { value: sceneWaveTime },
-      uDuration: { value: wave.durationSec },
-      uMaxRadiusSteps: { value: fieldWaveMaxRadiusSteps(wave) },
-      uPixelSize: { value: wave.pixelSizePx },
-      uMaxAlpha: { value: wave.maxAlpha },
-      uFadeInEnd: { value: wave.fadeInEnd },
-      uFadeOutStart: { value: wave.fadeOutStart },
-      uLightPositions: { value: createLightPositions() },
-      uLightColors: { value: createLightColors() },
-      uLightParams: { value: createLightParams() },
-      uLightPixelSize: { value: pixelGlow.pixelSizePx },
-      uLightIntensityScale: { value: pixelGlow.intensityScale },
-      uLightAlphaScale: { value: pixelGlow.alphaScale },
-      uLightMaxAlpha: { value: pixelGlow.maxAlpha },
-      uLightSurfaceColorMix: { value: pixelGlow.surfaceColorMix },
-      uAmbientColor: { value: new Color(fieldConfig.lighting.surfaceAmbientColor) },
-      uAmbientIntensity: { value: fieldConfig.lighting.surfaceAmbientIntensity },
-    },
+  return {
+    uMap: { value: map ?? transparentPixelTexture },
+    uOrigins: { value: createOrigins() },
+    uStartTimes: { value: createStartTimes() },
+    uTime: { value: sceneWaveTime },
+    uDuration: { value: wave.durationSec },
+    uMaxRadiusSteps: { value: fieldWaveMaxRadiusSteps(wave) },
+    uPixelSize: { value: wave.pixelSizePx },
+    uMaxAlpha: { value: wave.maxAlpha },
+    uFadeInEnd: { value: wave.fadeInEnd },
+    uFadeOutStart: { value: wave.fadeOutStart },
+    uLightPositions: { value: createLightPositions() },
+    uLightColors: { value: createLightColors() },
+    uLightParams: { value: createLightParams() },
+    uLightPixelSize: { value: pixelGlow.pixelSizePx },
+    uLightIntensityScale: { value: pixelGlow.intensityScale },
+    uLightAlphaScale: { value: pixelGlow.alphaScale },
+    uLightMaxAlpha: { value: pixelGlow.maxAlpha },
+    uLightSurfaceColorMix: { value: pixelGlow.surfaceColorMix },
+    uAmbientColor: { value: new Color(fieldConfig.lighting.surfaceAmbientColor) },
+    uAmbientIntensity: { value: fieldConfig.lighting.surfaceAmbientIntensity },
+    uTileEmissiveIntensity: { value: fieldConfig.platform.emissiveIntensity },
+  };
+}
+
+export function createFieldGridWaveMaterial(
+  map: Texture | null = null,
+  options: FieldGridWaveMaterialOptions = {},
+): FieldGridWaveMaterial {
+  const material = new ShaderMaterial({
+    uniforms: createFieldGridEffectUniforms(map),
     vertexShader,
     fragmentShader,
     side: DoubleSide,
     transparent: true,
-    depthWrite: false,
+    depthWrite: options.depthWrite ?? false,
+    depthTest: options.depthTest ?? true,
     blending: NormalBlending,
     toneMapped: false,
   }) as FieldGridWaveMaterial;
+  material.receivesPixelLights = options.receivesPixelLights ?? true;
+  return material;
 }
 
-/** Register both the grid shader and platform overlays in one shared effects set. */
+/** Register both the grid shader and lit tiles in one shared effects set. */
 export function registerFieldGridWaveMaterial(
-  material: FieldGridWaveMaterial,
+  material: FieldGridEffectMaterial,
 ): () => void {
   sceneWaveMaterials.add(material);
   copySceneWaveState(material);
@@ -329,28 +363,37 @@ export function registerFieldGridWaveMaterial(
   return () => sceneWaveMaterials.delete(material);
 }
 
-/** Apply the same currently-visible local lights to the shared pixel layer on every surface. */
+/** Apply the same currently-visible local lights to every lit surface. */
 export function syncFieldGridPixelLights(
   lights: readonly FieldGridPixelLight[],
 ): void {
   for (const material of sceneWaveMaterials) {
+    if (!material.receivesPixelLights) continue;
     setPixelLightsOnMaterial(material, lights);
   }
 }
 
 export function syncFieldGridWaveSceneConfig(): void {
+  sceneWaveDurationSec = getFieldConfig().wave.durationSec;
   for (const material of sceneWaveMaterials) syncFieldGridWaveConfig(material);
 }
 
 export function syncFieldGridWaveSceneTime(elapsedTimeSec: number): void {
   sceneWaveTime = elapsedTimeSec;
-  const duration = getFieldConfig().wave.durationSec;
+  const duration = sceneWaveDurationSec;
+  let hasActiveWave = false;
   for (let index = 0; index < sceneWaveStartTimes.length; index += 1) {
     const start = sceneWaveStartTimes[index]!;
     if (start >= 0 && elapsedTimeSec - start >= duration) {
       sceneWaveStartTimes[index] = FIELD_WAVE_SLOT_INACTIVE;
+    } else if (start >= 0) {
+      hasActiveWave = true;
     }
   }
+
+  // The common idle state has no waves. Avoid copying all wave uniforms into
+  // every streamed material on every frame when there is nothing to animate.
+  if (!hasActiveWave) return;
 
   for (const material of sceneWaveMaterials) {
     material.uniforms.uTime.value = elapsedTimeSec;
@@ -396,7 +439,7 @@ export function resetFieldGridWaveScene(): void {
 }
 
 /** Keep shader uniforms in sync with runtime field config overrides. */
-export function syncFieldGridWaveConfig(material: FieldGridWaveMaterial): void {
+export function syncFieldGridWaveConfig(material: FieldGridEffectMaterial): void {
   const wave = getFieldConfig().wave;
   material.uniforms.uDuration.value = wave.durationSec;
   material.uniforms.uMaxRadiusSteps.value = fieldWaveMaxRadiusSteps(wave);
@@ -405,10 +448,12 @@ export function syncFieldGridWaveConfig(material: FieldGridWaveMaterial): void {
   material.uniforms.uFadeInEnd.value = wave.fadeInEnd;
   material.uniforms.uFadeOutStart.value = wave.fadeOutStart;
 
-  const lighting = getFieldConfig().lighting;
+  const fieldConfig = getFieldConfig();
+  const lighting = fieldConfig.lighting;
   const pixelGlow = lighting.objectGlow.pixelOverlay;
   material.uniforms.uAmbientColor.value.set(lighting.surfaceAmbientColor);
   material.uniforms.uAmbientIntensity.value = lighting.surfaceAmbientIntensity;
+  material.uniforms.uTileEmissiveIntensity.value = fieldConfig.platform.emissiveIntensity;
   material.uniforms.uLightPixelSize.value = pixelGlow.pixelSizePx;
   material.uniforms.uLightIntensityScale.value = pixelGlow.intensityScale;
   material.uniforms.uLightAlphaScale.value = pixelGlow.alphaScale;
@@ -418,7 +463,7 @@ export function syncFieldGridWaveConfig(material: FieldGridWaveMaterial): void {
 
 /** Per-material helpers remain available for isolated shader tests/tools. */
 export function syncFieldGridWaveTime(
-  material: FieldGridWaveMaterial,
+  material: FieldGridEffectMaterial,
   elapsedTimeSec: number,
 ): void {
   material.uniforms.uTime.value = elapsedTimeSec;
@@ -433,7 +478,7 @@ export function syncFieldGridWaveTime(
 }
 
 export function triggerFieldGridWave(
-  material: FieldGridWaveMaterial,
+  material: FieldGridEffectMaterial,
   originX: number,
   originY: number,
   elapsedTimeSec: number,

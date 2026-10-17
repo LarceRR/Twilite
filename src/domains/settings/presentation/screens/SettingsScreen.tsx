@@ -45,6 +45,11 @@ export function SettingsScreen(): ReactElement {
           subtitle="Сетка, оси, камера и отладочная разметка"
           onPress={() => router.push('/settings/scene' as Href)}
         />
+        <ListRow
+          title="Плитки поля"
+          subtitle="Seed мира и распределение высоты плиток"
+          onPress={() => router.push('/settings/tiles' as Href)}
+        />
       </BlurCard>
     </Screen>
   );

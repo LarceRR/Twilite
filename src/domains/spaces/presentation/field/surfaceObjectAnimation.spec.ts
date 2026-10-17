@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { DEFAULT_FIELD_CONFIG } from './fieldConfig';
+
 import {
   advanceSpritePlayback,
   easeOutCubic,
@@ -36,7 +38,7 @@ describe('surfaceObjectAnimation', () => {
   });
 
   it('uses a fixed six-world-unit platform thickness', () => {
-    expect(SURFACE_OBJECT_ANIMATION_CONFIG.platformHeight).toBe(6);
+    expect(DEFAULT_FIELD_CONFIG.platform.height).toBe(6);
   });
 
   it('holds a one-frame sprite without scheduling another frame', () => {

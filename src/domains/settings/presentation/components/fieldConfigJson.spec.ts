@@ -16,7 +16,7 @@ describe('fieldConfigJson', () => {
       grid: { showDividers: false, rows: 19 },
       camera: { position: { x: -250 } },
       lighting: {
-        objectGlow: { fallbackColor: '#FF5911', heightAbovePlatform: 2.5 },
+        objectGlow: { fallbackColor: '#FF5911', fallbackDistance: 250 },
       },
     });
 
@@ -34,8 +34,8 @@ describe('fieldConfigJson', () => {
 
     expect(imported.grid.rows).toBe(20);
     expect(imported.grid.showDividers).toBe(DEFAULT_FIELD_CONFIG.grid.showDividers);
-    expect(imported.lighting.objectGlow.heightAbovePlatform).toBe(
-      DEFAULT_FIELD_CONFIG.lighting.objectGlow.heightAbovePlatform,
+    expect(imported.lighting.objectGlow.minimumVisibleIntensity).toBe(
+      DEFAULT_FIELD_CONFIG.lighting.objectGlow.minimumVisibleIntensity,
     );
   });
 
@@ -73,6 +73,20 @@ describe('fieldConfigJson', () => {
         JSON.stringify({ camera: { near: 500, far: 100 } }),
       ),
     ).toThrow(/камера/i);
+  });
+
+  it('rejects imported configs that can trigger unbounded scene work', () => {
+    expect(() =>
+      parseFieldConfigJson(JSON.stringify({ fireflies: { clusterMaxEmitters: 1000 } })),
+    ).toThrow(/светлячков/i);
+
+    expect(() =>
+      parseFieldConfigJson(JSON.stringify({ grid: { rows: 10000 } })),
+    ).toThrow(/размеры сетки/i);
+
+    expect(() =>
+      parseFieldConfigJson(JSON.stringify({ lighting: { shadows: { mapSizePx: 1024 } } })),
+    ).toThrow(/shadow-камеры/i);
   });
 
   it('reports malformed JSON clearly', () => {

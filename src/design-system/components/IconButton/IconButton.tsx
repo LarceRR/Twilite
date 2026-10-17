@@ -47,7 +47,7 @@ function IconButtonComponent({
         <GlassSurface
           cornerRadius={radius.pill}
           interactive
-          tintColor={tinted ? theme.accentSoft : undefined}
+          {...(tinted ? { tintColor: theme.accentSoft } : {})}
           style={[styles.base, disabled && styles.disabled]}
         >
           <Ionicons name={icon} size={size} color={color ?? theme.textPrimary} />

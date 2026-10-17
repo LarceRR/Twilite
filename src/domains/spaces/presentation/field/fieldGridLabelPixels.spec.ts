@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import { currentThemeColors } from '@/design-system/colors/colors';
-
 import {
   FIELD_ACTIVE_CENTER_RGBA,
   FIELD_ACTIVE_FILL_HEX,
@@ -17,6 +15,7 @@ import {
   type Rgba,
 } from './fieldGridLabelPixels';
 import { isLabelGlyphPixelOn } from './fieldGridDigitGlyphs';
+import { DEFAULT_FIELD_CONFIG } from './fieldConfig';
 
 const FILL: Rgba = [10, 20, 30, 255];
 const TRANSPARENT: Rgba = [0, 0, 0, 0];
@@ -121,7 +120,7 @@ describe('fieldGridLabelPixels', () => {
       showActiveCells: false,
     });
     expect(sample(data, width, 20, 620)).toEqual(TRANSPARENT);
-    expect(sample(data, width, 30, 630)).toEqual(ACTIVE_CENTER);
+    expect(sample(data, width, 30, 640)).toEqual(ACTIVE_CENTER);
   });
 
   it('skips configured center marks when showActiveCenters is off', () => {
@@ -155,10 +154,10 @@ describe('fieldGridLabelPixels', () => {
     expect(textPixels).toBeGreaterThan(5);
   });
 
-  it('uses the surfaceRaised theme token for active-cell fills', () => {
-    expect(FIELD_ACTIVE_FILL_HEX).toBe(currentThemeColors().surfaceRaised);
+  it('uses the field configuration for the default active-cell fill', () => {
+    expect(FIELD_ACTIVE_FILL_HEX).toBe(DEFAULT_FIELD_CONFIG.activeCells.fillHex);
     expect(FIELD_ACTIVE_FILL_RGBA).toEqual(
-      themeColorToRgbaTuple(currentThemeColors().surfaceRaised),
+      themeColorToRgbaTuple(DEFAULT_FIELD_CONFIG.activeCells.fillHex),
     );
   });
 

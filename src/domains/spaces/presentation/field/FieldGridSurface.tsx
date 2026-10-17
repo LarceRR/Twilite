@@ -5,6 +5,7 @@ import type { ReactElement } from 'react';
 import { useUiStore } from '@/app/stores/uiStore';
 import { useThemeColors } from '@/design-system/colors/colors';
 import { useSettingsStore } from '@/domains/settings/presentation/stores/settingsStore';
+import type { SurfaceObject } from '@/domains/spaces/domain/entities/SurfaceObject';
 
 import {
   compositeThemeColorOver,
@@ -22,7 +23,6 @@ import {
   prefetchFieldChunk,
   prioritizeFieldChunkGpuUploads,
   pumpFieldChunkGpuUploads,
-  type FieldChunkBakeRequest,
 } from './fieldGridChunkBake';
 import { cellCenterOnPlane } from './fieldGridCells';
 import {
@@ -65,9 +65,11 @@ import {
   type FieldGridWaveMaterial,
 } from './fieldGridWaveMaterial';
 import { useFieldConfig } from './useFieldConfig';
+import { recordFieldCpuWork } from './fieldPerformanceDiagnostics';
 
 type FieldGridSurfaceProps = {
   readonly config: FieldGridConfig;
+  readonly objects: readonly SurfaceObject[];
 };
 
 type PressSession = {
@@ -188,13 +190,17 @@ function warmChunkPrefetch(
 }
 
 /** Streams field chunks along +X; camera pose is polled in useFrame (no React bind). */
-export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElement {
+export function FieldGridSurface({ config, objects }: FieldGridSurfaceProps): ReactElement {
   const showToast = useUiStore((s) => s.showToast);
   const { surface, surfaceDivider } = useThemeColors();
   const fieldConfig = useFieldConfig();
   const showActiveCells = useSettingsStore((s) => s.developerShowActiveCells);
   const showActiveCenters = useSettingsStore((s) => s.developerShowActiveCellCenters);
   const showCellLabels = useSettingsStore((s) => s.developerShowCellLabels);
+  const occupiedCellKeys = useMemo(
+    () => new Set(objects.map((object) => object.cell.x + ':' + object.cell.y)),
+    [objects],
+  );
 
   const slotCount = fieldChunkSlotCount(
     fieldConfig.chunks.behind,
@@ -309,6 +315,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
   }, [fieldConfig.wave, fieldConfig.lighting.objectGlow.pixelOverlay]);
 
   useFrame(({ clock, gl, camera }) => {
+    const frameWorkStart = performance.now();
     timeRef.current = clock.elapsedTime;
     const bakeNow = bakeRef.current;
 
@@ -390,6 +397,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
     }
 
     syncFieldGridWaveSceneTime(clock.elapsedTime);
+    recordFieldCpuWork('grid', performance.now() - frameWorkStart);
   });
 
   const cancelPress = useCallback((): void => {
@@ -473,6 +481,7 @@ export function FieldGridSurface({ config }: FieldGridSurfaceProps): ReactElemen
           key={slot}
           chunkIndex={chunkIndex}
           base={bake.base}
+          occupiedCellKeys={occupiedCellKeys}
           onMaterialReady={onMaterialReady}
           onMaterialDispose={onMaterialDispose}
           onPointerDown={onPointerDown}

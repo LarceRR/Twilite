@@ -165,6 +165,112 @@ export type FieldConfig = {
     /** Delay after the initial input before repeated movement begins, in milliseconds. */
     readonly startDelayMs: number;
   };
+  /** Procedural particles emitted by objects with active light sources. */
+  readonly fireflies: {
+    readonly enabled: boolean;
+    /** Live particle limit; the renderer has a fixed capacity of 32 instances. */
+    readonly maxCount: number;
+    /** Width and height of one pixel-art particle, in world units. */
+    readonly pixelSize: number;
+    readonly maxLifetimeSec: number;
+    readonly minLifetimeSec: number;
+    readonly lifetimeVariationSec: number;
+    readonly clusterRefreshSec: number;
+    readonly spawnDistance: number;
+    readonly clusterMaxEmitters: number;
+    readonly clusterNeighbourDistanceMultiplier: number;
+    readonly minimumClusterNeighbourDistance: number;
+    readonly clusterDistanceMinCellMultiplier: number;
+    readonly clusterDistanceMaxCellMultiplier: number;
+    readonly clusterRadiusOffsetCellMultiplier: number;
+    readonly clusterRadiusMinCellMultiplier: number;
+    readonly clusterRadiusMaxCellMultiplier: number;
+    readonly emitterWeightMin: number;
+    readonly emitterWeightMax: number;
+    readonly clusterIntensityMin: number;
+    readonly clusterIntensityMax: number;
+    readonly targetBaseCount: number;
+    readonly targetPerEmitter: number;
+    readonly targetMinCount: number;
+    readonly targetMaxCount: number;
+    readonly scoutChance: number;
+    readonly wandererChance: number;
+    readonly spawnHeightMin: number;
+    readonly spawnHeightRange: number;
+    readonly spawnHeightCellMultiplier: number;
+    readonly spawnIntervalSec: number;
+    readonly initialSpawnBudget: number;
+    readonly spawnBudgetPerInterval: number;
+    readonly retireDurationSec: number;
+    readonly minVisibleLightIntensity: number;
+    readonly visibleClusterRadiusMultiplier: number;
+    readonly visibleClusterCellMultiplier: number;
+    /** Maximum local tile-light shader slots reserved for moving fireflies; hard limit 4. */
+    readonly maxLocalLights: number;
+    readonly opacityDiscardThreshold: number;
+    readonly fallbackColor: string;
+    readonly differentiateScoutColor: boolean;
+    readonly scoutColor: string;
+    readonly intensityScaleDivisor: number;
+    readonly intensityMultiplierMin: number;
+    readonly intensityMultiplierMax: number;
+    readonly motion: {
+      readonly maxDeltaSec: number;
+      readonly fadeInProgress: number;
+      readonly lightFadeOutProgress: number;
+      readonly visualFadeInProgress: number;
+      readonly visualFadeOutProgress: number;
+      readonly secondarySpeedMultiplier: number;
+      readonly phaseMultiplier: number;
+      readonly targetXSecondaryAmplitude: number;
+      readonly targetYFrequencyMultiplier: number;
+      readonly targetYAmplitudeMultiplier: number;
+      readonly targetYSecondaryFrequencyMultiplier: number;
+      readonly targetYSecondaryAmplitudeMultiplier: number;
+      readonly targetZFrequencyMultiplier: number;
+      readonly targetZMaxAmplitude: number;
+      readonly targetZAmplitudeWanderMultiplier: number;
+      readonly targetZSecondaryAmplitude: number;
+      readonly targetZSecondaryFrequencyMultiplier: number;
+      readonly verticalPullMultiplier: number;
+      readonly turbulenceXFrequencyMultiplier: number;
+      readonly turbulenceYFrequencyMultiplier: number;
+      readonly turbulenceZFrequencyMultiplier: number;
+      readonly turbulenceZMultiplier: number;
+      readonly damping: number;
+      readonly initialVelocityXYRange: number;
+      readonly initialVelocityZRange: number;
+    };
+    readonly kinds: {
+      readonly drifter: {
+        readonly wanderRadiusMultiplier: number;
+        readonly minimumWanderCellMultiplier: number;
+        readonly baseIntensity: number;
+        readonly lightDistanceMultiplier: number;
+        readonly speed: number;
+        readonly pull: number;
+        readonly turbulence: number;
+      };
+      readonly wanderer: {
+        readonly wanderRadiusMultiplier: number;
+        readonly minimumWanderCellMultiplier: number;
+        readonly baseIntensity: number;
+        readonly lightDistanceMultiplier: number;
+        readonly speed: number;
+        readonly pull: number;
+        readonly turbulence: number;
+      };
+      readonly scout: {
+        readonly wanderRadiusMultiplier: number;
+        readonly minimumWanderCellMultiplier: number;
+        readonly baseIntensity: number;
+        readonly lightDistanceMultiplier: number;
+        readonly speed: number;
+        readonly pull: number;
+        readonly turbulence: number;
+      };
+    };
+  };
   /** Scene lighting, temporary object glow and shared shadow-map settings. */
   readonly lighting: {
     /** Base fill illumination applied uniformly to the scene. */
@@ -292,6 +398,108 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
     fadeInEnd: 0.08,
     fadeOutStart: 0.55,
   },
+  fireflies: {
+    enabled: true,
+    maxCount: 16,
+    pixelSize: 1,
+    maxLifetimeSec: 10,
+    minLifetimeSec: 3.2,
+    lifetimeVariationSec: 6.5,
+    clusterRefreshSec: 0.3,
+    spawnDistance: 900,
+    clusterMaxEmitters: 64,
+    clusterNeighbourDistanceMultiplier: 1.55,
+    minimumClusterNeighbourDistance: 1,
+    clusterDistanceMinCellMultiplier: 1,
+    clusterDistanceMaxCellMultiplier: 4,
+    clusterRadiusOffsetCellMultiplier: 0.42,
+    clusterRadiusMinCellMultiplier: 0.55,
+    clusterRadiusMaxCellMultiplier: 3.5,
+    emitterWeightMin: 0.1,
+    emitterWeightMax: 8,
+    clusterIntensityMin: 0.1,
+    clusterIntensityMax: 4,
+    targetBaseCount: 2,
+    targetPerEmitter: 1.6,
+    targetMinCount: 2,
+    targetMaxCount: 12,
+    scoutChance: 0.03,
+    wandererChance: 0.23,
+    spawnHeightMin: 5,
+    spawnHeightRange: 22,
+    spawnHeightCellMultiplier: 0.45,
+    spawnIntervalSec: 0.12,
+    initialSpawnBudget: 3,
+    spawnBudgetPerInterval: 2,
+    retireDurationSec: 0.8,
+    minVisibleLightIntensity: 0.005,
+    visibleClusterRadiusMultiplier: 1.8,
+    visibleClusterCellMultiplier: 3,
+    maxLocalLights: 4,
+    opacityDiscardThreshold: 0.001,
+    fallbackColor: '#FFAE00',
+    differentiateScoutColor: true,
+    scoutColor: '#FFF0B0',
+    intensityScaleDivisor: 1.8,
+    intensityMultiplierMin: 0.55,
+    intensityMultiplierMax: 1.15,
+    motion: {
+      maxDeltaSec: 0.05,
+      fadeInProgress: 0.12,
+      lightFadeOutProgress: 0.2,
+      visualFadeInProgress: 0.09,
+      visualFadeOutProgress: 0.18,
+      secondarySpeedMultiplier: 0.43,
+      phaseMultiplier: 1.73,
+      targetXSecondaryAmplitude: 0.32,
+      targetYFrequencyMultiplier: 0.79,
+      targetYAmplitudeMultiplier: 0.78,
+      targetYSecondaryFrequencyMultiplier: 0.83,
+      targetYSecondaryAmplitudeMultiplier: 0.3,
+      targetZFrequencyMultiplier: 1.9,
+      targetZMaxAmplitude: 12,
+      targetZAmplitudeWanderMultiplier: 0.28,
+      targetZSecondaryAmplitude: 3.5,
+      targetZSecondaryFrequencyMultiplier: 1.37,
+      verticalPullMultiplier: 0.55,
+      turbulenceXFrequencyMultiplier: 2.7,
+      turbulenceYFrequencyMultiplier: 2.4,
+      turbulenceZFrequencyMultiplier: 3.1,
+      turbulenceZMultiplier: 0.14,
+      damping: 2.05,
+      initialVelocityXYRange: 5,
+      initialVelocityZRange: 1.5,
+    },
+    kinds: {
+      drifter: {
+        wanderRadiusMultiplier: 1.05,
+        minimumWanderCellMultiplier: 0.45,
+        baseIntensity: 0.5,
+        lightDistanceMultiplier: 1.7,
+        speed: 0.65,
+        pull: 3.1,
+        turbulence: 8,
+      },
+      wanderer: {
+        wanderRadiusMultiplier: 1.75,
+        minimumWanderCellMultiplier: 2,
+        baseIntensity: 0.68,
+        lightDistanceMultiplier: 1.7,
+        speed: 0.95,
+        pull: 2.4,
+        turbulence: 14,
+      },
+      scout: {
+        wanderRadiusMultiplier: 2.8,
+        minimumWanderCellMultiplier: 8,
+        baseIntensity: 0.95,
+        lightDistanceMultiplier: 2.2,
+        speed: 1.35,
+        pull: 1.7,
+        turbulence: 24,
+      },
+    },
+  },
   camera: {
     position: { x: -323, y: 0, z: 171 },
     rotationDeg: { x: 83, y: 0, z: -90 },
@@ -344,13 +552,17 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
     startDelayMs: 180,
   },
   lighting: {
-    ambientIntensity: 0.85,
-    directionalIntensity: 0.55,
-    directionalPosition: [240, 420, 180],
+    // Physically based units: lit faces receive (ambient + N.L * directional) / PI.
+    // The sun is high and slightly behind/left of the camera, so tile tops are
+    // bright, the walls facing the camera sit in readable half-shade and
+    // shadows fall forward and to the side of raised tiles.
+    ambientIntensity: 1.4,
+    directionalIntensity: 2.2,
+    directionalPosition: [-160, 260, 420],
     surfaceAmbientColor: '#FFAE00',
     surfaceAmbientIntensity: 0.025,
     objectGlow: {
-      forceAllObjectsForTesting: true,
+      forceAllObjectsForTesting: false,
       fallbackColor: '#FFAE00',
       fallbackIntensity: 2.1,
       fallbackDistance: 300,
@@ -376,15 +588,18 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
     shadows: {
       mapSizePx: 512,
       filterRadius: 6,
-      cameraLeft: -800,
-      cameraRight: 800,
-      cameraTop: 500,
-      cameraBottom: -500,
+      cameraLeft: -900,
+      cameraRight: 900,
+      cameraTop: 600,
+      cameraBottom: -600,
       cameraNear: 0.1,
       cameraFar: 4000,
       bias: -0.0005,
-      normalBias: 0.02,
-      baselineIntensity: 0.42,
+      // About half a shadow texel in world units: removes acne on tile tops
+      // without detaching shadows from the 2-unit tile steps.
+      normalBias: 0.8,
+      // Shadowed areas keep only ambient + local candle light, like in reality.
+      baselineIntensity: 0.92,
     },
   },
 };
@@ -413,11 +628,22 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+const mergedSectionCache = new WeakMap<object, WeakMap<object, object>>();
+
 function mergeSection<T extends Record<string, unknown>>(
   base: T,
   patch: DeepPartial<T> | undefined,
 ): T {
   if (patch == null) return base;
+
+  // Overrides are immutable. Reuse merged nested sections when their patch
+  // reference has not changed, so editing fireflies cannot recreate artwork,
+  // textures, or geometry in an unrelated lighting section.
+  const patchObject = patch as object;
+  let byPatch = mergedSectionCache.get(base);
+  const cached = byPatch?.get(patchObject);
+  if (cached !== undefined) return cached as T;
+
   const next: Record<string, unknown> = { ...base };
   for (const key of Object.keys(patch) as (keyof T & string)[]) {
     const patchValue = patch[key];
@@ -431,7 +657,14 @@ function mergeSection<T extends Record<string, unknown>>(
           )
         : patchValue;
   }
-  return next as T;
+
+  const result = next as T;
+  if (byPatch === undefined) {
+    byPatch = new WeakMap<object, object>();
+    mergedSectionCache.set(base, byPatch);
+  }
+  byPatch.set(patchObject, result);
+  return result;
 }
 
 export function mergeFieldConfig(overrides: FieldConfigOverrides = {}): FieldConfig {
@@ -439,6 +672,7 @@ export function mergeFieldConfig(overrides: FieldConfigOverrides = {}): FieldCon
     grid: mergeSection(DEFAULT_FIELD_CONFIG.grid, overrides.grid),
     chunks: mergeSection(DEFAULT_FIELD_CONFIG.chunks, overrides.chunks),
     wave: mergeSection(DEFAULT_FIELD_CONFIG.wave, overrides.wave),
+    fireflies: mergeSection(DEFAULT_FIELD_CONFIG.fireflies, overrides.fireflies),
     camera: mergeSection(
       DEFAULT_FIELD_CONFIG.camera as unknown as Record<string, unknown>,
       overrides.camera as DeepPartial<Record<string, unknown>> | undefined,

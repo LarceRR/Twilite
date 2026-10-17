@@ -32,11 +32,11 @@ export const FIELD_GRID_HEIGHT = fieldGridHeightFromConfig(DEFAULT_FIELD_CONFIG.
 export const FIELD_WORLD_UP: readonly [number, number, number] = [0, 0, 1];
 
 
-/** Render transparent grid/light effects before sprite artwork. */
-export const FIELD_GRID_OVERLAY_RENDER_ORDER = 0;
+/** Draw grid pixels and labels above tiles, but below sprite artwork. */
+export const FIELD_GRID_OVERLAY_RENDER_ORDER = 2;
 
-/** Keep pixel-art sprites above grid and glow overlays. */
-export const FIELD_OBJECT_ARTWORK_RENDER_ORDER = 2;
+/** Keep pixel-art sprites above tiles and the transparent grid overlay. */
+export const FIELD_OBJECT_ARTWORK_RENDER_ORDER = 3;
 
 export type FieldGridConfig = {
   readonly cols: number;

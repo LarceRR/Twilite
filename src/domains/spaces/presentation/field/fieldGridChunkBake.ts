@@ -169,6 +169,10 @@ export function pendingFieldChunkGpuUploads(): number {
   return uploadQueue.length;
 }
 
+export function pendingFieldChunkBakes(): number {
+  return pendingBakes.size;
+}
+
 export function peekFieldChunkBake(
   request: FieldChunkBakeRequest,
   runtimeConfig: FieldConfig = getFieldConfig(),

@@ -2,33 +2,33 @@ import { useFrame } from '@react-three/fiber/native';
 import type { ReactElement, RefObject } from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
+  AdditiveBlending,
   Color,
+  DoubleSide,
+  DynamicDrawUsage,
+  InstancedBufferAttribute,
+  Object3D,
+  PlaneGeometry,
+  ShaderMaterial,
   Vector3,
   type Group,
-  type Mesh,
+  type InstancedMesh,
   type MeshBasicMaterial,
-  type MeshStandardMaterial,
   type Texture,
 } from 'three';
 
 import type { AuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAssetHeaders';
 import type { SurfaceObject } from '@/domains/spaces/domain/entities/SurfaceObject';
-import { useThemeColors } from '@/design-system/colors/colors';
 
 import { FieldSurfaceObjectArtwork } from './FieldSurfaceObjectArtwork';
 import { cellCenterOnPlane } from './fieldGridCells';
-import type { FieldConfig } from './fieldConfig';
+import { DEFAULT_FIELD_CONFIG, type FieldConfig } from './fieldConfig';
+import type { FieldGridConfig } from './fieldGridConfig';
 import {
-  FIELD_GRID_OVERLAY_RENDER_ORDER,
-  type FieldGridConfig,
-} from './fieldGridConfig';
-import {
-  createFieldGridWaveMaterial,
-  registerFieldGridWaveMaterial,
-  FIELD_GRID_MAX_PIXEL_LIGHTS,
+  FIELD_GRID_MAX_FIREFLY_LIGHTS,
+  FIELD_GRID_MAX_OBJECT_PIXEL_LIGHTS,
   syncFieldGridPixelLights,
   type FieldGridPixelLight,
-  type FieldGridWaveMaterial,
 } from './fieldGridWaveMaterial';
 import {
   candleFlickerMultiplier,
@@ -44,33 +44,79 @@ import {
   SURFACE_OBJECT_ANIMATION_CONFIG,
   staggerAppearanceDelays,
 } from './surfaceObjectAnimation';
-import {
-  createRoundedSquarePlatformGeometry,
-  createRoundedSquareTopGeometry,
-} from './fieldPlatformGeometry';
 import { useFieldConfig } from './useFieldConfig';
+import { recordFieldCpuWork } from './fieldPerformanceDiagnostics';
+import { requestFieldShadowUpdate } from './fieldShadowInvalidation';
+import { objectPlatformHeight } from './fieldTileGeneration';
+import { useFieldTileStore } from './fieldTileStore';
+import {
+  advanceFirefly,
+  buildFireflyClusters,
+  createFirefly,
+  FIREFLY_BUFFER_CAPACITY,
+  fireflyCameraDistanceSquared,
+  fireflyTargetCount,
+  fireflyVisualOpacity,
+  type Firefly,
+  type FireflyCluster,
+  type FireflyEmitter,
+} from './fieldFireflies';
 
 const billboardCameraPosition = new Vector3();
+const fireflyVertexShader = /* glsl */ `
+precision highp float;
+
+attribute vec3 instanceFireflyColor;
+attribute float instanceOpacity;
+varying vec3 vColor;
+varying float vOpacity;
+
+void main() {
+  vColor = instanceFireflyColor;
+  vOpacity = instanceOpacity;
+  vec4 localPosition = vec4(position, 1.0);
+  #ifdef USE_INSTANCING
+    localPosition = instanceMatrix * localPosition;
+  #endif
+  gl_Position = projectionMatrix * modelViewMatrix * localPosition;
+}
+`;
+
+const fireflyFragmentShader = /* glsl */ `
+precision highp float;
+
+varying vec3 vColor;
+varying float vOpacity;
+uniform float uOpacityDiscardThreshold;
+
+void main() {
+  if (vOpacity <= uOpacityDiscardThreshold) discard;
+  gl_FragColor = vec4(vColor, vOpacity);
+}
+`;
+
+type FireflySimulation = {
+  readonly flies: Firefly[];
+  clusters: FireflyCluster[];
+  refreshElapsedSec: number;
+  spawnAccumulatorSec: number;
+  nextId: number;
+  initialized: boolean;
+};
 
 type RuntimeObject = {
-  readonly column: RefObject<Mesh | null>;
   readonly artwork: RefObject<Group | null>;
-  readonly waveOverlay: RefObject<Mesh | null>;
-  readonly platformMaterial: RefObject<MeshStandardMaterial | null>;
   readonly object: SurfaceObject;
   readonly centerX: number;
   readonly centerY: number;
   readonly flickerSeed: number;
   readonly platformHeight: number;
   readonly platformSize: number;
-  readonly platformEmissionIntensity: number;
-  readonly fallbackEmissionColor: string;
   readonly artHeight: number;
   readonly lightConfig: SurfaceObjectLightConfig | null;
+  readonly backendLightConfig: SurfaceObjectLightConfig | null;
   readonly flickerConfig: FieldConfig['lighting']['objectGlow']['flicker'];
   readonly minimumVisibleIntensity: number;
-  readonly waveMaterial: FieldGridWaveMaterial;
-  unregisterWaveMaterial: (() => void) | null;
   readonly pixelLight: FieldGridPixelLight | null;
   lightDistanceSquared: number;
   artworkMaterial: MeshBasicMaterial | null;
@@ -85,6 +131,11 @@ function compareLightDistance(left: RuntimeObject, right: RuntimeObject): number
   return left.lightDistanceSquared - right.lightDistanceSquared;
 }
 
+/**
+ * This layer contains only pixel-object artwork and light-source simulation.
+ * Physical platforms are rendered by FieldGeneratedTiles so there is only one
+ * geometry/material definition for every cell, occupied or empty.
+ */
 export function FieldSurfaceObjects({
   objects,
   config,
@@ -96,38 +147,98 @@ export function FieldSurfaceObjects({
 }): ReactElement {
   const runtime = useRef(new Map<string, RuntimeObject>());
   const appearance = useAppearingObjects(objects);
-  const { surfaceRaised } = useThemeColors();
   const fieldConfig = useFieldConfig();
-  const lightingConfig = fieldConfig.lighting;
-  const platformCornerRadius = fieldConfig.platform.cornerRadius;
-  const platformEdgeBevel = fieldConfig.platform.edgeBevel;
-  const platformEmissionIntensity = fieldConfig.platform.emissiveIntensity;
-  const platformColor = useMemo(
-    () =>
-      new Color(surfaceRaised).lerp(
-        new Color(lightingConfig.surfaceAmbientColor),
-        lightingConfig.surfaceAmbientIntensity,
-      ),
-    [
-      surfaceRaised,
-      lightingConfig.surfaceAmbientColor,
-      lightingConfig.surfaceAmbientIntensity,
-    ],
-  );
-  const objectGlowConfig = lightingConfig.objectGlow;
+  const tileSettings = useFieldTileStore();
+  const objectGlowConfig = fieldConfig.lighting.objectGlow;
+  const fireflyConfig = fieldConfig.fireflies;
   const lastBillboardCameraXY = useRef({ x: Number.NaN, y: Number.NaN });
   const lightVisibility = useMemo(() => new SurfaceObjectLightVisibility(), []);
   const lightCandidates = useRef<RuntimeObject[]>([]);
   const activePixelLights = useRef<FieldGridPixelLight[]>([]);
+  const pixelLightSyncElapsed = useRef(0);
+  const fireflyEmitters = useRef<FireflyEmitter[]>([]);
+  const activeFireflyLights = useRef<Firefly[]>([]);
+  const visibleFireflyClusters = useRef<FireflyCluster[]>([]);
+  const fireflyTargetCounts = useRef(new Map<string, number>());
+  const fireflyCurrentCounts = useRef(new Map<string, number>());
+  const fireflySimulation = useRef<FireflySimulation>({
+    flies: [],
+    clusters: [],
+    refreshElapsedSec: 0,
+    spawnAccumulatorSec: 0,
+    nextId: 1,
+    initialized: false,
+  });
+  const fireflyMesh = useRef<InstancedMesh>(null);
+  const fireflyBillboard = useMemo(() => {
+    const billboard = new Object3D();
+    billboard.up.set(0, 0, 1);
+    return billboard;
+  }, []);
+  const fireflyGeometry = useMemo(() => {
+    const geometry = new PlaneGeometry(1, 1);
+    const opacity = new InstancedBufferAttribute(
+      new Float32Array(FIREFLY_BUFFER_CAPACITY),
+      1,
+    );
+    opacity.setUsage(DynamicDrawUsage);
+    const colors = new InstancedBufferAttribute(
+      new Float32Array(FIREFLY_BUFFER_CAPACITY * 3),
+      3,
+    );
+    colors.setUsage(DynamicDrawUsage);
+    geometry.setAttribute('instanceOpacity', opacity);
+    geometry.setAttribute('instanceFireflyColor', colors);
+    return geometry;
+  }, []);
+  useLayoutEffect(() => {
+    fireflyMesh.current?.instanceMatrix.setUsage(DynamicDrawUsage);
+  }, []);
+
+  const fireflyOpacityAttribute = fireflyGeometry.getAttribute(
+    'instanceOpacity',
+  ) as InstancedBufferAttribute;
+  const fireflyColorAttribute = fireflyGeometry.getAttribute(
+    'instanceFireflyColor',
+  ) as InstancedBufferAttribute;
+  const fireflyMaterial = useMemo(
+    () =>
+      new ShaderMaterial({
+        uniforms: {
+          uOpacityDiscardThreshold: {
+            value: DEFAULT_FIELD_CONFIG.fireflies.opacityDiscardThreshold,
+          },
+        },
+        vertexShader: fireflyVertexShader,
+        fragmentShader: fireflyFragmentShader,
+        side: DoubleSide,
+        transparent: true,
+        depthTest: true,
+        depthWrite: false,
+        blending: AdditiveBlending,
+        toneMapped: false,
+      }),
+    [],
+  );
+  useEffect(() => {
+    fireflyMaterial.uniforms.uOpacityDiscardThreshold!.value =
+      fireflyConfig.opacityDiscardThreshold;
+  }, [fireflyMaterial, fireflyConfig.opacityDiscardThreshold]);
+  const fireflyColor = useMemo(() => new Color(), []);
 
   const register = useCallback((item: RuntimeObject): (() => void) => {
     runtime.current.set(item.object.id, item);
+    requestFieldShadowUpdate();
     return () => {
-      runtime.current.delete(item.object.id);
+      if (runtime.current.get(item.object.id) === item) {
+        runtime.current.delete(item.object.id);
+        requestFieldShadowUpdate();
+      }
     };
   }, []);
 
   useFrame(({ camera, clock }, delta) => {
+    const frameWorkStart = performance.now();
     lightVisibility.updateCamera(camera);
     camera.getWorldPosition(billboardCameraPosition);
     const cameraMoved =
@@ -142,62 +253,69 @@ export function FieldSurfaceObjects({
     candidates.length = 0;
     const pixelLights = activePixelLights.current;
     pixelLights.length = 0;
+    const emitters = fireflyEmitters.current;
+    emitters.length = 0;
 
     for (const item of runtime.current.values()) {
-      advanceColumn(item, delta * 1000);
-      advanceArtwork(item, delta * 1000, billboardCameraPosition, cameraMoved);
-
-      const platformInView = lightVisibility.intersects(
-        item.centerX,
-        item.centerY,
-        item.platformHeight / 2 + item.artHeight / 2,
-        item.platformSize * 1.25,
+      const deltaMs = delta * 1000;
+      item.elapsedMs = Math.min(
+        SURFACE_OBJECT_ANIMATION_CONFIG.riseDurationMs,
+        item.elapsedMs + deltaMs,
       );
-      if (platformInView && item.unregisterWaveMaterial === null) {
-        item.unregisterWaveMaterial = registerFieldGridWaveMaterial(item.waveMaterial);
-      } else if (!platformInView && item.unregisterWaveMaterial !== null) {
-        item.unregisterWaveMaterial();
-        item.unregisterWaveMaterial = null;
-      }
+      advanceArtwork(item, deltaMs, billboardCameraPosition, cameraMoved);
 
       const progress = surfaceObjectRiseProgress(item.elapsedMs);
-      const flicker = candleFlickerMultiplier(
-        clock.elapsedTime * 1000,
-        item.flickerSeed,
-        item.flickerConfig,
-      );
-      const material = item.platformMaterial.current;
-      if (material !== null) {
-        const emissiveIntensity = item.platformEmissionIntensity * flicker * progress;
-        if (material.emissiveIntensity !== emissiveIntensity) {
-          material.emissiveIntensity = emissiveIntensity;
-        }
-        const emissionColor = item.lightConfig?.color ?? item.fallbackEmissionColor;
-        if (material.emissive.getHexString() !== emissionColor.replace('#', '').toLowerCase()) {
-          material.emissive.set(emissionColor);
-        }
+      if (progress < 1) requestFieldShadowUpdate();
+      if (item.artworkMaterial !== null && item.artworkMaterial.opacity !== progress) {
+        item.artworkMaterial.opacity = progress;
       }
 
       const lightConfig = item.lightConfig;
       const pixelLight = item.pixelLight;
       if (lightConfig === null || pixelLight === null) continue;
 
+      const flicker = candleFlickerMultiplier(
+        clock.elapsedTime * 1000,
+        item.flickerSeed,
+        item.flickerConfig,
+      );
       const intensity = lightConfig.intensity * flicker * progress;
       if (intensity <= item.minimumVisibleIntensity) continue;
 
-      // The tile surface is the emitter. This virtual source drives only the
-      // shared pixel-light shader; the scene contains no separate lamp object.
-      const platformTopZ = item.platformHeight * progress;
-      const z = platformTopZ;
-      if (!lightVisibility.intersects(item.centerX, item.centerY, z, lightConfig.distance)) {
+      const topZ = item.platformHeight * progress;
+      // Use the resolved light, not only the raw backend field: the resolved
+      // config also includes forceAllObjectsForTesting for development scenes.
+      if (fireflyConfig.enabled) {
+        const fireflyIntensity = lightConfig.intensity * flicker * progress;
+        const dx = billboardCameraPosition.x - item.centerX;
+        const dy = billboardCameraPosition.y - item.centerY;
+        const dz = billboardCameraPosition.z - topZ;
+        if (
+          fireflyIntensity > fireflyConfig.minVisibleLightIntensity &&
+          dx * dx + dy * dy + dz * dz <=
+            fireflyConfig.spawnDistance * fireflyConfig.spawnDistance
+        ) {
+          emitters.push({
+            id: item.object.id,
+            x: item.centerX,
+            y: item.centerY,
+            z: topZ,
+            color: lightConfig.color,
+            intensity: fireflyIntensity,
+            distance: lightConfig.distance,
+          });
+        }
+      }
+
+      if (!lightVisibility.intersects(item.centerX, item.centerY, topZ, lightConfig.distance)) {
         continue;
       }
 
       item.lightDistanceSquared =
         (camera.position.x - item.centerX) ** 2 +
         (camera.position.y - item.centerY) ** 2 +
-        (camera.position.z - z) ** 2;
-      pixelLight.z = z;
+        (camera.position.z - topZ) ** 2;
+      pixelLight.z = topZ;
       pixelLight.intensity = intensity;
       candidates.push(item);
     }
@@ -205,29 +323,276 @@ export function FieldSurfaceObjects({
     candidates.sort(compareLightDistance);
     for (
       let index = 0;
-      index < candidates.length && index < FIELD_GRID_MAX_PIXEL_LIGHTS;
+      index < candidates.length && index < FIELD_GRID_MAX_OBJECT_PIXEL_LIGHTS;
       index += 1
     ) {
       const item = candidates[index]!;
       if (item.pixelLight !== null) pixelLights.push(item.pixelLight);
     }
 
-    syncFieldGridPixelLights(pixelLights);
+    const simulation = fireflySimulation.current;
+    if (!fireflyConfig.enabled) {
+      simulation.flies.length = 0;
+      simulation.clusters.length = 0;
+      simulation.refreshElapsedSec = 0;
+      simulation.spawnAccumulatorSec = 0;
+      simulation.initialized = false;
+      activeFireflyLights.current.length = 0;
+      const mesh = fireflyMesh.current;
+      if (mesh !== null) mesh.visible = false;
+
+      pixelLightSyncElapsed.current += delta;
+      if (pixelLightSyncElapsed.current >= 1 / 30) {
+        pixelLightSyncElapsed.current %= 1 / 30;
+        syncFieldGridPixelLights(pixelLights);
+      }
+      recordFieldCpuWork('objects', performance.now() - frameWorkStart);
+      return;
+    }
+
+    simulation.refreshElapsedSec += delta;
+    const maximumLiveFlies = Math.min(fireflyConfig.maxCount, FIREFLY_BUFFER_CAPACITY);
+    while (simulation.flies.length > maximumLiveFlies) simulation.flies.pop();
+    if (
+      !simulation.initialized ||
+      simulation.refreshElapsedSec >= fireflyConfig.clusterRefreshSec
+    ) {
+      if (emitters.length > fireflyConfig.clusterMaxEmitters) {
+        emitters.sort((left, right) => {
+          const leftDistance =
+            (billboardCameraPosition.x - left.x) ** 2 +
+            (billboardCameraPosition.y - left.y) ** 2 +
+            (billboardCameraPosition.z - left.z) ** 2;
+          const rightDistance =
+            (billboardCameraPosition.x - right.x) ** 2 +
+            (billboardCameraPosition.y - right.y) ** 2 +
+            (billboardCameraPosition.z - right.z) ** 2;
+          return leftDistance - rightDistance;
+        });
+        emitters.length = fireflyConfig.clusterMaxEmitters;
+      }
+      simulation.clusters = buildFireflyClusters(
+        emitters,
+        config.cellSize,
+        fireflyConfig,
+      );
+      simulation.refreshElapsedSec = 0;
+      simulation.initialized = true;
+      const clustersById = new Map<string, FireflyCluster>();
+      for (const cluster of simulation.clusters) {
+        clustersById.set(cluster.id, cluster);
+      }
+      for (const fly of simulation.flies) {
+        const cluster = clustersById.get(fly.clusterId);
+        if (cluster === undefined) {
+          if (fly.retireInSec === null) fly.retireInSec = fireflyConfig.retireDurationSec;
+          continue;
+        }
+        fly.retireInSec = null;
+        fly.homeX = cluster.x + fly.homeOffsetX;
+        fly.homeY = cluster.y + fly.homeOffsetY;
+        fly.homeZ = cluster.z + fly.homeOffsetZ;
+        fly.light.color =
+          fly.kind === 'scout' && fireflyConfig.differentiateScoutColor
+            ? fireflyConfig.scoutColor
+            : cluster.color;
+      }
+    }
+
+    for (let index = simulation.flies.length - 1; index >= 0; index -= 1) {
+      const fly = simulation.flies[index]!;
+      if (fly.retireInSec !== null) {
+        fly.retireInSec = Math.max(0, fly.retireInSec - delta);
+      }
+      advanceFirefly(fly, delta, fireflyConfig);
+      if (
+        fly.ageSec >= fly.lifetimeSec ||
+        (fly.retireInSec !== null && fly.retireInSec <= 0)
+      ) {
+        simulation.flies.splice(index, 1);
+      }
+    }
+
+    const visibleClusters = visibleFireflyClusters.current;
+    visibleClusters.length = 0;
+    for (const cluster of simulation.clusters) {
+      if (
+        lightVisibility.intersects(
+          cluster.x,
+          cluster.y,
+          cluster.z,
+          Math.max(
+            cluster.radius * fireflyConfig.visibleClusterRadiusMultiplier,
+            config.cellSize * fireflyConfig.visibleClusterCellMultiplier,
+          ),
+        )
+      ) {
+        visibleClusters.push(cluster);
+      }
+    }
+    visibleClusters.sort((left, right) => {
+      const leftDistance =
+        (billboardCameraPosition.x - left.x) ** 2 +
+        (billboardCameraPosition.y - left.y) ** 2 +
+        (billboardCameraPosition.z - left.z) ** 2;
+      const rightDistance =
+        (billboardCameraPosition.x - right.x) ** 2 +
+        (billboardCameraPosition.y - right.y) ** 2 +
+        (billboardCameraPosition.z - right.z) ** 2;
+      return leftDistance - rightDistance;
+    });
+
+    const targetCounts = fireflyTargetCounts.current;
+    targetCounts.clear();
+    let targetTotal = 0;
+    for (const cluster of visibleClusters) {
+      const target = Math.min(
+        fireflyTargetCount(cluster, fireflyConfig),
+        Math.min(fireflyConfig.maxCount, FIREFLY_BUFFER_CAPACITY) - targetTotal,
+      );
+      if (target <= 0) break;
+      targetCounts.set(cluster.id, target);
+      targetTotal += target;
+    }
+
+    const currentCounts = fireflyCurrentCounts.current;
+    currentCounts.clear();
+    for (const fly of simulation.flies) {
+      if (fly.retireInSec !== null) continue;
+      currentCounts.set(fly.clusterId, (currentCounts.get(fly.clusterId) ?? 0) + 1);
+    }
+
+    let spawnBudget = 0;
+    if (simulation.flies.length === 0 && targetTotal > 0) {
+      spawnBudget = Math.min(fireflyConfig.initialSpawnBudget, targetTotal);
+      simulation.spawnAccumulatorSec = 0;
+    } else {
+      simulation.spawnAccumulatorSec += delta;
+      if (simulation.spawnAccumulatorSec >= fireflyConfig.spawnIntervalSec) {
+        const intervals = Math.floor(
+          simulation.spawnAccumulatorSec / fireflyConfig.spawnIntervalSec,
+        );
+        simulation.spawnAccumulatorSec -= intervals * fireflyConfig.spawnIntervalSec;
+        spawnBudget = intervals * fireflyConfig.spawnBudgetPerInterval;
+      }
+    }
+    spawnBudget = Math.min(
+      spawnBudget,
+      Math.min(fireflyConfig.maxCount, FIREFLY_BUFFER_CAPACITY) - simulation.flies.length,
+    );
+
+    while (spawnBudget > 0) {
+      const cluster = visibleClusters.find(
+        (candidate) =>
+          (currentCounts.get(candidate.id) ?? 0) <
+          (targetCounts.get(candidate.id) ?? 0),
+      );
+      if (cluster === undefined) break;
+      simulation.flies.push(
+        createFirefly(simulation.nextId, cluster, config.cellSize, fireflyConfig),
+      );
+      simulation.nextId += 1;
+      currentCounts.set(
+        cluster.id,
+        (currentCounts.get(cluster.id) ?? 0) + 1,
+      );
+      spawnBudget -= 1;
+    }
+
+    const mesh = fireflyMesh.current;
+    if (mesh !== null) {
+      const opacityValues = fireflyOpacityAttribute.array as Float32Array;
+      const colorValues = fireflyColorAttribute.array as Float32Array;
+      const flyLights = activeFireflyLights.current;
+      flyLights.length = 0;
+
+      for (let index = 0; index < FIREFLY_BUFFER_CAPACITY; index += 1) {
+        const fly = simulation.flies[index];
+        if (fly === undefined) {
+          opacityValues[index] = 0;
+          continue;
+        }
+
+        opacityValues[index] = fireflyVisualOpacity(fly, fireflyConfig);
+        fireflyBillboard.position.set(fly.x, fly.y, fly.z);
+        fireflyBillboard.scale.setScalar(fireflyConfig.pixelSize);
+        fireflyBillboard.up.set(0, 0, 1);
+        fireflyBillboard.lookAt(billboardCameraPosition);
+        fireflyBillboard.updateMatrix();
+        mesh.setMatrixAt(index, fireflyBillboard.matrix);
+        fireflyColor.set(fly.light.color);
+        const colorOffset = index * 3;
+        colorValues[colorOffset] = fireflyColor.r;
+        colorValues[colorOffset + 1] = fireflyColor.g;
+        colorValues[colorOffset + 2] = fireflyColor.b;
+
+        if (
+          fly.light.intensity > fireflyConfig.minVisibleLightIntensity &&
+          lightVisibility.intersects(
+            fly.x,
+            fly.y,
+            fly.z,
+            fly.light.distance,
+          )
+        ) {
+          flyLights.push(fly);
+        }
+      }
+
+      const hasVisibleParticles = simulation.flies.length > 0;
+      mesh.visible = fireflyConfig.enabled && hasVisibleParticles;
+      if (hasVisibleParticles) {
+        mesh.instanceMatrix.needsUpdate = true;
+        fireflyOpacityAttribute.needsUpdate = true;
+        fireflyColorAttribute.needsUpdate = true;
+      }
+
+      flyLights.sort(
+        (left, right) =>
+          fireflyCameraDistanceSquared(left, billboardCameraPosition) -
+          fireflyCameraDistanceSquared(right, billboardCameraPosition),
+      );
+      for (
+        let index = 0;
+        index < flyLights.length &&
+        index < fireflyConfig.maxLocalLights &&
+        index < FIELD_GRID_MAX_FIREFLY_LIGHTS;
+        index += 1
+      ) {
+        pixelLights.push(flyLights[index]!.light);
+      }
+    }
+
+    // Uniform writes are expensive on mobile GL. Keep moving sprites at the
+    // display frame rate, but refresh shared lighting uniforms at 30 Hz.
+    pixelLightSyncElapsed.current += delta;
+    if (pixelLightSyncElapsed.current >= 1 / 30) {
+      pixelLightSyncElapsed.current %= 1 / 30;
+      syncFieldGridPixelLights(pixelLights);
+    }
+    recordFieldCpuWork('objects', performance.now() - frameWorkStart);
   });
 
   return (
     <group>
+      <instancedMesh
+        ref={fireflyMesh}
+        args={[fireflyGeometry, fireflyMaterial, FIREFLY_BUFFER_CAPACITY]}
+        frustumCulled={false}
+      />
       {objects.map((object) => (
         <FieldSurfaceObjectColumn
           appearanceDelayMs={resolveAppearanceDelay(appearance, object.id)}
           config={config}
           headers={headers}
-          platformHeight={fieldConfig.platform.height}
-          platformCornerRadius={platformCornerRadius}
-          platformEdgeBevel={platformEdgeBevel}
-          platformEmissionIntensity={platformEmissionIntensity}
+          platformHeight={objectPlatformHeight(
+            tileSettings.worldSeed,
+            object.cell.x,
+            object.cell.y,
+            tileSettings.objectMinHeight,
+            tileSettings.objectMaxHeight,
+          )}
           objectGlowConfig={objectGlowConfig}
-          platformColor={platformColor}
           key={object.id}
           object={object}
           register={register}
@@ -243,46 +608,19 @@ function FieldSurfaceObjectColumn({
   headers,
   appearanceDelayMs,
   objectGlowConfig,
-  platformColor,
   platformHeight,
-  platformCornerRadius,
-  platformEdgeBevel,
-  platformEmissionIntensity,
   register,
 }: {
   readonly object: SurfaceObject;
   readonly config: FieldGridConfig;
   readonly headers: AuthenticatedAssetHeaders;
   readonly platformHeight: number;
-  readonly platformCornerRadius: number;
-  readonly platformEdgeBevel: number;
-  readonly platformEmissionIntensity: number;
   readonly objectGlowConfig: FieldConfig['lighting']['objectGlow'];
   readonly appearanceDelayMs: number | null;
-  readonly platformColor: Color;
   readonly register: (item: RuntimeObject) => () => void;
 }): ReactElement {
-  const column = useRef<Mesh>(null);
   const artwork = useRef<Group>(null);
-  const waveOverlay = useRef<Mesh>(null);
-  const platformMaterial = useRef<MeshStandardMaterial>(null);
   const platformSize = config.cellSize;
-  const platformGeometry = useMemo(
-    () => createRoundedSquarePlatformGeometry(
-      platformSize,
-      platformHeight,
-      platformCornerRadius,
-      platformEdgeBevel,
-    ),
-    [platformSize, platformHeight, platformCornerRadius, platformEdgeBevel],
-  );
-  const platformTopGeometry = useMemo(
-    () => createRoundedSquareTopGeometry(
-      Math.max(0.001, platformSize - platformEdgeBevel * 2),
-      Math.max(0, platformCornerRadius - platformEdgeBevel),
-    ),
-    [platformSize, platformCornerRadius, platformEdgeBevel],
-  );
   const artHeight =
     object.pixelObject === null
       ? 0
@@ -293,44 +631,37 @@ function FieldSurfaceObjectColumn({
     () => resolveSurfaceObjectLightConfig(backendLightConfig, objectGlowConfig),
     [backendLightConfig, objectGlowConfig],
   );
-  const waveMaterial = useMemo(() => createFieldGridWaveMaterial(), []);
   const initialElapsedMs =
     appearanceDelayMs === null
       ? SURFACE_OBJECT_ANIMATION_CONFIG.riseDurationMs
       : -appearanceDelayMs;
   const initialProgress = surfaceObjectRiseProgress(initialElapsedMs);
-  const emissionColor = lightConfig?.color ?? objectGlowConfig.fallbackColor;
 
   const item = useMemo<RuntimeObject>(
     () => ({
-      column,
       artwork,
-      waveOverlay,
-      platformMaterial,
       object,
-      waveMaterial,
-      unregisterWaveMaterial: null,
       centerX: center[0],
       centerY: center[1],
       flickerSeed: surfaceObjectFlickerSeed(object.id),
       platformHeight,
       platformSize,
-      platformEmissionIntensity,
-      fallbackEmissionColor: objectGlowConfig.fallbackColor,
       artHeight,
       lightConfig,
+      backendLightConfig,
       flickerConfig: objectGlowConfig.flicker,
       minimumVisibleIntensity: objectGlowConfig.minimumVisibleIntensity,
-      pixelLight: lightConfig === null
-        ? null
-        : {
-            x: center[0],
-            y: center[1],
-            z: 0,
-            color: lightConfig.color,
-            intensity: 0,
-            distance: lightConfig.distance,
-          },
+      pixelLight:
+        lightConfig === null
+          ? null
+          : {
+              x: center[0],
+              y: center[1],
+              z: 0,
+              color: lightConfig.color,
+              intensity: 0,
+              distance: lightConfig.distance,
+            },
       lightDistanceSquared: Number.POSITIVE_INFINITY,
       artworkMaterial: null,
       texture: null,
@@ -347,26 +678,13 @@ function FieldSurfaceObjectColumn({
       object,
       platformHeight,
       platformSize,
-      platformEmissionIntensity,
       lightConfig,
+      backendLightConfig,
       objectGlowConfig,
-      waveMaterial,
     ],
   );
 
-  useEffect(() => {
-    const unregisterRuntime = register(item);
-    return () => {
-      item.unregisterWaveMaterial?.();
-      item.unregisterWaveMaterial = null;
-      unregisterRuntime();
-    };
-  }, [item, register]);
-
-  useEffect(() => () => platformGeometry.dispose(), [platformGeometry]);
-  useEffect(() => () => platformTopGeometry.dispose(), [platformTopGeometry]);
-
-  useEffect(() => () => waveMaterial.dispose(), [waveMaterial]);
+  useEffect(() => register(item), [item, register]);
 
   const onTextureReady = useCallback(
     (texture: Texture | null): void => {
@@ -387,35 +705,17 @@ function FieldSurfaceObjectColumn({
 
   return (
     <group position={[center[0], center[1], 0]}>
-      <mesh
-        ref={column}
-        castShadow
-        receiveShadow
-        visible={initialProgress > 0}
-        position={[0, 0, (platformHeight * initialProgress) / 2]}
-        scale={[1, 1, initialProgress]}
-        geometry={platformGeometry}
+      <group
+        ref={artwork}
+        position={[
+          0,
+          0,
+          platformHeight * initialProgress +
+            artHeight / 2 +
+            SURFACE_OBJECT_ANIMATION_CONFIG.artworkOffset,
+        ]}
+        rotation={[0, 0, 0]}
       >
-        <meshStandardMaterial
-          ref={platformMaterial}
-          color={platformColor}
-          emissive={emissionColor}
-          emissiveIntensity={platformEmissionIntensity * initialProgress}
-          roughness={0.82}
-          metalness={0.04}
-          flatShading
-        />
-      </mesh>
-      <mesh
-        ref={waveOverlay}
-        geometry={platformTopGeometry}
-        visible={initialProgress > 0}
-        position={[0, 0, platformHeight * initialProgress + 0.2]}
-        renderOrder={FIELD_GRID_OVERLAY_RENDER_ORDER}
-      >
-        <primitive object={waveMaterial} attach="material" />
-      </mesh>
-      <group ref={artwork} rotation={[0, 0, 0]}>
         <FieldSurfaceObjectArtwork
           size={platformSize}
           headers={headers}
@@ -428,50 +728,6 @@ function FieldSurfaceObjectColumn({
   );
 }
 
-function advanceColumn(item: RuntimeObject, deltaMs: number): void {
-  const duration = SURFACE_OBJECT_ANIMATION_CONFIG.riseDurationMs;
-  if (item.elapsedMs >= duration) {
-    if (item.column.current !== null) {
-      if (!item.column.current.visible) item.column.current.visible = true;
-      if (item.column.current.scale.z !== 1) item.column.current.scale.z = 1;
-      if (item.column.current.position.z !== item.platformHeight / 2) {
-        item.column.current.position.z = item.platformHeight / 2;
-      }
-    }
-    if (item.waveOverlay.current !== null) {
-      if (!item.waveOverlay.current.visible) item.waveOverlay.current.visible = true;
-      const overlayZ = item.platformHeight + 0.2;
-      if (item.waveOverlay.current.position.z !== overlayZ) item.waveOverlay.current.position.z = overlayZ;
-    }
-    if (item.artworkMaterial !== null && item.artworkMaterial.opacity !== 1) {
-      item.artworkMaterial.opacity = 1;
-    }
-    if (item.artwork.current !== null) {
-      const finalZ = item.platformHeight + item.artHeight / 2 + SURFACE_OBJECT_ANIMATION_CONFIG.artworkOffset;
-      if (item.artwork.current.position.z !== finalZ) item.artwork.current.position.z = finalZ;
-    }
-    return;
-  }
-
-  item.elapsedMs = Math.min(duration, item.elapsedMs + deltaMs);
-  const progress = surfaceObjectRiseProgress(item.elapsedMs);
-  const height = item.platformHeight * progress;
-  if (item.column.current !== null) {
-    item.column.current.visible = progress > 0;
-    item.column.current.scale.z = progress;
-    item.column.current.position.z = height / 2;
-  }
-  if (item.waveOverlay.current !== null) {
-    item.waveOverlay.current.visible = progress > 0;
-    item.waveOverlay.current.position.z = height + 0.2;
-  }
-  if (item.artworkMaterial !== null) item.artworkMaterial.opacity = progress;
-  if (item.artwork.current !== null) {
-    item.artwork.current.position.z =
-      height + item.artHeight / 2 + SURFACE_OBJECT_ANIMATION_CONFIG.artworkOffset;
-  }
-}
-
 function advanceArtwork(
   item: RuntimeObject,
   deltaMs: number,
@@ -479,11 +735,20 @@ function advanceArtwork(
   cameraMoved: boolean,
 ): void {
   const artwork = item.artwork.current;
-  const hasSprite = item.object.pixelObject !== null;
-  if (artwork !== null && hasSprite && (!item.billboardUpdated || cameraMoved)) {
-    if (!item.billboardUpdated) artwork.up.set(0, 0, 1);
-    artwork.lookAt(cameraPosition.x, cameraPosition.y, artwork.position.z);
-    item.billboardUpdated = true;
+  const progress = surfaceObjectRiseProgress(item.elapsedMs);
+  if (artwork !== null) {
+    const z =
+      item.platformHeight * progress +
+      item.artHeight / 2 +
+      SURFACE_OBJECT_ANIMATION_CONFIG.artworkOffset;
+    if (artwork.position.z !== z) artwork.position.z = z;
+
+    const hasSprite = item.object.pixelObject !== null;
+    if (hasSprite && (!item.billboardUpdated || cameraMoved)) {
+      if (!item.billboardUpdated) artwork.up.set(0, 0, 1);
+      artwork.lookAt(cameraPosition.x, cameraPosition.y, artwork.position.z);
+      item.billboardUpdated = true;
+    }
   }
 
   const sprite = item.object.pixelObject;

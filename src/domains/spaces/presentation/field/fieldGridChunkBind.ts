@@ -18,7 +18,7 @@ import {
   fieldChunkPlanePosition,
   fieldChunkToGridConfig,
 } from './fieldGridChunks';
-import { FIELD_LOCAL_LIGHT_LAYER, type FieldGridConfig } from './fieldGridConfig';
+import { type FieldGridConfig } from './fieldGridConfig';
 import { buildFieldGridLinePositions } from './fieldGridLineGeometry';
 import {
   hexToRgba,
@@ -81,12 +81,9 @@ export function bindFieldChunkSlot(
   material: FieldGridWaveMaterial,
   lineGeometry: BufferGeometry,
   mesh: Mesh | null,
-  surfaceMesh: Mesh | null = null,
 ): void {
   material.uniforms.uMap.value = resolveFieldChunkTexture(input);
   writeFieldChunkLineGeometry(input.chunkIndex, input.base, lineGeometry);
-  placeFieldChunkMesh(input.chunkIndex, input.base, surfaceMesh);
-  if (surfaceMesh !== null) surfaceMesh.layers.enable(FIELD_LOCAL_LIGHT_LAYER);
   placeFieldChunkMesh(input.chunkIndex, input.base, mesh);
   if (mesh !== null) mesh.position.z += 0.2;
 }

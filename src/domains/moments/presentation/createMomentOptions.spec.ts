@@ -18,12 +18,12 @@ describe('create moment sheet', () => {
 
     expect(good).toMatchObject({
       title: 'Хороший момент',
-      description: 'Тёплые воспоминания и радостные события',
+      description: 'То, к чему хочется возвращаться',
       emphasized: false,
     });
     expect(bad).toMatchObject({
       title: 'Плохой момент',
-      description: 'Трудные дни, которые тоже важны',
+      description: 'То, что было непросто пережить',
       emphasized: false,
     });
     expect(good).not.toHaveProperty('catalogLabel');

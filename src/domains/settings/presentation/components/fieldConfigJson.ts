@@ -8,6 +8,7 @@ import {
 
 const FIELD_CONFIG_JSON_FORMAT = 'twilite-field-config';
 const FIELD_CONFIG_JSON_VERSION = 1;
+const MAX_FIELD_CONFIG_JSON_LENGTH = 256 * 1024;
 
 type JsonObject = Record<string, unknown>;
 
@@ -61,24 +62,33 @@ function assertConfigConstraint(condition: boolean, message: string): void {
 
 function validateConfigConstraints(config: FieldConfig): void {
   assertConfigConstraint(
-    Number.isInteger(config.grid.cellSizePx) && config.grid.cellSizePx > 0,
-    'grid.cellSizePx должен быть положительным целым числом.',
+    Number.isInteger(config.grid.cellSizePx) &&
+      config.grid.cellSizePx >= 16 &&
+      config.grid.cellSizePx <= 256,
+    'grid.cellSizePx должен быть целым числом от 16 до 256.',
   );
   assertConfigConstraint(
     Number.isInteger(config.grid.dividerWidthPx) && config.grid.dividerWidthPx >= 0,
     'grid.dividerWidthPx должен быть целым числом не меньше нуля.',
   );
   assertConfigConstraint(
-    Number.isInteger(config.grid.rows) && config.grid.rows > 0 &&
-      Number.isInteger(config.grid.centerCols) && config.grid.centerCols > 0 &&
-      Number.isInteger(config.grid.sideExtraCols) && config.grid.sideExtraCols >= 0,
-    'размеры сетки должны быть целыми числами в допустимом диапазоне.',
+    Number.isInteger(config.grid.rows) &&
+      config.grid.rows > 0 &&
+      config.grid.rows <= 40 &&
+      Number.isInteger(config.grid.centerCols) &&
+      config.grid.centerCols > 0 &&
+      config.grid.centerCols <= 20 &&
+      Number.isInteger(config.grid.sideExtraCols) &&
+      config.grid.sideExtraCols >= 0 &&
+      config.grid.sideExtraCols <= 20,
+    'размеры сетки должны быть целыми числами в безопасном диапазоне.',
   );
   assertConfigConstraint(
-    Number.isInteger(config.chunks.cols) && config.chunks.cols > 0 &&
-      Number.isInteger(config.chunks.behind) && config.chunks.behind >= 0 &&
-      Number.isInteger(config.chunks.ahead) && config.chunks.ahead > 0 &&
-      Number.isInteger(config.chunks.gpuUploadSteady) && config.chunks.gpuUploadSteady > 0,
+    Number.isInteger(config.chunks.cols) && config.chunks.cols > 0 && config.chunks.cols <= 20 &&
+      Number.isInteger(config.chunks.behind) && config.chunks.behind >= 0 && config.chunks.behind <= 3 &&
+      Number.isInteger(config.chunks.ahead) && config.chunks.ahead > 0 && config.chunks.ahead <= 5 &&
+      Number.isInteger(config.chunks.prefetchExtraAhead) && config.chunks.prefetchExtraAhead >= 0 && config.chunks.prefetchExtraAhead <= 4 &&
+      Number.isInteger(config.chunks.gpuUploadSteady) && config.chunks.gpuUploadSteady > 0 && config.chunks.gpuUploadSteady <= 2,
     'параметры чанков должны сохранять положительный размер и хотя бы одну GPU-загрузку за кадр.',
   );
   assertConfigConstraint(
@@ -116,10 +126,11 @@ function validateConfigConstraints(config: FieldConfig): void {
   );
   const glow = config.lighting.objectGlow;
   assertConfigConstraint(
-    glow.fallbackIntensity >= 0 && glow.fallbackDistance > 0 &&
-      glow.heightAbovePlatform > 0 && glow.decay >= 0 &&
-      glow.minimumVisibleIntensity >= 0 && glow.minimumVisibleIntensity <= 1,
-    'параметры свечения объекта должны быть неотрицательными, а радиус и высота — положительными.',
+    glow.fallbackIntensity >= 0 &&
+      glow.fallbackDistance > 0 &&
+      glow.minimumVisibleIntensity >= 0 &&
+      glow.minimumVisibleIntensity <= 1,
+    'параметры свечения должны иметь неотрицательную энергию, положительный радиус и порог от 0 до 1.',
   );
   assertConfigConstraint(
     glow.flicker.slowIntervalMs > 0 &&
@@ -130,27 +141,37 @@ function validateConfigConstraints(config: FieldConfig): void {
   );
   assertConfigConstraint(
     glow.pixelOverlay.pixelSizePx > 0 &&
-      glow.pixelOverlay.maxAlpha >= 0 && glow.pixelOverlay.maxAlpha <= 1,
-    'пиксельное свечение должно иметь положительный размер, а maxAlpha — значение от 0 до 1.',
+      glow.pixelOverlay.intensityScale >= 0 &&
+      glow.pixelOverlay.alphaScale >= 0 &&
+      glow.pixelOverlay.maxAlpha >= 0 &&
+      glow.pixelOverlay.maxAlpha <= 1 &&
+      glow.pixelOverlay.surfaceColorMix >= 0 &&
+      glow.pixelOverlay.surfaceColorMix <= 1,
+    'пиксельное свечение должно иметь положительный размер и корректные значения альфы/смешивания.',
+  );
+  const fireflies = config.fireflies;
+  assertConfigConstraint(
+    Number.isInteger(fireflies.maxCount) && fireflies.maxCount >= 0 && fireflies.maxCount <= 32 &&
+      Number.isInteger(fireflies.clusterMaxEmitters) && fireflies.clusterMaxEmitters >= 1 && fireflies.clusterMaxEmitters <= 64 &&
+      Number.isInteger(fireflies.targetMaxCount) && fireflies.targetMaxCount >= 0 && fireflies.targetMaxCount <= 12 &&
+      Number.isInteger(fireflies.maxLocalLights) && fireflies.maxLocalLights >= 0 && fireflies.maxLocalLights <= 4 &&
+      fireflies.spawnIntervalSec >= 0.05 &&
+      fireflies.clusterRefreshSec >= 0.05,
+    'параметры светлячков превышают безопасные лимиты производительности.',
   );
   const shadows = config.lighting.shadows;
   assertConfigConstraint(
-    Number.isInteger(shadows.mapSizePx) && shadows.mapSizePx > 0 &&
-      Number.isInteger(shadows.localShadowMapSizePx) && shadows.localShadowMapSizePx > 0 &&
-      shadows.localShadowIntensity >= 0 && shadows.localShadowIntensity <= 1 &&
-      shadows.filterRadius >= 0 && shadows.filterRadius <= 10 &&
-      Number.isInteger(shadows.localShadowLights) && shadows.localShadowLights >= 0 &&
-      shadows.localShadowLights <= 4 &&
+    Number.isInteger(shadows.mapSizePx) &&
+      shadows.mapSizePx >= 64 && shadows.mapSizePx <= 512 &&
+      shadows.filterRadius >= 0 &&
+      shadows.filterRadius <= 10 &&
       shadows.cameraLeft < shadows.cameraRight &&
       shadows.cameraTop > shadows.cameraBottom &&
-      shadows.cameraNear > 0 && shadows.cameraFar > shadows.cameraNear,
-    'параметры shadow-камеры должны описывать корректный объём и положительное разрешение.',
-  );
-  assertConfigConstraint(
-    shadows.emitterSaturationIntensity > 0 &&
-      shadows.minIntensity >= 0 && shadows.minIntensity <= shadows.maxIntensity &&
-      shadows.maxIntensity <= 1,
-    'границы интенсивности теней должны быть упорядочены от 0 до 1.',
+      shadows.cameraNear > 0 &&
+      shadows.cameraFar > shadows.cameraNear &&
+      shadows.baselineIntensity >= 0 &&
+      shadows.baselineIntensity <= 1,
+    'параметры shadow-камеры должны описывать корректный объём, разрешение 64–512 и интенсивность от 0 до 1.',
   );
 }
 
@@ -175,6 +196,10 @@ export function serializeFieldConfigJson(config: FieldConfig): string {
  * unknown or incorrectly typed fields are rejected to avoid silent corruption.
  */
 export function parseFieldConfigJson(content: string): FieldConfig {
+  if (content.length > MAX_FIELD_CONFIG_JSON_LENGTH) {
+    throw new Error('Файл конфигурации слишком большой (лимит 256 КБ).');
+  }
+
   let decoded: unknown;
   try {
     decoded = JSON.parse(content) as unknown;

@@ -47,7 +47,7 @@ describe('fieldGridChunks', () => {
   it('places chunk meshes on absolute world X', () => {
     const spec = createFieldGridChunkSpec(1, { rows: 15, cellSize });
     expect(spec.colStart).toBe(10);
-    expect(fieldChunkPlanePosition(spec)).toEqual([900, 0, 0]);
+    expect(fieldChunkPlanePosition(spec)).toEqual([915, 0, 0]);
   });
 
   it('compares chunk id lists', () => {

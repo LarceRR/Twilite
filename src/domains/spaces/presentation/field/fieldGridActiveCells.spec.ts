@@ -24,11 +24,11 @@ describe('fieldGridActiveCells', () => {
     expect(isActiveFieldGridCell(10, rows)).toBe(false);
   });
 
-  it('center-row active cells use XY labels 2,8 3,8 4,8 5,8…', () => {
+  it('center-row active cells use stable XY labels X2,Y8 X3,Y8 X4,Y8 X5,Y8…', () => {
     const center = fieldGridCenterRow(rows);
-    expect(cellLabelFromColRow(1, center)).toBe('2,8');
-    expect(cellLabelFromColRow(2, center)).toBe('3,8');
-    expect(cellLabelFromColRow(3, center)).toBe('4,8');
-    expect(cellLabelFromColRow(4, center)).toBe('5,8');
+    expect(cellLabelFromColRow(1, center)).toBe('X2,Y8');
+    expect(cellLabelFromColRow(2, center)).toBe('X3,Y8');
+    expect(cellLabelFromColRow(3, center)).toBe('X4,Y8');
+    expect(cellLabelFromColRow(4, center)).toBe('X5,Y8');
   });
 });
