@@ -150,7 +150,7 @@ function ScreenComponent({
           },
         ]}
         contentInsetAdjustmentBehavior={
-          Platform.OS === 'ios' && !reserveTabBar && !useNativeHeader ? 'automatic' : 'never'
+          Platform.OS === 'ios' && (useNativeHeader || !reserveTabBar) ? 'automatic' : 'never'
         }
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
