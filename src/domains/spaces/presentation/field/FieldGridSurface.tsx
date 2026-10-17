@@ -402,7 +402,9 @@ export function FieldGridSurface({
       }
     }
 
-    const slotChunkIndices = chunkSlots.filter(
+    // slotsRef is updated synchronously when a recycled slot changes,
+    // whereas React's chunkSlots state is committed on the next render.
+    const slotChunkIndices = slotsRef.current.filter(
       (chunkIndex): chunkIndex is number => chunkIndex !== null,
     );
     const loadedChunkIndices = slotChunkIndices.filter(isGpuReady);
