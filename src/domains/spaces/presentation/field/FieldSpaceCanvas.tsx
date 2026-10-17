@@ -1,7 +1,7 @@
 import { Canvas } from '@react-three/fiber/native';
 import { useIsFocused } from 'expo-router';
-import { AppState, StyleSheet, View } from 'react-native';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
+import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState, type AppStateStatus, StyleSheet, View } from 'react-native';
 import type { AuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAssetHeaders';
 import { useSceneColors } from '@/design-system/colors/colors';
 import type { SurfaceObject } from '@/domains/spaces/domain/entities/SurfaceObject';
@@ -60,7 +60,7 @@ export function FieldSpaceCanvas({
   const isFocusedRef = useRef(isFocused);
   isFocusedRef.current = isFocused;
   const previousFocusRef = useRef(isFocused);
-  const appStateRef = useRef(AppState.currentState);
+  const appStateRef = useRef<AppStateStatus | null>(AppState.currentState ?? null);
   const recoveryPendingRef = useRef(false);
   const [canvasEpoch, setCanvasEpoch] = useState(0);
 

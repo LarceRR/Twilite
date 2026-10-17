@@ -2,8 +2,8 @@ import { type Href, useRouter } from 'expo-router';
 import type { ReactElement } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { useServices } from '@/app/providers/ContainerProvider';
 import { useAuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAssetHeaders';
+import { useServices } from '@/app/providers/ContainerProvider';
 import { BlurCard } from '@/design-system/components/BlurCard/BlurCard';
 import { Button } from '@/design-system/components/Button/Button';
 import { Divider } from '@/design-system/components/Divider/Divider';

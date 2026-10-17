@@ -3,8 +3,8 @@ import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import type { ReactElement } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
-import { useThemeColors } from '@/design-system/colors/colors';
 import { useAuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAssetHeaders';
+import { useThemeColors } from '@/design-system/colors/colors';
 import { useAuthStore } from '@/domains/auth/presentation/stores/authStore';
 
 import { getNativeTabIconSources } from './nativeTabIconSources';

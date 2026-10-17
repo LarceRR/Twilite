@@ -1,8 +1,8 @@
 import { Tabs, useRouter } from 'expo-router';
 import type { ReactElement } from 'react';
 
-import { useThemeColors } from '@/design-system/colors/colors';
 import { useAuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAssetHeaders';
+import { useThemeColors } from '@/design-system/colors/colors';
 import { BottomBar } from '@/design-system/components/BottomBar/BottomBar';
 import { UserAvatar } from '@/design-system/components/UserAvatar/UserAvatar';
 import { useAuthStore } from '@/domains/auth/presentation/stores/authStore';

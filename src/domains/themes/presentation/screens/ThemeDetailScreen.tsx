@@ -137,7 +137,6 @@ export function ThemeDetailScreen(): ReactElement {
                 ))}
               </View>
             </BlurCard>
-
           </>
         ) : null}
       </Screen>
