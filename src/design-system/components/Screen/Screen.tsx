@@ -1,4 +1,4 @@
-import { useHeaderHeight } from '@react-navigation/elements';
+import { useHeaderHeight } from 'expo-router/react-navigation';
 import { Stack, useIsFocused, usePathname, useRouter } from 'expo-router';
 import { memo, type ReactElement, type ReactNode } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
