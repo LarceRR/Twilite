@@ -27,15 +27,17 @@ const TILE_EMISSIVE_FLOOR_SCALE = 0.18;
 const CANDLE_INVERSE_SQUARE_SCALE = 16;
 /** Add candle light on top of dark albedo so nearby surfaces remain readable. */
 const CANDLE_ALBEDO_FLOOR = 0.35;
-const PROGRAM_CACHE_KEY = 'twilite-field-tile-v7';
+const PROGRAM_CACHE_KEY = 'twilite-field-tile-v8';
 
 export type FieldTileMaterial = MeshStandardMaterial & FieldGridEffectMaterial;
 
 const vertexDeclarations = /* glsl */ `
 attribute vec3 aGlow;
+attribute float aSideDim;
 varying vec3 vFieldWorldPos;
 varying vec3 vGlow;
 varying vec2 vTileUv;
+varying float vSideDim;
 `;
 
 const vertexBody = /* glsl */ `
@@ -47,6 +49,7 @@ fieldWorldPosition = modelMatrix * fieldWorldPosition;
 vFieldWorldPos = fieldWorldPosition.xyz;
 vGlow = aGlow;
 vTileUv = uv;
+vSideDim = aSideDim;
 `;
 
 const fragmentDeclarations = /* glsl */ `
@@ -77,6 +80,7 @@ uniform float uUseGeneratedTileAlbedo;
 varying vec3 vFieldWorldPos;
 varying vec3 vGlow;
 varying vec2 vTileUv;
+varying float vSideDim;
 
 float fieldSmoother(float x) {
   return x * x * (3.0 - 2.0 * x);
@@ -213,6 +217,9 @@ const fragmentBody = /* glsl */ `
     }
     outgoingLight = mix( outgoingLight, vec3( 1.0 ), saturate( fieldWave ) );
   }
+
+  // Fade the tile's base colour, real lighting and emission together.
+  outgoingLight *= clamp( vSideDim, 0.1, 1.0 );
 }
 `;
 

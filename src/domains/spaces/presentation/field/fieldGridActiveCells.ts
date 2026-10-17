@@ -23,6 +23,28 @@ export function fieldGridCenterRow(rows: number): number {
   return Math.floor((rows - 1) / 2);
 }
 
+/**
+ * Returns a stable per-row luminance multiplier for tiles outside the active band.
+ * One row beyond the band is noticeably dimmer; farther rows fade quickly.
+ */
+const FIELD_SIDE_TILE_BRIGHTNESS_FALLOFF = 0.58;
+const FIELD_SIDE_TILE_MIN_BRIGHTNESS = 0.1;
+
+export function fieldGridSideBrightness(
+  row: number,
+  rows: number,
+  sideSpan: number = getFieldConfig().activeCells.sideSpan,
+): number {
+  const center = fieldGridCenterRow(rows);
+  const activeSpan = Math.max(0, Math.floor(sideSpan));
+  const distanceOutsideBand = Math.max(0, Math.abs(row - center) - activeSpan);
+  if (distanceOutsideBand === 0) return 1;
+  return Math.max(
+    FIELD_SIDE_TILE_MIN_BRIGHTNESS,
+    FIELD_SIDE_TILE_BRIGHTNESS_FALLOFF ** distanceOutsideBand,
+  );
+}
+
 /** Active band: center row ± sideSpan (inclusive). */
 export function isActiveFieldGridRow(
   row: number,

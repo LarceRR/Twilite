@@ -70,6 +70,7 @@ import { recordFieldCpuWork } from './fieldPerformanceDiagnostics';
 type FieldGridSurfaceProps = {
   readonly config: FieldGridConfig;
   readonly objects: readonly SurfaceObject[];
+  readonly onLoadedChunkIndicesChange: (chunkIndices: readonly number[]) => void;
 };
 
 type PressSession = {
@@ -190,7 +191,11 @@ function warmChunkPrefetch(
 }
 
 /** Streams field chunks along +X; camera pose is polled in useFrame (no React bind). */
-export function FieldGridSurface({ config, objects }: FieldGridSurfaceProps): ReactElement {
+export function FieldGridSurface({
+  config,
+  objects,
+  onLoadedChunkIndicesChange,
+}: FieldGridSurfaceProps): ReactElement {
   const showToast = useUiStore((s) => s.showToast);
   const { surface, surfaceDivider } = useThemeColors();
   const fieldConfig = useFieldConfig();
@@ -232,6 +237,7 @@ export function FieldGridSurface({ config, objects }: FieldGridSurfaceProps): Re
   );
   const bootstrappedRef = useRef(false);
   const timeRef = useRef(0);
+  const reportedLoadedChunkIdsRef = useRef<readonly number[]>([]);
   const pressRef = useRef<PressSession | null>(null);
   const materialsRef = useRef(new Map<number, FieldGridWaveMaterial>());
   const unregisterWaveMaterialRef = useRef(new Map<FieldGridWaveMaterial, () => void>());
@@ -394,6 +400,15 @@ export function FieldGridSurface({ config, objects }: FieldGridSurfaceProps): Re
           setChunkSlots(nextSlots);
         }
       }
+    }
+
+    const slotChunkIndices = chunkSlots.filter(
+      (chunkIndex): chunkIndex is number => chunkIndex !== null,
+    );
+    const loadedChunkIndices = slotChunkIndices.filter(isGpuReady);
+    if (!fieldChunkConfigsEqual(reportedLoadedChunkIdsRef.current, loadedChunkIndices)) {
+      reportedLoadedChunkIdsRef.current = loadedChunkIndices;
+      onLoadedChunkIndicesChange(loadedChunkIndices);
     }
 
     syncFieldGridWaveSceneTime(clock.elapsedTime);

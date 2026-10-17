@@ -66,15 +66,15 @@ function valueNoise(x: number, y: number, seed: number): number {
 
 function topNoise(x: number, y: number): number {
   return (
-    valueNoise(x * 3.5, y * 3.5, 11) * 0.42 +
-    valueNoise(x * 8.5, y * 8.5, 23) * 0.29 +
-    valueNoise(x * 19, y * 19, 37) * 0.19 +
-    valueNoise(x * 43, y * 43, 59) * 0.1
+    valueNoise(x * 1.6, y * 1.6, 11) * 0.52 +
+    valueNoise(x * 3.2, y * 3.2, 23) * 0.28 +
+    valueNoise(x * 6.5, y * 6.5, 37) * 0.14 +
+    valueNoise(x * 12, y * 12, 59) * 0.06
   );
 }
 
 function createScratches(): Scratch[] {
-  return Array.from({ length: 34 }, (_, index) => {
+  return Array.from({ length: 12 }, (_, index) => {
     const seed = index + 101;
     const angle = hash2(index, 1, seed) * Math.PI * 2;
     const length = 0.018 + hash2(index, 2, seed) * 0.078;
@@ -83,7 +83,7 @@ function createScratches(): Scratch[] {
       y: 0.04 + hash2(index, 4, seed) * 0.92,
       dx: Math.cos(angle) * length,
       dy: Math.sin(angle) * length,
-      halfWidth: 0.0015 + hash2(index, 5, seed) * 0.003,
+      halfWidth: 0.001 + hash2(index, 5, seed) * 0.0015,
       strength: hash2(index, 6, seed) > 0.46 ? 1 : -1,
     };
   });
@@ -155,32 +155,32 @@ function createAlbedoData(scratches: readonly Scratch[]): Uint8Array {
         const wearNoise = valueNoise(px * 9 + 4, py * 9 - 2, 97);
         const centralWear =
           (1 - smoothstep(0.12, 0.52, radius)) * (0.58 + wearNoise * 0.42);
-        const mottled = 0.82 + cloud * 0.34;
+        const mottled = 0.9 + cloud * 0.2;
 
-        let red = 61 * mottled;
-        let green = 29 * mottled;
-        let blue = 19 * mottled;
+        let red = 76 * mottled;
+        let green = 36 * mottled;
+        let blue = 21 * mottled;
 
         // Soft, irregularly worn bronze in the centre. The effect is low
         // contrast so the tile remains metal-like rather than looking dirty.
-        const wearAmount = centralWear * 0.24;
-        red = mix(red, 111, wearAmount);
-        green = mix(green, 73, wearAmount);
-        blue = mix(blue, 51, wearAmount);
+        const wearAmount = centralWear * 0.14;
+        red = mix(red, 126, wearAmount);
+        green = mix(green, 72, wearAmount);
+        blue = mix(blue, 42, wearAmount);
 
         // Sparse hairline scuffs catch just enough contrast at close range.
         let scratchAmount = 0;
         for (const scratch of scratches) {
           const distance = distanceToSegment(px, py, scratch);
           const line = 1 - smoothstep(scratch.halfWidth * 0.45, scratch.halfWidth * 1.6, distance);
-          scratchAmount += line * scratch.strength * 5.5;
+          scratchAmount += line * scratch.strength * 2.5;
         }
-        const speckle = (hash2(Math.floor(px * 68), Math.floor(py * 68), 131) - 0.5) * 5;
-        const wearVariation = (wearNoise - 0.5) * centralWear * 5;
+        const speckle = (hash2(Math.floor(px * 68), Math.floor(py * 68), 131) - 0.5) * 2;
+        const wearVariation = (wearNoise - 0.5) * centralWear * 2.5;
         const edgeDistance = Math.min(px, 1 - px, py, 1 - py);
         const edgeShade = 1 - smoothstep(0.002, 0.025, edgeDistance);
 
-        const totalVariation = grain * 6 + speckle + wearVariation + scratchAmount;
+        const totalVariation = grain * 3 + speckle + wearVariation + scratchAmount;
         const edgeFactor = 1 - edgeShade * 0.025;
         setPixel(
           data,
@@ -231,13 +231,13 @@ function createRoughnessData(): Uint8Array {
         const radius = Math.sqrt((px - 0.5) ** 2 + (py - 0.5) ** 2);
         const wornCentre = (1 - smoothstep(0.12, 0.5, radius)) * 0.08;
         const nearEdge = 1 - smoothstep(0.006, 0.045, Math.min(px, 1 - px, py, 1 - py));
-        roughness = 0.64 + (cloud - 0.5) * 0.22 + wornCentre - nearEdge * 0.12;
+        roughness = 0.59 + (cloud - 0.5) * 0.14 + wornCentre * 0.04 - nearEdge * 0.16;
       } else {
         const depth = sideDepth(u, v);
         if (depth !== null) {
-          const variation = (valueNoise(u * 120, v * 120, 401) - 0.5) * 0.08;
+          const variation = (valueNoise(u * 48, v * 48, 401) - 0.5) * 0.05;
           const bevelBlend = 1 - smoothstep(0.06, 0.22, depth);
-          roughness = mix(0.78, 0.31, bevelBlend) + variation;
+          roughness = mix(0.78, 0.24, bevelBlend) + variation;
         }
       }
 

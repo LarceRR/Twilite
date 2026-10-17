@@ -23,7 +23,7 @@ import type { SurfaceObject } from '@/domains/spaces/domain/entities/SurfaceObje
 import { FieldSurfaceObjectArtwork } from './FieldSurfaceObjectArtwork';
 import { cellCenterOnPlane } from './fieldGridCells';
 import { DEFAULT_FIELD_CONFIG, type FieldConfig } from './fieldConfig';
-import type { FieldGridConfig } from './fieldGridConfig';
+import { fieldGridCellPitch, type FieldGridConfig } from './fieldGridConfig';
 import {
   FIELD_GRID_MAX_FIREFLY_LIGHTS,
   FIELD_GRID_MAX_OBJECT_PIXEL_LIGHTS,
@@ -146,10 +146,12 @@ export function FieldSurfaceObjects({
   objects,
   config,
   headers,
+  loadedChunkIndices,
 }: {
   readonly objects: readonly SurfaceObject[];
   readonly config: FieldGridConfig;
   readonly headers: AuthenticatedAssetHeaders;
+  readonly loadedChunkIndices: readonly number[];
 }): ReactElement {
   const runtime = useRef(new Map<string, RuntimeObject>());
   const appearance = useAppearingObjects(objects);
@@ -157,6 +159,8 @@ export function FieldSurfaceObjects({
   const tileSettings = useFieldTileStore();
   const objectGlowConfig = fieldConfig.lighting.objectGlow;
   const fireflyConfig = fieldConfig.fireflies;
+  const loadedChunkSet = useMemo(() => new Set(loadedChunkIndices), [loadedChunkIndices]);
+  const fieldChunkWorldWidth = fieldGridCellPitch(config) * fieldConfig.chunks.cols;
   const lastBillboardCameraXY = useRef({ x: Number.NaN, y: Number.NaN });
   const lightVisibility = useMemo(() => new SurfaceObjectLightVisibility(), []);
   const lightCandidates = useRef<RuntimeObject[]>([]);
@@ -231,6 +235,25 @@ export function FieldSurfaceObjects({
       fireflyConfig.opacityDiscardThreshold;
   }, [fireflyMaterial, fireflyConfig.opacityDiscardThreshold]);
   const fireflyColor = useMemo(() => new Color(), []);
+
+  useEffect(() => {
+    const isInLoadedChunk = (worldX: number): boolean =>
+      worldX >= 0 && loadedChunkSet.has(Math.floor(worldX / fieldChunkWorldWidth));
+    const simulation = fireflySimulation.current;
+    for (let index = simulation.flies.length - 1; index >= 0; index -= 1) {
+      if (!isInLoadedChunk(simulation.flies[index]!.x)) {
+        simulation.flies.splice(index, 1);
+      }
+    }
+    // Rebuild cloud membership from the emitters which remain mounted.
+    simulation.clusters = [];
+    simulation.refreshElapsedSec = fireflyConfig.clusterRefreshSec;
+    simulation.initialized = false;
+    activeFireflyLights.current.length = 0;
+    // Remove stale pixel-light uniforms immediately, not on the next throttled sync.
+    syncFieldGridPixelLights([]);
+    pixelLightSyncElapsed.current = 1 / 30;
+  }, [loadedChunkSet, fieldChunkWorldWidth, fireflyConfig.clusterRefreshSec]);
 
   const register = useCallback((item: RuntimeObject): (() => void) => {
     runtime.current.set(item.object.id, item);
@@ -407,6 +430,11 @@ export function FieldSurfaceObjects({
 
     for (let index = simulation.flies.length - 1; index >= 0; index -= 1) {
       const fly = simulation.flies[index]!;
+      const flyChunkIndex = Math.floor(fly.x / fieldChunkWorldWidth);
+      if (fly.x < 0 || !loadedChunkSet.has(flyChunkIndex)) {
+        simulation.flies.splice(index, 1);
+        continue;
+      }
       if (fly.retireInSec !== null) {
         fly.retireInSec = Math.max(0, fly.retireInSec - delta);
       }

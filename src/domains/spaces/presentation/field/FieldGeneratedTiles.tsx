@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import {
+  Float32BufferAttribute,
   InstancedBufferAttribute,
   InstancedMesh,
   type Mesh,
@@ -12,6 +13,7 @@ import {
 import { useThemeColors } from '@/design-system/colors/colors';
 
 import { hexToRgbaTuple } from './fieldConfig';
+import { fieldGridSideBrightness } from './fieldGridActiveCells';
 import { createRoundedSquarePlatformGeometry } from './fieldPlatformGeometry';
 import { fieldGridCellPitch, type FieldGridConfig } from './fieldGridConfig';
 import { cellCenterOnPlane } from './fieldGridCells';
@@ -90,6 +92,7 @@ export function FieldGeneratedTiles({
       thickness,
     );
     built.setAttribute('aGlow', new InstancedBufferAttribute(new Float32Array(instanceCount * 3), 3));
+    built.setAttribute('aSideDim', new InstancedBufferAttribute(new Float32Array(instanceCount), 1));
     return built;
   }, [
     tileSize,
@@ -99,7 +102,11 @@ export function FieldGeneratedTiles({
     fieldConfig.platform.cornerRadius,
     fieldConfig.platform.edgeBevel,
   ]);
-  const groundGeometry = useMemo(() => new PlaneGeometry(1, 1, 1, 1), []);
+  const groundGeometry = useMemo(() => {
+    const built = new PlaneGeometry(1, 1, 1, 1);
+    built.setAttribute('aSideDim', new Float32BufferAttribute([1, 1, 1, 1], 1));
+    return built;
+  }, []);
   const fallbackTexture = useMemo(
     () => createSolidTileTexture(theme.surfaceRaised),
     [theme.surfaceRaised],
@@ -196,6 +203,9 @@ export function FieldGeneratedTiles({
     const glowAttribute = geometry.getAttribute('aGlow') as InstancedBufferAttribute;
     const glow = glowAttribute.array as Float32Array;
     glow.fill(0);
+    const sideDimAttribute = geometry.getAttribute('aSideDim') as InstancedBufferAttribute;
+    const sideDim = sideDimAttribute.array as Float32Array;
+    sideDim.fill(1);
     const [glowR, glowG, glowB] = hexToRgbaTuple(glowHex);
     let count = 0;
 
@@ -224,6 +234,11 @@ export function FieldGeneratedTiles({
         temp.scale.set(1, 1, 1);
         temp.updateMatrix();
         mesh.setMatrixAt(count, temp.matrix);
+        sideDim[count] = fieldGridSideBrightness(
+          row,
+          base.rows,
+          fieldConfig.activeCells.sideSpan,
+        );
         if (isOccupied) {
           glow[count * 3] = glowR / 255;
           glow[count * 3 + 1] = glowG / 255;
@@ -236,6 +251,7 @@ export function FieldGeneratedTiles({
     mesh.count = count;
     mesh.instanceMatrix.needsUpdate = true;
     glowAttribute.needsUpdate = true;
+    sideDimAttribute.needsUpdate = true;
     mesh.computeBoundingSphere();
     requestFieldShadowUpdate();
 
@@ -258,6 +274,7 @@ export function FieldGeneratedTiles({
     columnDepth,
     geometry,
     glowHex,
+    fieldConfig.activeCells.sideSpan,
     groundZ,
     occupiedCellKeys,
     settings.generatedTilesEnabled,

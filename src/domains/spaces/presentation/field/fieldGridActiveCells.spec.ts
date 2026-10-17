@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   FIELD_ACTIVE_SIDE_SPAN,
   fieldGridCenterRow,
+  fieldGridSideBrightness,
   isActiveFieldGridCell,
 } from './fieldGridActiveCells';
 import { cellLabelFromColRow } from './fieldGridCells';
@@ -22,6 +23,16 @@ describe('fieldGridActiveCells', () => {
     expect(isActiveFieldGridCell(9, rows)).toBe(true);
     expect(isActiveFieldGridCell(4, rows)).toBe(false);
     expect(isActiveFieldGridCell(10, rows)).toBe(false);
+  });
+
+  it('dims tiles progressively outside the five active center rows', () => {
+    expect(fieldGridSideBrightness(5, rows, 2)).toBe(1);
+    expect(fieldGridSideBrightness(9, rows, 2)).toBe(1);
+    expect(fieldGridSideBrightness(4, rows, 2)).toBeCloseTo(0.58);
+    expect(fieldGridSideBrightness(3, rows, 2)).toBeCloseTo(0.58 ** 2);
+    expect(fieldGridSideBrightness(2, rows, 2)).toBeCloseTo(0.58 ** 3);
+    expect(fieldGridSideBrightness(0, rows, 2)).toBe(0.1);
+    expect(fieldGridSideBrightness(14, rows, 2)).toBe(0.1);
   });
 
   it('center-row active cells use stable XY labels X2,Y8 X3,Y8 X4,Y8 X5,Y8…', () => {

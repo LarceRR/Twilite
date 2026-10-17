@@ -1,6 +1,6 @@
 import { useFrame } from '@react-three/fiber/native';
 import type { ReactElement } from 'react';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { DirectionalLight, Object3D } from 'three';
 
 import type { AuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAssetHeaders';
@@ -35,15 +35,47 @@ export function FieldSpaceScene({
 }): ReactElement {
   const showWorldAxes = useSettingsStore((s) => s.developerShowWorldAxes);
   const gridConfig = useFieldGridConfig();
+  const fieldConfig = useFieldConfig();
+  const [loadedChunkIndices, setLoadedChunkIndices] = useState<readonly number[]>([]);
+  const loadedChunkSet = useMemo(() => new Set(loadedChunkIndices), [loadedChunkIndices]);
+  const loadedObjects = useMemo(
+    () =>
+      objects.filter((object) =>
+        loadedChunkSet.has(Math.floor(object.cell.x / fieldConfig.chunks.cols)),
+      ),
+    [objects, loadedChunkSet, fieldConfig.chunks.cols],
+  );
+  const handleLoadedChunkIndicesChange = useCallback((nextIndices: readonly number[]) => {
+    setLoadedChunkIndices((current) => {
+      if (
+        current.length === nextIndices.length &&
+        current.every((chunkIndex, index) => chunkIndex === nextIndices[index])
+      ) {
+        return current;
+      }
+      return [...nextIndices];
+    });
+  }, []);
 
   useEffect(() => () => resetFieldGridWaveScene(), []);
 
   return (
     <>
       <FieldPerformanceMonitor />
-      <FieldSceneLighting objects={objects} />
-      <FieldGridSurface config={gridConfig} objects={objects} />
-      <FieldSurfaceObjects config={gridConfig} headers={headers} objects={objects} />
+      <FieldSceneLighting objects={loadedObjects} />
+      <FieldGridSurface
+        config={gridConfig}
+        objects={loadedObjects}
+        onLoadedChunkIndicesChange={handleLoadedChunkIndicesChange}
+      />
+      {loadedObjects.length > 0 ? (
+        <FieldSurfaceObjects
+          config={gridConfig}
+          headers={headers}
+          objects={loadedObjects}
+          loadedChunkIndices={loadedChunkIndices}
+        />
+      ) : null}
       {showWorldAxes ? <FieldWorldAxes /> : null}
     </>
   );
