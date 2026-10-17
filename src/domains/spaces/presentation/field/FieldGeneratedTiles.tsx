@@ -254,6 +254,9 @@ export function FieldGeneratedTiles({
     columnCount,
     columnDepth,
     geometry,
+    // The material is passed through instancedMesh args. R3F may reconstruct
+    // the InstancedMesh when a theme changes it, so repopulate instance matrices.
+    material,
     glowHex,
     groundZ,
     occupiedCellKeys,
