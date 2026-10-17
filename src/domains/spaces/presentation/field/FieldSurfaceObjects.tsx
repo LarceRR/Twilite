@@ -783,14 +783,19 @@ type AppearanceState = {
 };
 
 function useAppearingObjects(objects: readonly SurfaceObject[]): AppearanceState {
-  const [appearing, setAppearing] = useState<ReadonlyMap<string, number>>(() =>
-    staggerAppearanceDelays(
-      objects.filter((object) => !seenFieldObjectIds.has(object.id)).map((object) => object.id),
+  const [initialAppearanceIds] = useState<readonly string[]>(() =>
+    collectNewlyAppearingObjectIds(
+      objects.map((object) => object.id),
+      new Set<string>(),
+      seenFieldObjectIds,
     ),
+  );
+  const [appearing, setAppearing] = useState<ReadonlyMap<string, number>>(() =>
+    staggerAppearanceDelays(initialAppearanceIds),
   );
   const known = useRef(new Set(objects.map((object) => object.id)));
   const nextAppearanceAt = useRef(
-    Date.now() + objects.length * SURFACE_OBJECT_ANIMATION_CONFIG.staggerDelayMs,
+    Date.now() + initialAppearanceIds.length * SURFACE_OBJECT_ANIMATION_CONFIG.staggerDelayMs,
   );
 
   useLayoutEffect(() => {
