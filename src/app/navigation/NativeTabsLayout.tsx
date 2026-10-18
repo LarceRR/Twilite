@@ -3,6 +3,7 @@ import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import type { ReactElement } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
+import { useAuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAssetHeaders';
 import { useThemeColors } from '@/design-system/colors/colors';
 import { useAuthStore } from '@/domains/auth/presentation/stores/authStore';
 
@@ -31,8 +32,9 @@ export function NativeTabsLayout(): ReactElement {
   const theme = useThemeColors();
   const router = useRouter();
   const avatarUrl = useAuthStore((state) => state.profile?.avatarUrl ?? null);
+  const imageHeaders = useAuthenticatedAssetHeaders();
   const iconSources = getNativeTabIconSources();
-  const tabAvatar = useCachedTabAvatar(avatarUrl);
+  const tabAvatar = useCachedTabAvatar(avatarUrl, imageHeaders);
 
   if (iconSources === null) {
     return (

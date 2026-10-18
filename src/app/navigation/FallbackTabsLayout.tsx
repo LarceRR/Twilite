@@ -1,6 +1,7 @@
 import { Tabs, useRouter } from 'expo-router';
 import type { ReactElement } from 'react';
 
+import { useAuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAssetHeaders';
 import { useThemeColors } from '@/design-system/colors/colors';
 import { BottomBar } from '@/design-system/components/BottomBar/BottomBar';
 import { UserAvatar } from '@/design-system/components/UserAvatar/UserAvatar';
@@ -13,6 +14,7 @@ import { CREATE_TAB_NAME, isMainTabRoute, TAB_ROUTES } from './tabRoutes';
 export function FallbackTabsLayout(): ReactElement {
   const theme = useThemeColors();
   const profile = useAuthStore((state) => state.profile);
+  const imageHeaders = useAuthenticatedAssetHeaders();
   const router = useRouter();
 
   return (
@@ -38,6 +40,7 @@ export function FallbackTabsLayout(): ReactElement {
                   name={profile?.displayName ?? 'Профиль'}
                   seed={profile?.id ?? 'me'}
                   imageUrl={profile?.avatarUrl ?? null}
+                  imageHeaders={imageHeaders}
                   size={size}
                   ringColor={focused ? color : null}
                   ringWidth={1.5}

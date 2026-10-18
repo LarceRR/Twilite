@@ -6,35 +6,38 @@ import {
   type FieldGridEffectMaterial,
 } from './fieldGridWaveMaterial';
 import { FIELD_WAVE_MAX_COUNT } from './fieldGridWave';
+import { getFieldOccupiedTileMaps } from './fieldOccupiedTileMaps';
 
-/** Matte, slightly rough clay-like finish for the physical tiles. */
+/** Default finish for ordinary, non-occupied tiles. */
 const TILE_ROUGHNESS = 0.9;
 const TILE_METALNESS = 0;
+/** Physical material values for cells holding an object. */
+const OCCUPIED_TILE_METALNESS = 0.24;
 /**
- * The warm "emissive floor" is only a faint bounce-light tint. It must never
- * flatten the directional shading or fill shadows completely.
+ * Preserve most physical lighting on glowing tiles. The old 0.9 suppression
+ * made their emissive colour read as one flat, featureless rectangle.
  */
+const OCCUPIED_TILE_LIGHT_SUPPRESSION = 0.08;
+/** Emission remains visible but no longer overwhelms all surface shading. */
+const TILE_EMISSIVE_GAIN = 0.12;
+const TILE_EMISSIVE_MAX = 0.22;
+/** The warm "emissive floor" is only a faint bounce-light tint. */
 const TILE_EMISSIVE_FLOOR_SCALE = 0.18;
-/**
- * Occupied tiles are self-emissive. Their radiance is the per-instance glow
- * colour times the configured emissive intensity, times this gain.
- */
-const TILE_EMISSIVE_GAIN = 4;
 /** Candle falloff curvature: higher values concentrate the light near its source. */
 const CANDLE_INVERSE_SQUARE_SCALE = 16;
-/**
- * Candle light is added on top of the albedo instead of being multiplied by it.
- * The tiles are very dark, so a pure albedo product made the light invisible.
- */
+/** Add candle light on top of dark albedo so nearby surfaces remain readable. */
 const CANDLE_ALBEDO_FLOOR = 0.35;
-const PROGRAM_CACHE_KEY = 'twilite-field-tile-v4';
+const PROGRAM_CACHE_KEY = 'twilite-field-tile-v8';
 
 export type FieldTileMaterial = MeshStandardMaterial & FieldGridEffectMaterial;
 
 const vertexDeclarations = /* glsl */ `
 attribute vec3 aGlow;
+attribute float aSideDim;
 varying vec3 vFieldWorldPos;
 varying vec3 vGlow;
+varying vec2 vTileUv;
+varying float vSideDim;
 `;
 
 const vertexBody = /* glsl */ `
@@ -45,6 +48,8 @@ vec4 fieldWorldPosition = vec4( transformed, 1.0 );
 fieldWorldPosition = modelMatrix * fieldWorldPosition;
 vFieldWorldPos = fieldWorldPosition.xyz;
 vGlow = aGlow;
+vTileUv = uv;
+vSideDim = aSideDim;
 `;
 
 const fragmentDeclarations = /* glsl */ `
@@ -68,12 +73,25 @@ uniform float uLightIntensityScale;
 uniform vec3 uAmbientColor;
 uniform float uAmbientIntensity;
 uniform float uTileEmissiveIntensity;
+uniform sampler2D uOccupiedTileAlbedoMap;
+uniform sampler2D uOccupiedTileRoughnessMap;
+uniform float uUseGeneratedTileAlbedo;
 
 varying vec3 vFieldWorldPos;
 varying vec3 vGlow;
+varying vec2 vTileUv;
+varying float vSideDim;
 
 float fieldSmoother(float x) {
   return x * x * (3.0 - 2.0 * x);
+}
+
+vec3 fieldSrgbToLinear(vec3 color) {
+  return vec3(
+    color.r <= 0.04045 ? color.r / 12.92 : pow((color.r + 0.055) / 1.055, 2.4),
+    color.g <= 0.04045 ? color.g / 12.92 : pow((color.g + 0.055) / 1.055, 2.4),
+    color.b <= 0.04045 ? color.b / 12.92 : pow((color.b + 0.055) / 1.055, 2.4)
+  );
 }
 
 float fieldSampleWave(vec2 p, vec2 origin, float startTime) {
@@ -100,9 +118,7 @@ float fieldSampleWave(vec2 p, vec2 origin, float startTime) {
   return (dist / radius) * uMaxAlpha * life;
 }
 
-// Local candle lights. Each surface pixel-cell is lit with a Lambert term and a
-// windowed inverse-square falloff, so light reaches every neighbouring tile that
-// is inside the configured radius, including the faces that are in shadow.
+// Local candle lights illuminate all nearby faces, with a soft radius falloff.
 vec3 fieldCandleIrradiance(vec3 worldPos, vec3 worldNormal) {
   float cellSize = max(uLightPixelSize, 0.0001);
   vec3 snapped = floor(worldPos / cellSize) * cellSize + vec3(cellSize * 0.5);
@@ -132,30 +148,65 @@ vec3 fieldCandleIrradiance(vec3 worldPos, vec3 worldNormal) {
 }
 `;
 
+const occupiedTileColorBody = /* glsl */ `
+float fieldGlowMax = max( vGlow.r, max( vGlow.g, vGlow.b ) );
+float fieldGlowMask = smoothstep( 0.001, 0.08, fieldGlowMax );
+
+// The generated atlas is the default copper finish. A user-selected tile
+// texture remains authoritative, while both modes still use the worn roughness map.
+vec3 fieldOccupiedAlbedo = fieldSrgbToLinear(
+  texture2D( uOccupiedTileAlbedoMap, vTileUv ).rgb
+);
+diffuseColor.rgb = mix(
+  diffuseColor.rgb,
+  fieldOccupiedAlbedo,
+  fieldGlowMask * uUseGeneratedTileAlbedo
+);
+`;
+
+const occupiedTileSurfaceBody = /* glsl */ `
+// Apply material variation after Three.js has declared roughnessFactor and
+// metalnessFactor. The first narrow UV band is the chamfer; side walls stay rough.
+float fieldOccupiedRoughness = texture2D( uOccupiedTileRoughnessMap, vTileUv ).r;
+roughnessFactor = mix(
+  roughnessFactor,
+  clamp( fieldOccupiedRoughness, 0.24, 0.9 ),
+  fieldGlowMask
+);
+metalnessFactor = mix(
+  metalnessFactor,
+  ${OCCUPIED_TILE_METALNESS.toFixed(2)},
+  fieldGlowMask
+);
+`;
+
 const fragmentBody = /* glsl */ `
 {
   vec3 fieldNormal = normalize( inverseTransformDirection( normal, viewMatrix ) );
   vec3 fieldAlbedo = diffuseColor.rgb;
 
-  // Occupied tiles: how strongly this fragment is self-emissive (0 on empty tiles).
+  // Occupied tiles retain a restrained warm emission so direct lighting,
+  // material variation and bevel shading remain visible.
   float glowMax = max( vGlow.r, max( vGlow.g, vGlow.b ) );
   float glowMask = saturate( glowMax * 8.0 );
 
-  // Candle light is added on top of the albedo, not multiplied by it, so dark
-  // tiles still visibly catch light from neighbouring candles.
   vec3 lit = ( fieldAlbedo + vec3( ${CANDLE_ALBEDO_FLOOR.toFixed(2)} ) ) *
     fieldCandleIrradiance( vFieldWorldPos, fieldNormal );
   lit += fieldAlbedo * uAmbientColor *
     ( ( uAmbientIntensity + uTileEmissiveIntensity ) * ${TILE_EMISSIVE_FLOOR_SCALE.toFixed(3)} );
-  // White scene light on a glowing face would wash the colour out to white-pink,
-  // so an emissive face keeps only a sliver of its lit term.
-  outgoingLight = mix( outgoingLight + lit, vec3( 0.0 ), glowMask * 0.9 ) ;
+  outgoingLight = mix(
+    outgoingLight + lit,
+    vec3( 0.0 ),
+    glowMask * ${OCCUPIED_TILE_LIGHT_SUPPRESSION.toFixed(2)}
+  );
 
-  // Emission keeps the requested hue: scale the whole colour down when a channel
-  // would clip, instead of clipping each channel to 1 independently.
-  vec3 emitted = vGlow * uTileEmissiveIntensity * ${TILE_EMISSIVE_GAIN.toFixed(1)};
+  // Cap emission without independently clipping colour channels, preserving
+  // the warm hue while letting the base material and bevels show through.
+  vec3 emitted = vGlow * uTileEmissiveIntensity * ${TILE_EMISSIVE_GAIN.toFixed(2)};
   float emittedMax = max( emitted.r, max( emitted.g, emitted.b ) );
-  if ( emittedMax > 1.0 ) emitted /= emittedMax;
+  if ( emittedMax > ${TILE_EMISSIVE_MAX.toFixed(2)} ) {
+    emitted *= ${TILE_EMISSIVE_MAX.toFixed(2)} / emittedMax;
+  }
   outgoingLight += emitted;
 
   // Interaction waves live on the tile tops, at their real elevation.
@@ -166,6 +217,9 @@ const fragmentBody = /* glsl */ `
     }
     outgoingLight = mix( outgoingLight, vec3( 1.0 ), saturate( fieldWave ) );
   }
+
+  // Fade the tile's base colour, real lighting and emission together.
+  outgoingLight *= clamp( vSideDim, 0.1, 1.0 );
 }
 `;
 
@@ -186,9 +240,8 @@ function injectBefore(source: string, anchor: string, addition: string): string 
 }
 
 /**
- * Physically lit tile material: standard PBR shading for ambient + the shared
- * directional light (with real shadow maps), extended with the field's pixel
- * candle lights, per-instance self-emission for occupied tiles and tap waves.
+ * Physically lit tiles use standard PBR shading, with a warm glazed finish and
+ * procedural grain applied only to occupied instances. Empty tiles stay matte.
  */
 export function createFieldTileMaterial(map: Texture): FieldTileMaterial {
   const material = new MeshStandardMaterial({
@@ -202,13 +255,26 @@ export function createFieldTileMaterial(map: Texture): FieldTileMaterial {
   }) as FieldTileMaterial;
 
   material.uniforms = createFieldGridEffectUniforms(map);
+  material.userData.occupiedTileUniforms = {
+    uUseGeneratedTileAlbedo: { value: 1 },
+  };
   material.receivesPixelLights = true;
 
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, material.uniforms);
+    const occupiedTileMaps = getFieldOccupiedTileMaps();
+    const occupiedTileUniforms = material.userData.occupiedTileUniforms as {
+      readonly uUseGeneratedTileAlbedo: { value: number };
+    };
+    shader.uniforms.uOccupiedTileAlbedoMap = { value: occupiedTileMaps.albedo };
+    shader.uniforms.uOccupiedTileRoughnessMap = { value: occupiedTileMaps.roughness };
+    shader.uniforms.uUseGeneratedTileAlbedo = occupiedTileUniforms.uUseGeneratedTileAlbedo;
     shader.vertexShader = inject(shader.vertexShader, '#include <common>', vertexDeclarations);
     shader.vertexShader = inject(shader.vertexShader, '#include <project_vertex>', vertexBody);
     shader.fragmentShader = inject(shader.fragmentShader, '#include <common>', fragmentDeclarations);
+    shader.fragmentShader = inject(shader.fragmentShader, '#include <color_fragment>', occupiedTileColorBody);
+    // Place this after metalnessmap_fragment, where both PBR factors exist.
+    shader.fragmentShader = inject(shader.fragmentShader, '#include <metalnessmap_fragment>', occupiedTileSurfaceBody);
     shader.fragmentShader = injectBefore(
       shader.fragmentShader,
       '#include <opaque_fragment>',
@@ -220,7 +286,17 @@ export function createFieldTileMaterial(map: Texture): FieldTileMaterial {
 }
 
 /** Swap the albedo texture without recompiling the shader program. */
-export function setFieldTileMaterialMap(material: FieldTileMaterial, map: Texture): void {
+export function setFieldTileMaterialMap(
+  material: FieldTileMaterial,
+  map: Texture,
+  useGeneratedAlbedo = true,
+): void {
+  const occupiedTileUniforms = material.userData.occupiedTileUniforms as {
+    readonly uUseGeneratedTileAlbedo: { value: number };
+  } | undefined;
+  if (occupiedTileUniforms !== undefined) {
+    occupiedTileUniforms.uUseGeneratedTileAlbedo.value = useGeneratedAlbedo ? 1 : 0;
+  }
   if (material.map === map) return;
   material.map = map;
   material.uniforms.uMap.value = map;

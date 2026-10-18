@@ -2,6 +2,7 @@ import { type Href, useRouter } from 'expo-router';
 import type { ReactElement } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { useAuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAssetHeaders';
 import { useServices } from '@/app/providers/ContainerProvider';
 import { BlurCard } from '@/design-system/components/BlurCard/BlurCard';
 import { Button } from '@/design-system/components/Button/Button';
@@ -27,13 +28,14 @@ export function ProfileScreen(): ReactElement {
   const profile = useAuthStore((state) => state.profile);
   const auth = useAuthActions();
   const avatars = useAvatarActions();
+  const imageHeaders = useAuthenticatedAssetHeaders();
 
   const displayName = profile?.displayName ?? 'Гость';
   const email =
     profile?.email ?? (status === 'authenticated' ? 'Почта не указана' : 'Войдите в аккаунт');
 
   return (
-    <Screen title="Профиль">
+    <Screen title="Профиль" enableNativeHeader>
       <BlurCard>
         <View style={styles.identity}>
           <Pressable
@@ -46,6 +48,7 @@ export function ProfileScreen(): ReactElement {
             <UserAvatar
               name={displayName}
               imageUrl={profile?.avatarUrl ?? null}
+              imageHeaders={imageHeaders}
               seed={profile?.id ?? displayName}
               size={56}
             />

@@ -2,6 +2,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useCallback, useEffect, useState } from 'react';
 import { PixelRatio, type ImageURISource } from 'react-native';
 
+import type { AuthenticatedAssetHeaders } from '@/app/hooks/useAuthenticatedAssetHeaders';
+
 import {
   circularTabAvatarPath,
   normalizeRemoteAvatarUrl,
@@ -39,7 +41,10 @@ async function ensureCacheDir(dir: string): Promise<void> {
  * PNG (transparent corners) at TAB_AVATAR_POINT_SIZE × screen scale before
  * handing it to the tab.
  */
-export function useCachedTabAvatar(remoteUrl: string | null): CachedTabAvatar {
+export function useCachedTabAvatar(
+  remoteUrl: string | null,
+  headers: AuthenticatedAssetHeaders,
+): CachedTabAvatar {
   const [source, setSource] = useState<ImageURISource | null>(null);
   const [bake, setBake] = useState<TabAvatarBakeRequest | null>(null);
   const scale = PixelRatio.get();
@@ -50,7 +55,7 @@ export function useCachedTabAvatar(remoteUrl: string | null): CachedTabAvatar {
     setSource(null);
     setBake(null);
 
-    if (uri.length === 0) {
+    if (uri.length === 0 || (/^https?:\/\//i.test(uri) && headers === null)) {
       return;
     }
 
@@ -77,7 +82,13 @@ export function useCachedTabAvatar(remoteUrl: string | null): CachedTabAvatar {
 
         const rawInfo = await FileSystem.getInfoAsync(rawPath);
         if (!rawInfo.exists) {
-          await FileSystem.downloadAsync(uri, rawPath);
+          if (uri.startsWith('file://')) {
+            await FileSystem.copyAsync({ from: uri, to: rawPath });
+          } else {
+            await FileSystem.downloadAsync(uri, rawPath, {
+              ...(headers === null ? {} : { headers }),
+            });
+          }
         }
 
         if (!cancelled) {
@@ -91,7 +102,7 @@ export function useCachedTabAvatar(remoteUrl: string | null): CachedTabAvatar {
     return () => {
       cancelled = true;
     };
-  }, [remoteUrl, scale]);
+  }, [remoteUrl, scale, headers]);
 
   const onBakeReady = useCallback(
     (destUri: string) => {

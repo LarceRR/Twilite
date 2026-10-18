@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { router, useLocalSearchParams } from 'expo-router';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { type ReactElement, useMemo } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 
 import { useUseCases } from '@/app/providers/ContainerProvider';
 import { useUiStore } from '@/app/stores/uiStore';
@@ -50,73 +50,97 @@ export function ThemeDetailScreen(): ReactElement {
     }));
   }, [detail.data]);
 
-  const isActive = detail.data !== undefined && detail.data.id === active.id;
+  const themePack = detail.data;
+  const isActive = themePack !== undefined && themePack.id === active.id;
 
   return (
-    <Screen title={detail.data?.name ?? 'Тема'} reserveTabBar={false}>
-      {detail.isLoading ? (
-        <ActivityIndicator color={theme.textSecondary} style={{ marginTop: spacing.xl }} />
-      ) : null}
+    <>
+      {Platform.OS === 'web' ? null : (
+        <Stack.Toolbar placement="right">
+          <Stack.Toolbar.Button
+            accessibilityLabel={isActive ? 'Тема уже используется' : 'Выбрать тему'}
+            disabled={detail.data === undefined || isActive || apply.isPending}
+            onPress={() => {
+              const pack = themePack;
+              if (pack !== undefined) apply.mutate(pack);
+            }}
+          >
+            {isActive ? 'Уже используется' : apply.isPending ? 'Применение…' : 'Выбрать'}
+          </Stack.Toolbar.Button>
+        </Stack.Toolbar>
+      )}
+      <Screen
+        title={detail.data?.name ?? 'Тема'}
+        reserveTabBar={false}
+        headerRight={
+          Platform.OS === 'web' && themePack !== undefined ? (
+            <Button
+              label={isActive ? 'Уже используется' : 'Выбрать'}
+              compact
+              onPress={() => apply.mutate(themePack)}
+              disabled={isActive || apply.isPending}
+              loading={apply.isPending}
+            />
+          ) : undefined
+        }
+      >
+        {detail.isLoading ? (
+          <ActivityIndicator color={theme.textSecondary} style={{ marginTop: spacing.xl }} />
+        ) : null}
 
-      {detail.isError ? (
-        <BlurCard title="Не удалось открыть тему">
-          <Text variant="caption">{toAppError(detail.error).message}</Text>
-          <Button label="Назад" onPress={() => router.back()} />
-        </BlurCard>
-      ) : null}
+        {detail.isError ? (
+          <BlurCard title="Не удалось открыть тему">
+            <Text variant="caption">{toAppError(detail.error).message}</Text>
+            <Button label="Назад" onPress={() => router.back()} />
+          </BlurCard>
+        ) : null}
 
-      {detail.data !== undefined ? (
-        <>
-          <View style={styles.sky}>
-            {detail.data.sceneBackgroundColors.map((color, index) => (
-              <View key={`${color}-${index}`} style={[styles.skyStop, { backgroundColor: color }]} />
-            ))}
-          </View>
-          <Text variant="caption" color={theme.textSecondary}>
-            {detail.data.authorDisplayName} ·{' '}
-            {new Date(detail.data.createdAt).toLocaleDateString('ru-RU')}
-          </Text>
-          <Text variant="body">{detail.data.description || 'Без описания'}</Text>
-
-          <BlurCard title="Небо сцены">
+        {detail.data !== undefined ? (
+          <>
+            <View style={styles.sky}>
+              {detail.data.sceneBackgroundColors.map((color, index) => (
+                <View key={`${color}-${index}`} style={[styles.skyStop, { backgroundColor: color }]} />
+              ))}
+            </View>
             <Text variant="caption" color={theme.textSecondary}>
-              Градиент сверху вниз · {detail.data.sceneBackgroundColors.length} цвета
+              {detail.data.authorDisplayName} ·{' '}
+              {new Date(detail.data.createdAt).toLocaleDateString('ru-RU')}
             </Text>
-            <View style={styles.tokenRow}>
-              {detail.data.sceneBackgroundColors.map((color) => (
-                <View key={color} style={styles.token}>
-                  <View style={[styles.swatch, { backgroundColor: color }]} />
-                  <Text variant="caption">{color}</Text>
-                </View>
-              ))}
-            </View>
-          </BlurCard>
+            <Text variant="body">{detail.data.description || 'Без описания'}</Text>
 
-          <BlurCard title="Цвета интерфейса">
-            <View style={styles.tokenList}>
-              {colorEntries.map((entry) => (
-                <View key={entry.key} style={styles.token}>
-                  <View style={[styles.swatch, { backgroundColor: entry.value }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text variant="captionStrong">{entry.key}</Text>
-                    <Text variant="caption" color={theme.textSecondary}>
-                      {entry.descriptionRu}
-                    </Text>
+            <BlurCard title="Небо сцены">
+              <Text variant="caption" color={theme.textSecondary}>
+                Градиент сверху вниз · {detail.data.sceneBackgroundColors.length} цвета
+              </Text>
+              <View style={styles.tokenRow}>
+                {detail.data.sceneBackgroundColors.map((color) => (
+                  <View key={color} style={styles.token}>
+                    <View style={[styles.swatch, { backgroundColor: color }]} />
+                    <Text variant="caption">{color}</Text>
                   </View>
-                </View>
-              ))}
-            </View>
-          </BlurCard>
+                ))}
+              </View>
+            </BlurCard>
 
-          <Button
-            label={isActive ? 'Уже используется' : 'Использовать'}
-            onPress={() => apply.mutate(detail.data)}
-            disabled={isActive || apply.isPending}
-            loading={apply.isPending}
-          />
-        </>
-      ) : null}
-    </Screen>
+            <BlurCard title="Цвета интерфейса">
+              <View style={styles.tokenList}>
+                {colorEntries.map((entry) => (
+                  <View key={entry.key} style={styles.token}>
+                    <View style={[styles.swatch, { backgroundColor: entry.value }]} />
+                    <View style={{ flex: 1 }}>
+                      <Text variant="captionStrong">{entry.key}</Text>
+                      <Text variant="caption" color={theme.textSecondary}>
+                        {entry.descriptionRu}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </BlurCard>
+          </>
+        ) : null}
+      </Screen>
+    </>
   );
 }
 

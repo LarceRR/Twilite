@@ -38,22 +38,19 @@ export const DEFAULT_FIELD_TILE_SETTINGS: FieldTilePreferences = {
   objectMaxHeight: 10,
 };
 
+const TILE_HEIGHT_MIN = 0;
+const TILE_HEIGHT_MAX = 100;
+
 function clampInteger(value: number, min: number, max: number): number {
   return Number.isFinite(value) ? Math.max(min, Math.min(max, Math.round(value))) : min;
 }
 
+/** Every height control has an independent 0..100 range, without cross-field constraints. */
 function normalizePreferences(
   current: FieldTilePreferences,
   patch: Partial<FieldTilePreferences>,
 ): FieldTilePreferences {
   const next = { ...current, ...patch };
-  const tileA = clampInteger(next.tileMinHeight, 0, 3);
-  const tileB = clampInteger(next.tileMaxHeight, 0, 3);
-  const tileMinHeight = Math.min(tileA, tileB);
-  const tileMaxHeight = Math.max(tileA, tileB);
-  const minimumObjectHeight = Math.max(4, tileMaxHeight * 2 + 1);
-  const objectA = clampInteger(next.objectMinHeight, minimumObjectHeight, 24);
-  const objectB = clampInteger(next.objectMaxHeight, minimumObjectHeight, 24);
 
   return {
     generatedTilesEnabled:
@@ -64,10 +61,10 @@ function normalizePreferences(
       typeof next.worldSeed === 'string' && next.worldSeed.trim().length > 0
         ? next.worldSeed.trim().slice(0, 128)
         : current.worldSeed,
-    tileMinHeight,
-    tileMaxHeight,
-    objectMinHeight: Math.min(objectA, objectB),
-    objectMaxHeight: Math.max(objectA, objectB),
+    tileMinHeight: clampInteger(next.tileMinHeight, TILE_HEIGHT_MIN, TILE_HEIGHT_MAX),
+    tileMaxHeight: clampInteger(next.tileMaxHeight, TILE_HEIGHT_MIN, TILE_HEIGHT_MAX),
+    objectMinHeight: clampInteger(next.objectMinHeight, TILE_HEIGHT_MIN, TILE_HEIGHT_MAX),
+    objectMaxHeight: clampInteger(next.objectMaxHeight, TILE_HEIGHT_MIN, TILE_HEIGHT_MAX),
   };
 }
 

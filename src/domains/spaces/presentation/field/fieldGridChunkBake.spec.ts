@@ -15,6 +15,7 @@ import {
   prioritizeFieldChunkGpuUploads,
   isFieldChunkGpuReady,
   resolveMountedChunkIds,
+  requeueFieldChunkGpuUploadsAfterContextRestore,
   syncMountedChunkWindow,
   evictFieldChunkBakes,
 } from './fieldGridChunkBake';
@@ -135,6 +136,23 @@ describe('fieldGridChunkBake', () => {
     expect(prepareFieldChunkTexture(req)).toBe(texture);
   });
 
+  it('requeues pooled textures after a renderer context restore', () => {
+    const req = request(2);
+    const texture = prepareFieldChunkTexture(req);
+    const firstRenderer = { initTexture: vi.fn() } as unknown as WebGLRenderer;
+    pumpFieldChunkGpuUploads(firstRenderer, 1);
+    expect(isFieldChunkGpuReady(req)).toBe(true);
+
+    requeueFieldChunkGpuUploadsAfterContextRestore();
+
+    expect(isFieldChunkGpuReady(req)).toBe(false);
+    expect(pendingFieldChunkGpuUploads()).toBe(1);
+    const restoredRenderer = { initTexture: vi.fn() } as unknown as WebGLRenderer;
+    expect(pumpFieldChunkGpuUploads(restoredRenderer, 1)).toBe(1);
+    expect(restoredRenderer.initTexture).toHaveBeenCalledWith(texture);
+    expect(isFieldChunkGpuReady(req)).toBe(true);
+  });
+
   it('uploads the chunk nearest the camera before older prefetch work', () => {
     const behind = prepareFieldChunkTexture(request(1));
     const focus = prepareFieldChunkTexture(request(3));
@@ -167,6 +185,17 @@ describe('fieldGridChunkBake', () => {
     ).toEqual([0, 1, 2, 3]);
 
     expect(resolveMountedChunkIds([4, 5], [1, 2, 3], () => false, false)).toEqual([1, 2, 3]);
+  });
+
+  it('keeps mounted chunks visible while theme-specific textures upload again', () => {
+    const mounted = [2, 3, 4, 5];
+    const gpuReady = new Set([3]);
+
+    // Applying a theme creates new GPU texture variants for all mounted chunks.
+    // Uploading one variant must not hide every other visible chunk/tile.
+    expect(
+      resolveMountedChunkIds(mounted, mounted, (id) => gpuReady.has(id), false),
+    ).toEqual(mounted);
   });
 
   it('syncMountedChunkWindow reports change only when mount set changes', () => {

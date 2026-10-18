@@ -4,6 +4,7 @@ import { DEFAULT_FIELD_CONFIG } from './fieldConfig';
 
 import {
   advanceSpritePlayback,
+  collectNewlyAppearingObjectIds,
   easeOutCubic,
   surfaceObjectRiseProgress,
   SURFACE_OBJECT_ANIMATION_CONFIG,
@@ -53,6 +54,18 @@ describe('surfaceObjectAnimation', () => {
       ['second', SURFACE_OBJECT_ANIMATION_CONFIG.staggerDelayMs],
       ['third', SURFACE_OBJECT_ANIMATION_CONFIG.staggerDelayMs * 2],
     ]);
+  });
+
+  it('animates only IDs not seen before a scene remount', () => {
+    const previouslySeen = new Set(['existing-a', 'existing-b']);
+
+    expect(
+      collectNewlyAppearingObjectIds(
+        ['existing-a', 'existing-b', 'new-object'],
+        new Set(),
+        previouslySeen,
+      ),
+    ).toEqual(['new-object']);
   });
 
   it('continues the stagger queue after an earlier batch', () => {

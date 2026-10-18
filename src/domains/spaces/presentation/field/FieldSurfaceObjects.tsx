@@ -23,7 +23,7 @@ import type { SurfaceObject } from '@/domains/spaces/domain/entities/SurfaceObje
 import { FieldSurfaceObjectArtwork } from './FieldSurfaceObjectArtwork';
 import { cellCenterOnPlane } from './fieldGridCells';
 import { DEFAULT_FIELD_CONFIG, type FieldConfig } from './fieldConfig';
-import type { FieldGridConfig } from './fieldGridConfig';
+import { fieldGridCellPitch, type FieldGridConfig } from './fieldGridConfig';
 import {
   FIELD_GRID_MAX_FIREFLY_LIGHTS,
   FIELD_GRID_MAX_OBJECT_PIXEL_LIGHTS,
@@ -39,6 +39,7 @@ import {
 } from './surfaceObjectLighting';
 import {
   advanceSpritePlayback,
+  collectNewlyAppearingObjectIds,
   surfaceObjectRiseProgress,
   type SpritePlaybackCursor,
   SURFACE_OBJECT_ANIMATION_CONFIG,
@@ -61,6 +62,11 @@ import {
   type FireflyCluster,
   type FireflyEmitter,
 } from './fieldFireflies';
+
+// Keep object IDs that have already appeared across Canvas/route remounts.
+// The set lives at module scope because a new GL context must not replay the
+// entrance animation of objects that were already visible before recovery.
+const seenFieldObjectIds = new Set<string>();
 
 const billboardCameraPosition = new Vector3();
 const fireflyVertexShader = /* glsl */ `
@@ -140,10 +146,12 @@ export function FieldSurfaceObjects({
   objects,
   config,
   headers,
+  loadedChunkIndices,
 }: {
   readonly objects: readonly SurfaceObject[];
   readonly config: FieldGridConfig;
   readonly headers: AuthenticatedAssetHeaders;
+  readonly loadedChunkIndices: readonly number[];
 }): ReactElement {
   const runtime = useRef(new Map<string, RuntimeObject>());
   const appearance = useAppearingObjects(objects);
@@ -151,6 +159,8 @@ export function FieldSurfaceObjects({
   const tileSettings = useFieldTileStore();
   const objectGlowConfig = fieldConfig.lighting.objectGlow;
   const fireflyConfig = fieldConfig.fireflies;
+  const loadedChunkSet = useMemo(() => new Set(loadedChunkIndices), [loadedChunkIndices]);
+  const fieldChunkWorldWidth = fieldGridCellPitch(config) * fieldConfig.chunks.cols;
   const lastBillboardCameraXY = useRef({ x: Number.NaN, y: Number.NaN });
   const lightVisibility = useMemo(() => new SurfaceObjectLightVisibility(), []);
   const lightCandidates = useRef<RuntimeObject[]>([]);
@@ -225,6 +235,25 @@ export function FieldSurfaceObjects({
       fireflyConfig.opacityDiscardThreshold;
   }, [fireflyMaterial, fireflyConfig.opacityDiscardThreshold]);
   const fireflyColor = useMemo(() => new Color(), []);
+
+  useEffect(() => {
+    const isInLoadedChunk = (worldX: number): boolean =>
+      worldX >= 0 && loadedChunkSet.has(Math.floor(worldX / fieldChunkWorldWidth));
+    const simulation = fireflySimulation.current;
+    for (let index = simulation.flies.length - 1; index >= 0; index -= 1) {
+      if (!isInLoadedChunk(simulation.flies[index]!.x)) {
+        simulation.flies.splice(index, 1);
+      }
+    }
+    // Rebuild cloud membership from the emitters which remain mounted.
+    simulation.clusters = [];
+    simulation.refreshElapsedSec = fireflyConfig.clusterRefreshSec;
+    simulation.initialized = false;
+    activeFireflyLights.current.length = 0;
+    // Remove stale pixel-light uniforms immediately, not on the next throttled sync.
+    syncFieldGridPixelLights([]);
+    pixelLightSyncElapsed.current = 1 / 30;
+  }, [loadedChunkSet, fieldChunkWorldWidth, fireflyConfig.clusterRefreshSec]);
 
   const register = useCallback((item: RuntimeObject): (() => void) => {
     runtime.current.set(item.object.id, item);
@@ -401,10 +430,21 @@ export function FieldSurfaceObjects({
 
     for (let index = simulation.flies.length - 1; index >= 0; index -= 1) {
       const fly = simulation.flies[index]!;
+      const flyChunkIndex = Math.floor(fly.x / fieldChunkWorldWidth);
+      if (fly.x < 0 || !loadedChunkSet.has(flyChunkIndex)) {
+        simulation.flies.splice(index, 1);
+        continue;
+      }
       if (fly.retireInSec !== null) {
         fly.retireInSec = Math.max(0, fly.retireInSec - delta);
       }
       advanceFirefly(fly, delta, fireflyConfig);
+      // The particle can cross a chunk boundary during this frame.
+      const movedFlyChunkIndex = Math.floor(fly.x / fieldChunkWorldWidth);
+      if (fly.x < 0 || !loadedChunkSet.has(movedFlyChunkIndex)) {
+        simulation.flies.splice(index, 1);
+        continue;
+      }
       if (
         fly.ageSec >= fly.lifetimeSec ||
         (fly.retireInSec !== null && fly.retireInSec <= 0)
@@ -777,17 +817,31 @@ type AppearanceState = {
 };
 
 function useAppearingObjects(objects: readonly SurfaceObject[]): AppearanceState {
+  const [initialAppearanceIds] = useState<readonly string[]>(() =>
+    collectNewlyAppearingObjectIds(
+      objects.map((object) => object.id),
+      new Set<string>(),
+      seenFieldObjectIds,
+    ),
+  );
   const [appearing, setAppearing] = useState<ReadonlyMap<string, number>>(() =>
-    staggerAppearanceDelays(objects.map((object) => object.id)),
+    staggerAppearanceDelays(initialAppearanceIds),
   );
   const known = useRef(new Set(objects.map((object) => object.id)));
   const nextAppearanceAt = useRef(
-    Date.now() + objects.length * SURFACE_OBJECT_ANIMATION_CONFIG.staggerDelayMs,
+    Date.now() + initialAppearanceIds.length * SURFACE_OBJECT_ANIMATION_CONFIG.staggerDelayMs,
   );
 
   useLayoutEffect(() => {
-    const newIds = collectNewObjectIds(objects, known.current);
-    for (const object of objects) known.current.add(object.id);
+    const newIds = collectNewlyAppearingObjectIds(
+      objects.map((object) => object.id),
+      known.current,
+      seenFieldObjectIds,
+    );
+    for (const object of objects) {
+      known.current.add(object.id);
+      seenFieldObjectIds.add(object.id);
+    }
     if (newIds.length > 0) {
       const now = Date.now();
       const firstDelayMs = Math.max(0, nextAppearanceAt.current - now);
@@ -822,9 +876,3 @@ function resolveAppearanceDelay(
   return appearance.known.has(objectId) ? null : 0;
 }
 
-function collectNewObjectIds(
-  objects: readonly SurfaceObject[],
-  known: ReadonlySet<string>,
-): readonly string[] {
-  return objects.filter((object) => !known.has(object.id)).map((object) => object.id);
-}

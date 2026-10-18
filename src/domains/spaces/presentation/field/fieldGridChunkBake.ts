@@ -124,19 +124,24 @@ export function resolveMountedChunkIds(
   if (allowUnready) return desired;
   if (desired.length === 0) return [];
 
-  const ready = desired.filter((id) => isGpuReady(id));
-  if (ready.length === 0) return previous;
-  if (ready.length === desired.length) return ready;
+  // Theme changes invalidate the texture variant for every visible chunk at
+  // once. Keep already-mounted chunks in the window while those textures are
+  // uploaded; only newly entering chunks need to wait for GPU readiness.
+  const mountedOrReady = desired.filter(
+    (id) => previous.includes(id) || isGpuReady(id),
+  );
+  if (mountedOrReady.length === 0) return previous;
+  if (mountedOrReady.length === desired.length) return mountedOrReady;
 
   // Keep the immediately preceding ready chunk until the incoming edge chunk
   // is ready. It fills the same recycled slot and avoids a visible gap while
   // the new texture is still being prepared/uploaded.
   const previousEdge = desired[0]! - 1;
   if (previousEdge >= 0 && previous.includes(previousEdge) && isGpuReady(previousEdge)) {
-    return [previousEdge, ...ready];
+    return [previousEdge, ...mountedOrReady];
   }
 
-  return ready;
+  return mountedOrReady;
 }
 
 /** Pure window sync for useFrame (no React). Returns null mounted when unchanged. */
@@ -163,6 +168,19 @@ export function syncMountedChunkWindow(
     mounted,
     mountedChanged: !fieldChunkConfigsEqual(previousMounted, mounted),
   };
+}
+
+/**
+ * A recreated Expo GL context owns a new GPU resource state. Requeue pooled
+ * textures so readiness from the previous renderer is never reused.
+ */
+export function requeueFieldChunkGpuUploadsAfterContextRestore(): void {
+  uploadQueue.length = 0;
+  for (const entry of texturePool.values()) {
+    entry.gpuReady = false;
+    entry.texture.needsUpdate = true;
+    uploadQueue.push(entry.key);
+  }
 }
 
 export function pendingFieldChunkGpuUploads(): number {

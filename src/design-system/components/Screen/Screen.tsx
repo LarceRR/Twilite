@@ -1,4 +1,5 @@
-import { useIsFocused, usePathname, useRouter } from 'expo-router';
+import { useHeaderHeight } from 'expo-router/react-navigation';
+import { Stack, useIsFocused, usePathname, useRouter } from 'expo-router';
 import { memo, type ReactElement, type ReactNode } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +11,7 @@ import { useThemeColors } from '../../colors/themeStore';
 import { icons } from '../../icons/icons';
 import { layout, spacing } from '../../spacing/spacing';
 import { IconButton } from '../IconButton/IconButton';
+import { NavigationHeaderBackground } from '../NavigationHeaderBackground/NavigationHeaderBackground';
 import { Text } from '../Text/Text';
 import { screenHeaderTitle } from './screenHeaderTitle';
 import { screenTopPadding } from './screenTopPadding';
@@ -30,6 +32,10 @@ export type ScreenProps = {
   readonly hideHeader?: boolean;
   /** Horizontal inset. Sheets that specify their own gutter pass it here. */
   readonly contentGutter?: number;
+  /** Optional trailing action in the native navigation header. */
+  readonly headerRight?: ReactNode;
+  /** Opt a tab root into its own nested native-stack header. */
+  readonly enableNativeHeader?: boolean;
 };
 
 function ScreenComponent({
@@ -42,6 +48,8 @@ function ScreenComponent({
   skipTopSafeArea = false,
   hideHeader = false,
   contentGutter = layout.screenGutter,
+  headerRight,
+  enableNativeHeader = false,
 }: ScreenProps): ReactElement {
   const insets = useSafeAreaInsets();
   const theme = useThemeColors();
@@ -49,6 +57,16 @@ function ScreenComponent({
   const pathname = usePathname();
   const isFocused = useIsFocused();
   const resolvedTitle = screenHeaderTitle(hideHeader, title, resolvePageTitle(pathname));
+  // Regular pushed pages use the platform navigation header. Tab roots and
+  // native sheets retain their custom chrome, while iOS owns the back animation.
+  const useNativeHeader =
+    resolvedTitle !== undefined &&
+    !skipTopSafeArea &&
+    (enableNativeHeader || !isTabRootPath(pathname));
+  const useGradientNativeHeader = useNativeHeader && Platform.OS === 'ios';
+  // A tab root opted into its own nested Stack already has its header accounted
+  // for by that stack. Adding a second spacer doubles the top blank area.
+  const needsManualHeaderInset = useGradientNativeHeader && !enableNativeHeader;
   const showBack = shouldShowScreenBack({
     hideBack,
     isFocused,
@@ -56,11 +74,41 @@ function ScreenComponent({
     canGoBack: router.canGoBack(),
   });
   const bottomPadding = tabScreenBottomPadding(insets.bottom, reserveTabBar);
-  const topPadding = screenTopPadding(insets.top, skipTopSafeArea);
+  const topPadding = screenTopPadding(insets.top, skipTopSafeArea || useNativeHeader);
   const background = { backgroundColor: theme.surface };
 
-  const header =
-    resolvedTitle === undefined ? null : (
+  const nativeHeader = useNativeHeader ? (
+    <Stack.Screen
+      options={{
+        headerShown: true,
+        title: resolvedTitle,
+        headerTitleAlign: 'center',
+        headerBackButtonDisplayMode: 'minimal',
+        headerBackVisible: !hideBack && !isTabRootPath(pathname),
+        headerTintColor: theme.textPrimary,
+        headerTitleStyle: { color: theme.textPrimary },
+        headerShadowVisible: false,
+        ...(Platform.OS === 'ios'
+          ? {
+              headerTransparent: true,
+              headerBackground: () => <NavigationHeaderBackground />,
+              headerStyle: { backgroundColor: 'transparent' },
+            }
+          : { headerStyle: { backgroundColor: theme.surface } }),
+        ...(headerRight === undefined ? {} : { headerRight: () => headerRight }),
+      }}
+    />
+  ) : null;
+
+  const contentSubtitle =
+    useNativeHeader && subtitle !== undefined ? (
+      <Text variant="caption" color={theme.textSecondary} style={styles.contentSubtitle}>
+        {subtitle}
+      </Text>
+    ) : null;
+
+  const customHeader =
+    useNativeHeader || resolvedTitle === undefined ? null : (
       <View style={styles.header}>
         <View style={[styles.titleRow, showBack ? styles.titleRowWithBack : null]}>
           {showBack ? (
@@ -87,37 +135,62 @@ function ScreenComponent({
 
   if (!scroll) {
     return (
-      <View style={[styles.root, background, { paddingTop: topPadding }]}>
-        {header}
+      <>
+        {nativeHeader}
         <View
           style={[
-            styles.flexBody,
-            { paddingBottom: bottomPadding, paddingHorizontal: contentGutter },
+            styles.root,
+            background,
+            { paddingTop: useGradientNativeHeader ? 0 : topPadding },
           ]}
         >
-          {children}
+          {needsManualHeaderInset ? <NativeHeaderInset /> : null}
+          {customHeader}
+          <View
+            style={[
+              styles.flexBody,
+              { paddingBottom: bottomPadding, paddingHorizontal: contentGutter },
+            ]}
+          >
+            {contentSubtitle}
+            {children}
+          </View>
         </View>
-      </View>
+      </>
     );
   }
 
   return (
-    <ScrollView
-      style={[styles.root, background]}
-      contentContainerStyle={[
-        styles.scrollBody,
-        { paddingTop: topPadding, paddingBottom: bottomPadding, paddingHorizontal: contentGutter },
-      ]}
-      contentInsetAdjustmentBehavior={
-        Platform.OS === 'ios' && !reserveTabBar ? 'automatic' : 'never'
-      }
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-    >
-      {header}
-      {children}
-    </ScrollView>
+    <>
+      {nativeHeader}
+      <ScrollView
+        style={[styles.root, background]}
+        contentContainerStyle={[
+          styles.scrollBody,
+          {
+            paddingTop: useGradientNativeHeader ? 0 : topPadding,
+            paddingBottom: bottomPadding,
+            paddingHorizontal: contentGutter,
+          },
+        ]}
+        contentInsetAdjustmentBehavior={
+          Platform.OS === 'ios' && !useNativeHeader && !reserveTabBar ? 'automatic' : 'never'
+        }
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {needsManualHeaderInset ? <NativeHeaderInset /> : null}
+        {customHeader}
+        {contentSubtitle}
+        {children}
+      </ScrollView>
+    </>
   );
+}
+
+function NativeHeaderInset(): ReactElement {
+  const headerHeight = useHeaderHeight();
+  return <View style={{ height: headerHeight }} />;
 }
 
 export const Screen = memo(ScreenComponent);
@@ -156,6 +229,9 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   subtitle: {
+    maxWidth: layout.maxContentWidth,
+  },
+  contentSubtitle: {
     maxWidth: layout.maxContentWidth,
   },
 });

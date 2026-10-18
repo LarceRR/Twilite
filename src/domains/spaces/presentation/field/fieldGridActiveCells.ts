@@ -23,6 +23,22 @@ export function fieldGridCenterRow(rows: number): number {
   return Math.floor((rows - 1) / 2);
 }
 
+/**
+ * Returns a stable luminance multiplier that fades symmetrically from the center row.
+ * The center row stays bright; each row farther away becomes progressively darker.
+ */
+const FIELD_SIDE_TILE_BRIGHTNESS_FALLOFF = 0.58;
+const FIELD_SIDE_TILE_MIN_BRIGHTNESS = 0.1;
+
+export function fieldGridSideBrightness(row: number, rows: number): number {
+  const center = fieldGridCenterRow(rows);
+  const distanceFromCenter = Math.abs(row - center);
+  return Math.max(
+    FIELD_SIDE_TILE_MIN_BRIGHTNESS,
+    FIELD_SIDE_TILE_BRIGHTNESS_FALLOFF ** distanceFromCenter,
+  );
+}
+
 /** Active band: center row ± sideSpan (inclusive). */
 export function isActiveFieldGridRow(
   row: number,

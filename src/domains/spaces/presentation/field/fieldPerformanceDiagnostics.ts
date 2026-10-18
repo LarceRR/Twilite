@@ -18,13 +18,19 @@ export type FieldPerformanceSnapshot = {
 };
 
 let latestSnapshot: FieldPerformanceSnapshot | null = null;
+let latestFieldFrameAtMs = 0;
 let latestGridCpuMs = 0;
 let latestObjectsCpuMs = 0;
 
 export function recordFieldCpuWork(scope: FieldCpuScope, durationMs: number): void {
+  latestFieldFrameAtMs = Date.now();
   if (!Number.isFinite(durationMs) || durationMs < 0) return;
   if (scope === 'grid') latestGridCpuMs = durationMs;
   else latestObjectsCpuMs = durationMs;
+}
+
+export function getLastFieldFrameAtMs(): number {
+  return latestFieldFrameAtMs;
 }
 
 export function publishFieldPerformanceSnapshot(
