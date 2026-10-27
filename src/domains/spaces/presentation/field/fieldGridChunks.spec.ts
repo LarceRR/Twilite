@@ -11,6 +11,7 @@ import {
   fieldChunkIndexFromWorldX,
   fieldChunkIndicesForCameraX,
   fieldChunkPlanePosition,
+  fieldChunkStreamingLookAheadPx,
   fieldVisibleChunkIndices,
 } from './fieldGridChunks';
 
@@ -52,6 +53,12 @@ describe('fieldGridChunks', () => {
     // The former 780-unit look-ahead advanced focus into chunk 2 while the
     // camera was still in chunk 0, causing that chunk to disappear too early.
     expect(cameraChunk).toBe(0);
+    expect(mounted).toContain(cameraChunk);
+  });
+  it('caps a legacy look-ahead before the physical camera chunk is evicted', () => {
+    expect(fieldChunkStreamingLookAheadPx(780, cellSize, 10)).toBe(599);
+    const cameraChunk = fieldChunkIndexFromWorldX(420, cellSize);
+    const mounted = fieldChunkIndicesForCameraX(420, cellSize, 10, 780);
     expect(mounted).toContain(cameraChunk);
   });
   it('places chunk meshes on absolute world X', () => {
