@@ -2,7 +2,6 @@ import {
   Color,
   DataTexture,
   DoubleSide,
-  LinearFilter,
   MeshStandardMaterial,
   NearestFilter,
   RGBAFormat,
@@ -189,7 +188,7 @@ const grassVertexBody = [
   'vec3 grassRotatedOffset = grassOffsetFromRoot * grassWorldCos + cross(grassWindAxis, grassOffsetFromRoot) * grassWorldSin + grassWindAxis * dot(grassWindAxis, grassOffsetFromRoot) * (1.0 - grassWorldCos);',
   'transformed.x = dot(grassRotatedOffset, uGrassCameraRightWorld) / grassWidth;',
   'transformed.y = dot(grassRotatedOffset, vec3(0.0, 0.0, 1.0)) / grassHeight - 0.5;',
-  'transformed.z = dot(grassRotatedOffset, uGrassCameraNormalWorld);
+  'transformed.z = dot(grassRotatedOffset, uGrassCameraNormalWorld);',
   'vGrassWorldOrigin = grassWorldOrigin;',
   'vGrassWindSample = grassWind;',
   'vGrassFakePerspective = grassWind * uGrassWindAlignment;',
