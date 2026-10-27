@@ -12,6 +12,8 @@ import {
   FIELD_CLOUD_UNIFORMS,
   FIELD_SURFACE_FRAGMENT_DECLARATIONS,
   FIELD_SURFACE_UNIFORMS,
+  FIELD_TOON_LIGHT_FRAGMENT_DECLARATIONS,
+  FIELD_TOON_LIGHT_UNIFORMS,
 } from './fieldCloudShadows';
 
 /** Default finish for ordinary, non-occupied tiles. */
@@ -227,16 +229,28 @@ const fragmentBody = /* glsl */ `
   vec3 lit = ( fieldAlbedo + vec3( ${CANDLE_ALBEDO_FLOOR.toFixed(2)} ) ) *
     fieldCandleIrradiance( vFieldWorldPos, fieldNormal );
   lit += fieldAlbedo * uAmbientColor *
-    ( ( uAmbientIntensity + uTileEmissiveIntensity ) * ${TILE_EMISSIVE_FLOOR_SCALE.toFixed(3)} );
-  // Port the author's cloud cap + three-step toon response to the field surface.
-  // Quantize before adding local candle light, so glows still illuminate nearby tiles.
+    ( ( uAmbientIntensity + uTileEmissiveIntensity ) * ${TILE_EMISSIVE_FLOOR_SCALE.toFixed(3)} ) * glowMask;
+  // Match the author's directional NdotL -> cloud cap -> three-step toon order.
+  // Scale only direct diffuse; keep Three.js shadow attenuation and tone down its
+  // much stronger configurable direct/ambient intensities locally for this surface.
   float fieldSurfaceCloud = fieldCloudVisibility(vFieldWorldPos);
-  float fieldSurfaceAlbedoLuminance = max(dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722)), 0.0001);
-  float fieldSurfaceOutgoingLuminance = max(dot(outgoingLight, vec3(0.2126, 0.7152, 0.0722)), 0.0);
-  float fieldSurfaceSourceLight = clamp(fieldSurfaceOutgoingLuminance / fieldSurfaceAlbedoLuminance, 0.0, 1.0);
-  float fieldSurfaceDiffuse = min(fieldSurfaceSourceLight, fieldSurfaceCloud);
-  float fieldSurfaceStepped = clamp(ceil(fieldSurfaceDiffuse * 3.0) / 3.0, 0.0, 1.0);
-  outgoingLight *= fieldSurfaceStepped / max(fieldSurfaceSourceLight, 0.0001);
+  #if NUM_DIR_LIGHTS > 0
+  float fieldSurfaceNdotL = max(dot(normalize(normal), directionalLights[0].direction), 0.0);
+  float fieldSurfaceDiffuse = min(fieldSurfaceNdotL, fieldSurfaceCloud);
+  float fieldSurfaceStepped = clamp(
+    fieldSurfaceDiffuse + mod(1.0 - fieldSurfaceDiffuse, 1.0 / 3.0),
+    0.0,
+    1.0
+  );
+  float fieldSurfaceDirectScale = fieldSurfaceNdotL > 0.0001
+    ? (fieldSurfaceStepped / fieldSurfaceNdotL) * uFieldToonDirectLightScale
+    : 0.0;
+  outgoingLight -= reflectedLight.directDiffuse + reflectedLight.indirectDiffuse;
+  outgoingLight += reflectedLight.directDiffuse * fieldSurfaceDirectScale;
+  outgoingLight += reflectedLight.indirectDiffuse * uFieldToonAmbientScale;
+  #else
+  outgoingLight *= fieldSurfaceCloud;
+  #endif
   outgoingLight = mix(
     outgoingLight + lit,
     vec3( 0.0 ),
@@ -304,10 +318,10 @@ export function createFieldTileMaterial(map: Texture): FieldTileMaterial {
   material.receivesPixelLights = true;
 
   material.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, material.uniforms, FIELD_CLOUD_UNIFORMS, FIELD_SURFACE_UNIFORMS);
+    Object.assign(shader.uniforms, material.uniforms, FIELD_CLOUD_UNIFORMS, FIELD_SURFACE_UNIFORMS, FIELD_TOON_LIGHT_UNIFORMS);
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <common>',
-      '#include <common>\n' + FIELD_CLOUD_FRAGMENT_DECLARATIONS + '\n' + FIELD_SURFACE_FRAGMENT_DECLARATIONS,
+      '#include <common>\n' + FIELD_CLOUD_FRAGMENT_DECLARATIONS + '\n' + FIELD_SURFACE_FRAGMENT_DECLARATIONS + '\n' + FIELD_TOON_LIGHT_FRAGMENT_DECLARATIONS,
     );
     const occupiedTileMaps = getFieldOccupiedTileMaps();
     const occupiedTileUniforms = material.userData.occupiedTileUniforms as {
