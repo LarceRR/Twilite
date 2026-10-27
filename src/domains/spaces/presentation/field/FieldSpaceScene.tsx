@@ -12,7 +12,7 @@ import { FieldGridSurface } from './FieldGridSurface';
 import { FieldSurfaceObjects } from './FieldSurfaceObjects';
 import { FieldWorldAxes } from './FieldWorldAxes';
 import { resetFieldGridWaveScene } from './fieldGridWaveMaterial';
-import { syncFieldCloudLightDirection } from './fieldCloudShadows';
+import { syncFieldCloudLightDirection, syncFieldToonLighting } from './fieldCloudShadows';
 import { consumeFieldShadowUpdate, requestFieldShadowUpdate } from './fieldShadowInvalidation';
 import { useFieldTileStore } from './fieldTileStore';
 import { useFieldConfig, useFieldGridConfig } from './useFieldConfig';
@@ -160,6 +160,9 @@ function FieldSceneLighting({
     lighting.directionalPosition[2],
   ]);
 
+  useLayoutEffect(() => {
+    syncFieldToonLighting(lighting.directionalIntensity, lighting.ambientIntensity);
+  }, [lighting.directionalIntensity, lighting.ambientIntensity]);
   useEffect(() => {
     requestFieldShadowUpdate();
   }, [
