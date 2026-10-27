@@ -25,6 +25,8 @@ import {
   pumpFieldChunkGpuUploads,
 } from './fieldGridChunkBake';
 import { cellCenterOnPlane } from './fieldGridCells';
+import { syncFieldCloudTime } from './fieldCloudShadows';
+import { syncFieldGrassSceneTime } from './fieldGrassMaterial';
 import {
   fieldCellLongPressMs,
   fieldCellLongPressToastMessage,
@@ -323,6 +325,8 @@ export function FieldGridSurface({
   useFrame(({ clock, gl, camera }) => {
     const frameWorkStart = performance.now();
     timeRef.current = clock.elapsedTime;
+    syncFieldCloudTime(clock.elapsedTime);
+    syncFieldGrassSceneTime(clock.elapsedTime, camera);
     const bakeNow = bakeRef.current;
 
     // Read the live Three.js camera. The control store is intentionally only
