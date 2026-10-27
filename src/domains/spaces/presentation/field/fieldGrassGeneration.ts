@@ -1,5 +1,5 @@
 import { fieldTileHeight, FIELD_TILE_HEIGHT_STEP } from './fieldTileGeneration';
-import { fieldGridWorldSize, type FieldGridConfig } from './fieldGridConfig';
+import { FIELD_GRID_DIVIDER_WIDTH, fieldGridWorldSize, type FieldGridConfig } from './fieldGridConfig';
 
 export const FIELD_GRASS_SPACING = 12.5;
 
@@ -69,20 +69,15 @@ export function generateFieldGrassInstances(
     cols: options.chunkCols,
     rows: options.grid.rows,
     cellSize: options.grid.cellSize,
-    dividerWidth: options.grid.dividerWidth,
+    dividerWidth: options.grid.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH,
     showDividers: false,
   };
   const { width: chunkWidth, height: surfaceHeight } = fieldGridWorldSize(grid);
-  const pitch = options.grid.cellSize + options.grid.dividerWidth;
+  const pitch = options.grid.cellSize + (options.grid.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH);
   const chunkStartX = options.chunkIndex * chunkWidth;
   const chunkEndX = chunkStartX + chunkWidth;
   const halfSurfaceHeight = surfaceHeight / 2;
-  const tileColumnCount = Math.max(1, Math.ceil(chunkWidth / spacing) + 4);
-  const tileRowCount = Math.max(1, Math.ceil(surfaceHeight / spacing) + 4);
-  const capacityHint = tileColumnCount * tileRowCount;
   const instances: FieldGrassInstance[] = [];
-  instances.length = 0;
-  void capacityHint;
 
   const firstLatticeX = Math.floor(chunkStartX / spacing) - 1;
   const lastLatticeX = Math.ceil(chunkEndX / spacing) + 1;
