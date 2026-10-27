@@ -1,3 +1,6 @@
+import { Asset } from 'expo-asset';
+import { Image } from 'react-native';
+import grassBladeAsset from './assets/grass-blade.png';
 import {
   Color,
   DataTexture,
@@ -6,6 +9,8 @@ import {
   NearestFilter,
   RGBAFormat,
   SRGBColorSpace,
+  Texture,
+  ClampToEdgeWrapping,
   Vector2,
   Vector3,
   type Camera,
@@ -77,7 +82,7 @@ function createGrassSpriteTexture(variant: 0 | 1 | 2): DataTexture {
   return texture;
 }
 
-const grassSprite = createGrassSpriteTexture(0);
+let grassSprite: Texture = createGrassSpriteTexture(0);
 const grassAccentSprite1 = createGrassSpriteTexture(1);
 const grassAccentSprite2 = createGrassSpriteTexture(2);
 const grassWindNoise = createFieldNoiseTexture(413);
@@ -192,6 +197,10 @@ const grassVertexBody = [
   'vGrassWorldOrigin = grassWorldOrigin;',
   'vGrassWindSample = grassWind;',
   'vGrassFakePerspective = grassWind * uGrassWindAlignment;',
+  '#ifdef USE_MAP',
+  '  float grassPerspective = vGrassFakePerspective * uGrassFakePerspectiveScale;',
+  '  vMapUv.x = clamp(0.5 + (vMapUv.x - 0.5) * (1.0 + (1.0 - vMapUv.y) * grassPerspective), 0.0, 1.0);',
+  '#endif',
   'vGrassSeed = aGrassSeed;',
   'vGrassAccent = aGrassAccent;',
   'vGrassUv = uv;',
@@ -218,13 +227,6 @@ const grassFragmentDeclarations = [
   'uniform vec3 uGrassAccentAlbedo1;',
   'uniform vec3 uGrassAccentAlbedo2;',
   'uniform float uGrassFakePerspectiveScale;',
-].join('\n');
-
-const grassUvBody = [
-  '#ifdef USE_MAP',
-  '  float grassPerspective = vGrassFakePerspective * uGrassFakePerspectiveScale;',
-  '  vMapUv.x = clamp(0.5 + (vMapUv.x - 0.5) * (1.0 + (1.0 - vMapUv.y) * grassPerspective), 0.0, 1.0);',
-  '#endif',
 ].join('\n');
 
 const grassColorBody = [
@@ -292,10 +294,6 @@ function createFieldGrassMaterial(): MeshStandardMaterial {
       '#include <common>\n' + grassFragmentDeclarations + '\n' + FIELD_CLOUD_FRAGMENT_DECLARATIONS,
     );
     shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <map_fragment>',
-      grassUvBody + '\n#include <map_fragment>',
-    );
-    shader.fragmentShader = shader.fragmentShader.replace(
       '#include <color_fragment>',
       '#include <color_fragment>\n' + grassColorBody,
     );
@@ -336,4 +334,57 @@ export function syncFieldGrassSceneTime(elapsedTimeSec: number, camera: Camera):
 
   FIELD_GRASS_UNIFORMS.uGrassWindAlignment.value =
     windX * grassCameraForward.x + windY * grassCameraForward.y;
+}
+
+
+let grassSpriteLoadPromise: Promise<void> | null = null;
+
+/**
+ * Loads the replaceable bundled grass sprite from assets/grass-blade.png.
+ * Expo Asset is used because expo-gl cannot use the browser Image / TextureLoader path.
+ * The generated DataTexture remains as a safe fallback if the image fails to load.
+ */
+export function loadFieldGrassSprite(): Promise<void> {
+  if (grassSpriteLoadPromise !== null) return grassSpriteLoadPromise;
+
+  grassSpriteLoadPromise = (async () => {
+    let nextTexture: Texture | null = null;
+    try {
+      const asset = Asset.fromModule(grassBladeAsset);
+      await asset.downloadAsync();
+      const imageUri = asset.localUri ?? asset.uri;
+      const dimensions = await new Promise<{ width: number; height: number }>((resolve, reject) => {
+        Image.getSize(
+          imageUri,
+          (width, height) => resolve({ width, height }),
+          reject,
+        );
+      });
+      if (dimensions.width < 1 || dimensions.height < 1) {
+        throw new Error('Grass sprite has invalid image dimensions');
+      }
+
+      const image = Object.assign(asset, dimensions);
+      nextTexture = new Texture(image as unknown as Texture['image']);
+      nextTexture.colorSpace = SRGBColorSpace;
+      nextTexture.magFilter = NearestFilter;
+      nextTexture.minFilter = NearestFilter;
+      nextTexture.wrapS = ClampToEdgeWrapping;
+      nextTexture.wrapT = ClampToEdgeWrapping;
+      nextTexture.generateMipmaps = false;
+      nextTexture.needsUpdate = true;
+
+      const previousTexture = grassSprite;
+      grassSprite = nextTexture;
+      FIELD_GRASS_MATERIAL.map = nextTexture;
+      FIELD_GRASS_MATERIAL.needsUpdate = true;
+      previousTexture.dispose();
+    } catch (error) {
+      nextTexture?.dispose();
+      console.warn('Unable to load bundled grass sprite; using generated fallback texture.', error);
+      grassSpriteLoadPromise = null;
+    }
+  })();
+
+  return grassSpriteLoadPromise;
 }
