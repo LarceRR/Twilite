@@ -35,7 +35,7 @@ const TILE_EMISSIVE_FLOOR_SCALE = 0.18;
 const CANDLE_INVERSE_SQUARE_SCALE = 16;
 /** Add candle light on top of dark albedo so nearby surfaces remain readable. */
 const CANDLE_ALBEDO_FLOOR = 0.35;
-const PROGRAM_CACHE_KEY = 'twilite-field-tile-v13-author-floor-varying';
+const PROGRAM_CACHE_KEY = 'twilite-field-tile-v14-shared-palette-cloud-contrast';
 
 export type FieldTileMaterial = MeshStandardMaterial & FieldGridEffectMaterial;
 
@@ -182,7 +182,7 @@ float fieldSurfaceGlowMask = smoothstep(0.001, 0.08, fieldSurfaceGlowMax);
 // Port of the author's Floor.gdshader albedo selection. Empty tile tops and the
 // underlay use the same world-space noise palette as the grass, not the app UI
 // surface colour. Custom user textures and glowing occupied cells remain intact.
-if (uUseGeneratedTileAlbedo > 0.5 && vFieldWorldNormal.z > 0.5 && fieldSurfaceGlowMask < 0.08) {
+if (uUseGeneratedTileAlbedo > 0.5 && abs(vFieldWorldNormal.z) > 0.5 && fieldSurfaceGlowMask < 0.08) {
   float fieldSurfacePatch2 = texture2D(
     uFieldSurfaceNoise2,
     vFieldWorldPos.xy * uFieldSurfaceScale2
@@ -243,8 +243,11 @@ const fragmentBody = /* glsl */ `
     0.0,
     1.0
   );
+  // Retain a readable cloud mask after the discrete toon step, which otherwise
+  // rounds multiple cloud values to the same brightness level.
+  float fieldSurfaceCloudShadow = mix(1.0, pow(fieldSurfaceCloud, 1.35), 0.82);
   float fieldSurfaceDirectScale = fieldSurfaceNdotL > 0.0001
-    ? (fieldSurfaceStepped / fieldSurfaceNdotL) * uFieldToonDirectLightScale
+    ? (fieldSurfaceStepped / fieldSurfaceNdotL) * uFieldToonDirectLightScale * fieldSurfaceCloudShadow
     : 0.0;
   outgoingLight -= reflectedLight.directDiffuse + reflectedLight.indirectDiffuse;
   outgoingLight += reflectedLight.directDiffuse * fieldSurfaceDirectScale;
