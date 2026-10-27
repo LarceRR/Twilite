@@ -1,6 +1,8 @@
 import { Asset } from 'expo-asset';
 import { Image } from 'react-native';
 import grassBladeAsset from './assets/grass-blade.png';
+import grassAccentAsset1 from './assets/author-grassleaf.png';
+import grassAccentAsset2 from './assets/author-accentleaf.png';
 import {
   Color,
   DataTexture,
@@ -17,9 +19,11 @@ import {
 } from 'three';
 
 import {
-  createFieldNoiseTexture,
+  FIELD_ALBEDO_NOISE_2_TEXTURE,
+  FIELD_ALBEDO_NOISE_3_TEXTURE,
   FIELD_CLOUD_FRAGMENT_DECLARATIONS,
   FIELD_CLOUD_UNIFORMS,
+  FIELD_WIND_NOISE_TEXTURE,
 } from './fieldCloudShadows';
 
 /**
@@ -83,11 +87,11 @@ function createGrassSpriteTexture(variant: 0 | 1 | 2): DataTexture {
 }
 
 let grassSprite: Texture = createGrassSpriteTexture(0);
-const grassAccentSprite1 = createGrassSpriteTexture(1);
-const grassAccentSprite2 = createGrassSpriteTexture(2);
-const grassWindNoise = createFieldNoiseTexture(413);
-const grassAlbedoNoise2 = createFieldNoiseTexture(417);
-const grassAlbedoNoise3 = createFieldNoiseTexture(421);
+let grassAccentSprite1: Texture = createGrassSpriteTexture(1);
+let grassAccentSprite2: Texture = createGrassSpriteTexture(2);
+const grassWindNoise = FIELD_WIND_NOISE_TEXTURE;
+const grassAlbedoNoise2 = FIELD_ALBEDO_NOISE_2_TEXTURE;
+const grassAlbedoNoise3 = FIELD_ALBEDO_NOISE_3_TEXTURE;
 
 /**
  * Author parameters converted to Twilite's world scale (100 field units = 1 m).
@@ -118,7 +122,7 @@ const FIELD_GRASS_UNIFORMS = {
   uGrassAlbedoThreshold2: { value: 0.537 },
   uGrassAlbedoScale3: { value: 0.001 },
   uGrassAlbedoThreshold3: { value: 0.471 },
-  uGrassAlbedo1: { value: new Color(0x719f00) },
+  uGrassAlbedo1: { value: new Color(0x71a200) },
   uGrassAlbedo2: { value: new Color(0x8eae36) },
   uGrassAlbedo3: { value: new Color(0x80a739) },
   uGrassAccentAlbedo1: { value: new Color(0x9ab700) },
@@ -232,10 +236,9 @@ const grassFragmentDeclarations = [
 const grassColorBody = [
   'float grassPatch2 = texture2D(uGrassAlbedoNoise2, vGrassWorldOrigin.xy * uGrassAlbedoScale2).r;',
   'float grassPatch3 = texture2D(uGrassAlbedoNoise3, vGrassWorldOrigin.xy * uGrassAlbedoScale3).r;',
-  'vec3 grassTint = uGrassAlbedo1;',
-  'if (grassPatch2 > uGrassAlbedoThreshold2) grassTint = uGrassAlbedo2;',
-  'if (grassPatch3 > uGrassAlbedoThreshold3) grassTint = uGrassAlbedo3;',
-  'diffuseColor.rgb *= grassTint;',
+  'diffuseColor.rgb = uGrassAlbedo1 * diffuseColor.rgb;',
+  'if (grassPatch2 > uGrassAlbedoThreshold2) diffuseColor.rgb = uGrassAlbedo2;',
+  'if (grassPatch3 > uGrassAlbedoThreshold3) diffuseColor.rgb = uGrassAlbedo3;',
   'if (vGrassAccent > 1.5) {',
   '  vec4 accentSample = texture2D(uGrassAccentTexture2, vMapUv);',
   '  diffuseColor.rgb = accentSample.rgb * uGrassAccentAlbedo2;',
@@ -272,7 +275,7 @@ function createFieldGrassMaterial(): MeshStandardMaterial {
     metalness: 0,
     side: DoubleSide,
     transparent: false,
-    alphaTest: 0.45,
+    alphaTest: 1.0,
     depthWrite: true,
     depthTest: true,
   });
@@ -339,49 +342,64 @@ export function syncFieldGrassSceneTime(elapsedTimeSec: number, camera: Camera):
 
 let grassSpriteLoadPromise: Promise<void> | null = null;
 
+async function loadBundledPixelTexture(moduleId: number): Promise<Texture> {
+  const asset = Asset.fromModule(moduleId);
+  await asset.downloadAsync();
+  const imageUri = asset.localUri ?? asset.uri;
+  const dimensions = await new Promise<{ width: number; height: number }>((resolve, reject) => {
+    Image.getSize(
+      imageUri,
+      (width, height) => resolve({ width, height }),
+      reject,
+    );
+  });
+  if (dimensions.width < 1 || dimensions.height < 1) {
+    throw new Error('Grass sprite has invalid image dimensions');
+  }
+
+  // Expo GL accepts Expo Asset as its native texture image source.
+  const image = Object.assign(asset, dimensions);
+  const texture = new Texture(image as unknown as Texture['image']);
+  texture.colorSpace = SRGBColorSpace;
+  texture.magFilter = NearestFilter;
+  texture.minFilter = NearestFilter;
+  texture.wrapS = ClampToEdgeWrapping;
+  texture.wrapT = ClampToEdgeWrapping;
+  texture.generateMipmaps = false;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 /**
- * Loads the replaceable bundled grass sprite from assets/grass-blade.png.
- * Expo Asset is used because expo-gl cannot use the browser Image / TextureLoader path.
- * The generated DataTexture remains as a safe fallback if the image fails to load.
+ * Load the replaceable 24 × 24 primary sprite and the original author's two
+ * rare accent sprites. On failure, the generated in-memory sprites remain as
+ * a safe fallback; the field itself remains renderable.
  */
 export function loadFieldGrassSprite(): Promise<void> {
   if (grassSpriteLoadPromise !== null) return grassSpriteLoadPromise;
 
   grassSpriteLoadPromise = (async () => {
-    let nextTexture: Texture | null = null;
+    const created: Texture[] = [];
     try {
-      const asset = Asset.fromModule(grassBladeAsset);
-      await asset.downloadAsync();
-      const imageUri = asset.localUri ?? asset.uri;
-      const dimensions = await new Promise<{ width: number; height: number }>((resolve, reject) => {
-        Image.getSize(
-          imageUri,
-          (width, height) => resolve({ width, height }),
-          reject,
-        );
-      });
-      if (dimensions.width < 1 || dimensions.height < 1) {
-        throw new Error('Grass sprite has invalid image dimensions');
-      }
+      const nextGrass = await loadBundledPixelTexture(grassBladeAsset);
+      created.push(nextGrass);
+      const nextAccent1 = await loadBundledPixelTexture(grassAccentAsset1);
+      created.push(nextAccent1);
+      const nextAccent2 = await loadBundledPixelTexture(grassAccentAsset2);
+      created.push(nextAccent2);
 
-      const image = Object.assign(asset, dimensions);
-      nextTexture = new Texture(image as unknown as Texture['image']);
-      nextTexture.colorSpace = SRGBColorSpace;
-      nextTexture.magFilter = NearestFilter;
-      nextTexture.minFilter = NearestFilter;
-      nextTexture.wrapS = ClampToEdgeWrapping;
-      nextTexture.wrapT = ClampToEdgeWrapping;
-      nextTexture.generateMipmaps = false;
-      nextTexture.needsUpdate = true;
-
-      const previousTexture = grassSprite;
-      grassSprite = nextTexture;
-      FIELD_GRASS_MATERIAL.map = nextTexture;
+      const previousTextures = [grassSprite, grassAccentSprite1, grassAccentSprite2];
+      grassSprite = nextGrass;
+      grassAccentSprite1 = nextAccent1;
+      grassAccentSprite2 = nextAccent2;
+      FIELD_GRASS_UNIFORMS.uGrassAccentTexture1.value = nextAccent1;
+      FIELD_GRASS_UNIFORMS.uGrassAccentTexture2.value = nextAccent2;
+      FIELD_GRASS_MATERIAL.map = nextGrass;
       FIELD_GRASS_MATERIAL.needsUpdate = true;
-      previousTexture.dispose();
+      previousTextures.forEach((texture) => texture.dispose());
     } catch (error) {
-      nextTexture?.dispose();
-      console.warn('Unable to load bundled grass sprite; using generated fallback texture.', error);
+      created.forEach((texture) => texture.dispose());
+      console.warn('Unable to load all bundled grass sprites; using generated fallback textures.', error);
       grassSpriteLoadPromise = null;
     }
   })();
