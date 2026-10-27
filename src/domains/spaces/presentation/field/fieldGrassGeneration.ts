@@ -130,7 +130,7 @@ export function generateFieldGrassInstances(
             row,
             options.objectMinHeight,
             options.objectMaxHeight,
-          ) * FIELD_TILE_HEIGHT_STEP
+          )
         : options.generatedTilesEnabled
           ? fieldTileHeight(
               options.worldSeed,
