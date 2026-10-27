@@ -17,7 +17,7 @@ export const FIELD_CHUNK_AHEAD = DEFAULT_FIELD_CONFIG.chunks.ahead;
 
 /**
  * How far ahead of the camera (world +X) we treat as the streaming focus.
- * Keeps chunk 0 loaded at the default camera x≈-469 and gives bake time.
+ * Keep this below one chunk width so the physical camera chunk is not evicted early.
  */
 export const FIELD_CHUNK_LOOK_AHEAD_PX = DEFAULT_FIELD_CONFIG.chunks.lookAheadPx;
 
