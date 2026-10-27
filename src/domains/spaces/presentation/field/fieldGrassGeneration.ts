@@ -1,7 +1,8 @@
 import { fieldTileHeight, FIELD_TILE_HEIGHT_STEP } from './fieldTileGeneration';
 import { FIELD_GRID_DIVIDER_WIDTH, fieldGridWorldSize, type FieldGridConfig } from './fieldGridConfig';
 
-export const FIELD_GRASS_SPACING = 12.5;
+/** sqrt(1 / 48 blades per square metre) converted to Twilite world units. */
+export const FIELD_GRASS_SPACING = 14.5;
 
 /** Continuous world-space grass instance; grid cells are used only to sample terrain height. */
 export type FieldGrassInstance = {
@@ -93,7 +94,8 @@ export function generateFieldGrassInstances(
       const y = -halfSurfaceHeight + (latticeY + 0.5 + jitterY) * spacing;
 
       // Keep roots and blade width inside the finite depth of the existing surface.
-      if (x < chunkStartX || x >= chunkEndX || y < -halfSurfaceHeight + 11 || y >= halfSurfaceHeight - 11) {
+      const leftEdgeMargin = options.chunkIndex === 0 ? 12 : 0;
+      if (x < chunkStartX + leftEdgeMargin || x >= chunkEndX || y < -halfSurfaceHeight + 12 || y >= halfSurfaceHeight - 12) {
         continue;
       }
 
