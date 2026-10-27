@@ -94,8 +94,8 @@ export function generateFieldGrassInstances(
   for (let latticeX = firstLatticeX; latticeX <= lastLatticeX; latticeX += 1) {
     for (let latticeY = firstLatticeY; latticeY <= lastLatticeY; latticeY += 1) {
       const positionSeed = grassRandom(latticeX, latticeY, 1);
-      const jitterX = (grassRandom(latticeX, latticeY, 2) - 0.5) * 0.72;
-      const jitterY = (grassRandom(latticeX, latticeY, 3) - 0.5) * 0.72;
+      const jitterX = (grassRandom(latticeX, latticeY, 2) - 0.5) * 0.98;
+      const jitterY = (grassRandom(latticeX, latticeY, 3) - 0.5) * 0.98;
       const x = (latticeX + 0.5 + jitterX) * spacing;
       const y = -halfSurfaceHeight + (latticeY + 0.5 + jitterY) * spacing;
 
@@ -141,14 +141,17 @@ export function generateFieldGrassInstances(
             ) * FIELD_TILE_HEIGHT_STEP
           : -options.platformHeight;
 
-      const sizeRandom = grassRandom(latticeX, latticeY, 4);
-      const width = 16 + sizeRandom * 8;
-      const height = 25 + grassRandom(latticeX, latticeY, 5) * 10;
-      const accentRandom = grassRandom(latticeX, latticeY, 6);
-      const accent = accentRandom < 0.0001
-        ? 2
-        : accentRandom < 0.0011
-          ? 1
+      // Demo.tscn uses a fixed 0.2 × 0.3 m QuadMesh; keep that shape rather
+      // than randomly scaling ordinary grass blades.
+      const width = 20;
+      const height = 30;
+      const accentSeed1 = grassRandom(latticeX, latticeY, 6);
+      const accentSeed2 = grassRandom(latticeX, latticeY, 7);
+      // Match accent_frequency1=0.001 then accent_probability2=0.0001.
+      const accent = accentSeed1 < 0.001
+        ? 1
+        : accentSeed2 < 0.0001
+          ? 2
           : 0;
 
       instances.push({
