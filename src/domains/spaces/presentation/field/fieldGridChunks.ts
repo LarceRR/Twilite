@@ -43,6 +43,22 @@ export function fieldChunkIndexFromWorldX(
   return Math.max(0, Math.floor(col / chunkCols));
 }
 
+/**
+ * Keep the streaming focus less than one chunk ahead. Otherwise the desired
+ * window can move past the physical camera chunk before the camera enters it.
+ * This also protects users with a persisted legacy lookAheadPx override.
+ */
+export function fieldChunkStreamingLookAheadPx(
+  lookAheadPx: number,
+  cellPitch: number,
+  chunkCols: number = FIELD_CHUNK_COLS,
+): number {
+  if (!Number.isFinite(lookAheadPx)) return 0;
+  if (cellPitch <= 0 || chunkCols < 1) {
+    throw new Error('chunk look-ahead requires positive cellPitch and chunkCols');
+  }
+  return Math.min(Math.max(0, lookAheadPx), Math.max(0, cellPitch * chunkCols - 1));
+}
 export function fieldChunkFocusWorldX(
   cameraX: number,
   lookAheadPx: number = FIELD_CHUNK_LOOK_AHEAD_PX,
@@ -78,7 +94,12 @@ export function fieldChunkIndicesForCameraX(
   ahead?: number,
 ): readonly number[] {
   const chunks = getFieldConfig().chunks;
-  const focusX = fieldChunkFocusWorldX(cameraX, lookAheadPx ?? chunks.lookAheadPx);
+  const safeLookAhead = fieldChunkStreamingLookAheadPx(
+    lookAheadPx ?? chunks.lookAheadPx,
+    cellPitch,
+    chunkCols ?? chunks.cols,
+  );
+  const focusX = fieldChunkFocusWorldX(cameraX, safeLookAhead);
   const anchor = fieldChunkIndexFromWorldX(
     focusX,
     cellPitch,
