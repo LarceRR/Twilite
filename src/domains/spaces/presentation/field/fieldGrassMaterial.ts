@@ -292,14 +292,14 @@ function createFieldGrassMaterial(): MeshStandardMaterial {
     // the undeformed grass root so swaying pixel blades do not shimmer.
     shader.vertexShader = shader.vertexShader.replace(
       '#include <worldpos_vertex>',
-      '#include <worldpos_vertex>\\n' + [
+      '#include <worldpos_vertex>\n' + [
         '#ifdef USE_SHADOWMAP',
         '#ifdef USE_INSTANCING',
         '  worldPosition.xyz = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;',
         '  worldPosition.z -= aGrassDimensions.y * 0.5;',
         '#endif',
         '#endif',
-      ].join('\\n'),
+      ].join('\n'),
     );
 
     shader.fragmentShader = shader.fragmentShader.replace(
