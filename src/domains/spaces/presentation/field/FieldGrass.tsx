@@ -47,6 +47,8 @@ export function FieldGrass({
   const generatedTilesEnabled = useFieldTileStore((state) => state.generatedTilesEnabled);
   const tileMinHeight = useFieldTileStore((state) => state.tileMinHeight);
   const tileMaxHeight = useFieldTileStore((state) => state.tileMaxHeight);
+  const objectMinHeight = useFieldTileStore((state) => state.objectMinHeight);
+  const objectMaxHeight = useFieldTileStore((state) => state.objectMaxHeight);
 
   const dividerWidth = base.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH;
   const chunkCols = fieldConfig.chunks.cols;
@@ -127,6 +129,8 @@ export function FieldGrass({
       tileMinHeight,
       tileMaxHeight,
       platformHeight,
+      objectMinHeight,
+      objectMaxHeight,
       generatedTilesEnabled,
       occupiedCellKeys,
     });
@@ -174,6 +178,8 @@ export function FieldGrass({
     tileMinHeight,
     tileMaxHeight,
     platformHeight,
+    objectMinHeight,
+    objectMaxHeight,
     generatedTilesEnabled,
     occupiedCellKeys,
     camera,
