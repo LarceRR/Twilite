@@ -11,7 +11,7 @@ import {
 
 import FastNoiseLite from './vendor/FastNoiseLite.js';
 
-/** Godot NoiseTexture2D defaults to 512 × 512 with a 0.1 seamless blend skirt. */
+/** Godot NoiseTexture2D defaults to a 512 × 512 image and 0.1 seamless blend skirt. */
 const GODOT_NOISE_TEXTURE_SIZE = 512;
 const GODOT_NOISE_SEAMLESS_SKIRT = 0.1;
 const NOISE_TEXTURE_SIZE = 128;
@@ -26,13 +26,9 @@ function mix(a: number, b: number, weight: number): number {
 }
 
 /**
- * Generate a compact, seamless equivalent of Godot NoiseTexture2D using the
- * same FastNoiseLite OpenSimplex2S noise type, seed and resource frequency.
- *
- * We bake 128 × 128 instead of Godot's 512 × 512 to reduce mobile GPU memory.
- * Sampling coordinates still cover the original 512 × 512 noise domain, so the
- * world-space feature scale remains the same. The seamless edge blend mirrors
- * Godot's default skirt rather than introducing a repeating-grid pattern.
+ * Recreate the author's FastNoiseLite NoiseTexture2D resources with a small
+ * seamless edge skirt. The 128² texture stores samples from the same 512²
+ * coordinate domain as Godot so the noise frequency remains world-correct.
  */
 export function createFieldNoiseTexture(
   seed: number,
@@ -45,26 +41,8 @@ export function createFieldNoiseTexture(
 
   const sample = (x: number, y: number): number =>
     Math.max(0, Math.min(1, noise.GetNoise(x, y) * 0.5 + 0.5));
-
-  const sampleWithSeamlessX = (x: number, y: number, u: number): number => {
-    const value = sample(x, y);
-    const skirt = GODOT_NOISE_SEAMLESS_SKIRT;
-    if (u < skirt) {
-      return mix(
-        sample(x + GODOT_NOISE_TEXTURE_SIZE, y),
-        value,
-        smoothstep(0, skirt, u),
-      );
-    }
-    if (u > 1 - skirt) {
-      return mix(
-        sample(x - GODOT_NOISE_TEXTURE_SIZE, y),
-        value,
-        smoothstep(0, skirt, 1 - u),
-      );
-    }
-    return value;
-  };
+  const edgeWeight = (distanceFromEdge: number): number =>
+    0.5 + 0.5 * smoothstep(0, GODOT_NOISE_SEAMLESS_SKIRT, distanceFromEdge);
 
   const data = new Uint8Array(size * size * 4);
   const sourcePerPixel = GODOT_NOISE_TEXTURE_SIZE / size;
@@ -75,22 +53,41 @@ export function createFieldNoiseTexture(
       const v = (y + 0.5) / size;
       const sourceX = (x + 0.5) * sourcePerPixel;
       const sourceY = (y + 0.5) * sourcePerPixel;
-      const atY = (sampleY: number): number =>
-        sampleWithSeamlessX(sourceX, sampleY, u);
 
-      const value = v < GODOT_NOISE_SEAMLESS_SKIRT
-        ? mix(
-            atY(sourceY + GODOT_NOISE_TEXTURE_SIZE),
-            atY(sourceY),
-            smoothstep(0, GODOT_NOISE_SEAMLESS_SKIRT, v),
-          )
-        : v > 1 - GODOT_NOISE_SEAMLESS_SKIRT
-          ? mix(
-              atY(sourceY - GODOT_NOISE_TEXTURE_SIZE),
-              atY(sourceY),
-              smoothstep(0, GODOT_NOISE_SEAMLESS_SKIRT, 1 - v),
-            )
-          : atY(sourceY);
+      const sampleHorizontal = (sampleY: number): number => {
+        const local = sample(sourceX, sampleY);
+        if (u < GODOT_NOISE_SEAMLESS_SKIRT) {
+          return mix(
+            sample(sourceX + GODOT_NOISE_TEXTURE_SIZE, sampleY),
+            local,
+            edgeWeight(u),
+          );
+        }
+        if (u > 1 - GODOT_NOISE_SEAMLESS_SKIRT) {
+          return mix(
+            sample(sourceX - GODOT_NOISE_TEXTURE_SIZE, sampleY),
+            local,
+            edgeWeight(1 - u),
+          );
+        }
+        return local;
+      };
+
+      const local = sampleHorizontal(sourceY);
+      let value = local;
+      if (v < GODOT_NOISE_SEAMLESS_SKIRT) {
+        value = mix(
+          sampleHorizontal(sourceY + GODOT_NOISE_TEXTURE_SIZE),
+          local,
+          edgeWeight(v),
+        );
+      } else if (v > 1 - GODOT_NOISE_SEAMLESS_SKIRT) {
+        value = mix(
+          sampleHorizontal(sourceY - GODOT_NOISE_TEXTURE_SIZE),
+          local,
+          edgeWeight(1 - v),
+        );
+      }
 
       const channel = Math.round(Math.max(0, Math.min(1, value)) * 255);
       const offset = (y * size + x) * 4;
@@ -111,10 +108,9 @@ export function createFieldNoiseTexture(
   texture.needsUpdate = true;
   return texture;
 }
-
 // These match the seeds and FastNoiseLite frequencies in the author's .tres resources.
 export const FIELD_WIND_NOISE_TEXTURE = createFieldNoiseTexture(0, 0.01);
-export const FIELD_CLOUD_NOISE_TEXTURE = createFieldNoiseTexture(0, 0.01);
+export const FIELD_CLOUD_NOISE_TEXTURE = FIELD_WIND_NOISE_TEXTURE;
 export const FIELD_ALBEDO_NOISE_2_TEXTURE = createFieldNoiseTexture(0, 0.0046);
 export const FIELD_ALBEDO_NOISE_3_TEXTURE = createFieldNoiseTexture(1, 0.0052);
 
