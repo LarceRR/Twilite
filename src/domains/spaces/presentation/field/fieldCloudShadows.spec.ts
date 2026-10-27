@@ -3,6 +3,8 @@ import { LinearFilter, NearestFilter } from 'three';
 
 import {
   createFieldNoiseTexture,
+  FIELD_GRASS_PALETTE,
+  FIELD_SURFACE_UNIFORMS,
   FIELD_ALBEDO_NOISE_2_TEXTURE,
   FIELD_ALBEDO_NOISE_3_TEXTURE,
   FIELD_CLOUD_NOISE_TEXTURE,
@@ -40,6 +42,11 @@ describe('author-matched field noise textures', () => {
     texture.dispose();
   });
 
+  it('shares the exact author palette between grass and the surface material', () => {
+    expect(FIELD_SURFACE_UNIFORMS.uFieldSurfaceAlbedo1.value).toBe(FIELD_GRASS_PALETTE.albedo1);
+    expect(FIELD_SURFACE_UNIFORMS.uFieldSurfaceAlbedo2.value).toBe(FIELD_GRASS_PALETTE.albedo2);
+    expect(FIELD_SURFACE_UNIFORMS.uFieldSurfaceAlbedo3.value).toBe(FIELD_GRASS_PALETTE.albedo3);
+  });
   it('uses nearest sampling for wind and linear sampling for cloud and albedo maps', () => {
     expect(FIELD_WIND_NOISE_TEXTURE.magFilter).toBe(NearestFilter);
     expect(FIELD_WIND_NOISE_TEXTURE.minFilter).toBe(NearestFilter);
