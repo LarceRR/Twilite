@@ -283,7 +283,7 @@ export const FIELD_CLOUD_FRAGMENT_DECLARATIONS = [
   '  float visibility = clamp(sample1 * sample2 + uCloudThreshold, 0.0, 1.0);',
   '  visibility = (visibility - 0.5) * uCloudContrast + 0.5;',
   '  visibility = clamp(visibility + uCloudThreshold, uCloudShadowMin, 1.0);',
-  '  return mix(1.0, pow(visibility, 1.35), uCloudShadowStrength);',
+  '  return visibility;',
   '}',
 ].join('\n');
 
