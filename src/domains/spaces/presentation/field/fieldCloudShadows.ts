@@ -193,10 +193,6 @@ export const FIELD_SURFACE_FRAGMENT_DECLARATIONS = [
 ].join('\n');
 
 /**
- * Cloud-shadow settings from Demo.tscn. Twilite uses 100 world units per metre,
- * so the source 40 m cloud scale and 50 m cloud height become 4000 and 5000.
- */
-/**
  * Normalize Twilite's stronger configurable lights to the author's Godot
  * shader baseline. This affects only grass/field materials, not the scene lights.
  */
@@ -223,6 +219,11 @@ export function syncFieldToonLighting(
       ? 0.18 / ambientIntensity
       : 0;
 }
+
+/**
+ * Cloud-shadow settings from Demo.tscn. Twilite uses 100 world units per metre,
+ * so the source 40 m cloud scale and 50 m cloud height become 4000 and 5000.
+ */
 export const FIELD_CLOUD_UNIFORMS = {
   uCloudNoise: { value: FIELD_CLOUD_NOISE_TEXTURE },
   uCloudTime: { value: 0 },
