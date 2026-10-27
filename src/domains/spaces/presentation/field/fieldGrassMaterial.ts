@@ -107,7 +107,8 @@ const FIELD_GRASS_UNIFORMS = {
   uGrassViewSwaySpeed: { value: 0.1 },
   uGrassViewSwayAngle: { value: 10 },
   uGrassFakePerspectiveScale: { value: 0.3 },
-  uGrassWindScreenDirection: { value: 1 },
+  uGrassCameraRightWorld: { value: new Vector3(0, -1, 0) },
+  uGrassCameraNormalWorld: { value: new Vector3(-1, 0, 0) },
   uGrassWindAlignment: { value: 0 },
   uGrassAlbedoScale2: { value: 0.0011 },
   uGrassAlbedoThreshold2: { value: 0.537 },
@@ -143,7 +144,8 @@ const grassVertexDeclarations = [
   'uniform float uGrassViewSwaySpeed;',
   'uniform float uGrassViewSwayAngle;',
   'uniform float uGrassFakePerspectiveScale;',
-  'uniform float uGrassWindScreenDirection;',
+  'uniform vec3 uGrassCameraRightWorld;',
+  'uniform vec3 uGrassCameraNormalWorld;',
   'uniform float uGrassWindAlignment;',
   'vec2 fieldGrassRotate(vec2 vector, float degrees) {',
   '  float angle = degrees * (3.141592653589793 / 180.0);',
@@ -173,10 +175,21 @@ const grassVertexBody = [
   'float grassNoise2 = texture2D(uGrassWindNoise, grassWorldOrigin.xy * (uGrassWindScale * 0.8) + grassOffset2 * (0.89 * 3.141592653589793 / 3.0)).r;',
   'float grassWind = clamp(grassNoise1 * grassNoise2 + uGrassWindThreshold, 0.0, 1.0);',
   'grassWind = (grassWind - 0.5) * 2.0;',
-  'float grassWorldSway = grassWind * radians(uGrassWindAngle) * uGrassWindScreenDirection;',
   'float grassViewSway = sin((grassTime + grassSeed * 10.0) * uGrassViewSwaySpeed * 6.283185307179586) * radians(uGrassViewSwayAngle);',
-  'float grassSway = grassWorldSway + grassViewSway;',
-  'transformed.x += uv.y * (aGrassDimensions.y / max(aGrassDimensions.x, 0.001)) * sin(grassSway);',
+  'float grassViewCos = cos(grassViewSway);',
+  'float grassViewSin = sin(grassViewSway);',
+  'vec2 grassViewRotated = vec2(transformed.x * grassViewCos - transformed.y * grassViewSin, transformed.x * grassViewSin + transformed.y * grassViewCos);',
+  'float grassWidth = max(aGrassDimensions.x, 0.001);',
+  'float grassHeight = max(aGrassDimensions.y, 0.001);',
+  'vec3 grassOffsetFromRoot = uGrassCameraRightWorld * (grassViewRotated.x * grassWidth) + vec3(0.0, 0.0, 1.0) * ((grassViewRotated.y + 0.5) * grassHeight);',
+  'vec3 grassWindAxis = normalize(vec3(uGrassWindDirection.y, -uGrassWindDirection.x, 0.0));',
+  'float grassWorldSway = grassWind * radians(uGrassWindAngle);',
+  'float grassWorldCos = cos(grassWorldSway);',
+  'float grassWorldSin = sin(grassWorldSway);',
+  'vec3 grassRotatedOffset = grassOffsetFromRoot * grassWorldCos + cross(grassWindAxis, grassOffsetFromRoot) * grassWorldSin + grassWindAxis * dot(grassWindAxis, grassOffsetFromRoot) * (1.0 - grassWorldCos);',
+  'transformed.x = dot(grassRotatedOffset, uGrassCameraRightWorld) / grassWidth;',
+  'transformed.y = dot(grassRotatedOffset, vec3(0.0, 0.0, 1.0)) / grassHeight - 0.5;',
+  'transformed.z = dot(grassRotatedOffset, uGrassCameraNormalWorld);
   'vGrassWorldOrigin = grassWorldOrigin;',
   'vGrassWindSample = grassWind;',
   'vGrassFakePerspective = grassWind * uGrassWindAlignment;',
@@ -316,9 +329,12 @@ export function syncFieldGrassSceneTime(elapsedTimeSec: number, camera: Camera):
   const windY = windLength > 0.0001 ? wind.y / windLength : 1;
   const cameraRightX = grassCameraForward.y;
   const cameraRightY = -grassCameraForward.x;
+  const cameraRightWorld = FIELD_GRASS_UNIFORMS.uGrassCameraRightWorld.value;
+  cameraRightWorld.set(cameraRightX, cameraRightY, 0).normalize();
+  FIELD_GRASS_UNIFORMS.uGrassCameraNormalWorld.value
+    .crossVectors(cameraRightWorld, new Vector3(0, 0, 1))
+    .normalize();
 
-  FIELD_GRASS_UNIFORMS.uGrassWindScreenDirection.value =
-    windX * cameraRightX + windY * cameraRightY;
   FIELD_GRASS_UNIFORMS.uGrassWindAlignment.value =
     windX * grassCameraForward.x + windY * grassCameraForward.y;
 }
