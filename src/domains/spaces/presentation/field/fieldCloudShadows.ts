@@ -185,7 +185,7 @@ export const FIELD_CLOUD_FRAGMENT_DECLARATIONS = [
   '  vec2 offset1 = uCloudTime * uCloudSpeed * normalize(direction1);',
   '  vec2 offset2 = uCloudTime * uCloudSpeed * normalize(direction2);',
   '  float sample1 = texture2D(uCloudNoise, hitPosition.xy / max(uCloudScale, 0.001) + offset1).r;',
-  '  float sample2 = texture2D(uCloudNoise, hitPosition.xy / (max(uCloudScale, 0.001) * 0.8) + offset2 * (0.89 * 3.141592653589793 / 3.0)).r;',
+  '  float sample2 = texture2D(uCloudNoise, hitPosition.xy / max(uCloudScale, 0.001) * 0.8 + offset2 * (0.89 * 3.141592653589793 / 3.0)).r;',
   '  float visibility = clamp(sample1 * sample2 + uCloudThreshold, 0.0, 1.0);',
   '  visibility = (visibility - 0.5) * uCloudContrast + 0.5;',
   '  return clamp(visibility + uCloudThreshold, uCloudShadowMin, 1.0);',
