@@ -32,6 +32,20 @@ describe('continuous field grass generation', () => {
     expect(instances.every((instance) => instance.width > 0 && instance.height > 0)).toBe(true);
   });
 
+  it('matches the author’s approximate 48 blades per square metre without density inflation', () => {
+    const instances = generateFieldGrassInstances(options(0));
+    const surface = fieldGridWorldSize({
+      cols: 10,
+      ...grid,
+      showDividers: false,
+    });
+    const areaSquareMetres = (surface.width / 100) * (surface.height / 100);
+    const density = instances.length / areaSquareMetres;
+
+    expect(density).toBeGreaterThan(35);
+    expect(density).toBeLessThan(55);
+    expect(instances.every((instance) => instance.width === 20 && instance.height === 30)).toBe(true);
+  });
   it('keeps instance positions deterministic across calls', () => {
     expect(generateFieldGrassInstances(options(3))).toEqual(
       generateFieldGrassInstances(options(3)),
