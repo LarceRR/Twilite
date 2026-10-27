@@ -35,7 +35,7 @@ const TILE_EMISSIVE_FLOOR_SCALE = 0.18;
 const CANDLE_INVERSE_SQUARE_SCALE = 16;
 /** Add candle light on top of dark albedo so nearby surfaces remain readable. */
 const CANDLE_ALBEDO_FLOOR = 0.35;
-const PROGRAM_CACHE_KEY = 'twilite-field-tile-v12-authored-ndotl-cloud';
+const PROGRAM_CACHE_KEY = 'twilite-field-tile-v13-author-floor-varying';
 
 export type FieldTileMaterial = MeshStandardMaterial & FieldGridEffectMaterial;
 
@@ -88,6 +88,7 @@ uniform sampler2D uOccupiedTileRoughnessMap;
 uniform float uUseGeneratedTileAlbedo;
 
 varying vec3 vFieldWorldPos;
+varying vec3 vFieldWorldNormal;
 varying vec3 vGlow;
 varying vec2 vTileUv;
 varying float vSideDim;
