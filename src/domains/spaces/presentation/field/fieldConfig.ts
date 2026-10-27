@@ -385,7 +385,7 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
     cols: 10,
     behind: 1,
     ahead: 3,
-    lookAheadPx: 300,
+    lookAheadPx: 500,
     prefetchExtraAhead: 2,
     gpuUploadSteady: 1,
     lineZLift: 0.5,
