@@ -54,8 +54,8 @@ function grassRandom(x: number, y: number, channel: number): number {
 /**
  * Generate a jittered world-space lattice rather than one blade per cell.
  * The lattice uses absolute coordinates, so adjacent streamed chunks share the
- * same pattern and never create a density seam. Cell indices only sample the
- * already-existing tile elevation and keep grass off occupied memory platforms.
+ * same pattern and never create a density seam. Cell indices sample the existing
+ * tile elevation and provide only a small local clearance around object artwork.
  */
 export function generateFieldGrassInstances(
   options: FieldGrassGenerationOptions,
