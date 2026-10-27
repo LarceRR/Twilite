@@ -1,5 +1,6 @@
 import { useThree } from '@react-three/fiber/native';
-import { useLayoutEffect, useMemo, useRef, useEffect } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import type { ReactElement } from 'react';
 import {
   DynamicDrawUsage,
   InstancedBufferAttribute,
@@ -39,7 +40,7 @@ export function FieldGrass({
   chunkIndex,
   base,
   occupiedCellKeys,
-}: FieldGrassProps): React.ReactElement {
+}: FieldGrassProps): ReactElement {
   const camera = useThree((state) => state.camera);
   const fieldConfig = useFieldConfig();
   const worldSeed = useFieldTileStore((state) => state.worldSeed);
