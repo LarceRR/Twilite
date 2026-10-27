@@ -1,4 +1,5 @@
 import {
+  Color,
   DataTexture,
   LinearFilter,
   NoColorSpace,
@@ -8,50 +9,90 @@ import {
   Vector3,
 } from 'three';
 
+import FastNoiseLite from './vendor/FastNoiseLite.js';
+
+/** Godot NoiseTexture2D defaults to 512 × 512 with a 0.1 seamless blend skirt. */
+const GODOT_NOISE_TEXTURE_SIZE = 512;
+const GODOT_NOISE_SEAMLESS_SKIRT = 0.1;
+const NOISE_TEXTURE_SIZE = 128;
+
+function smoothstep(edge0: number, edge1: number, value: number): number {
+  const t = Math.max(0, Math.min(1, (value - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+}
+
+function mix(a: number, b: number, weight: number): number {
+  return a + (b - a) * weight;
+}
+
 /**
- * Tileable grayscale noise used by the grass wind, colour patches and cloud
- * shadows. Godot's FastNoiseLite NoiseTexture2D is generated procedurally, so
- * this creates a small seamless equivalent instead of shipping a baked map.
+ * Generate a compact, seamless equivalent of Godot NoiseTexture2D using the
+ * same FastNoiseLite OpenSimplex2S noise type, seed and resource frequency.
+ *
+ * We bake 128 × 128 instead of Godot's 512 × 512 to reduce mobile GPU memory.
+ * Sampling coordinates still cover the original 512 × 512 noise domain, so the
+ * world-space feature scale remains the same. The seamless edge blend mirrors
+ * Godot's default skirt rather than introducing a repeating-grid pattern.
  */
-export function createFieldNoiseTexture(seed: number, size = 128): DataTexture {
+export function createFieldNoiseTexture(
+  seed: number,
+  frequency = 0.01,
+  size = NOISE_TEXTURE_SIZE,
+): DataTexture {
+  const noise = new FastNoiseLite(seed);
+  noise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2S);
+  noise.SetFrequency(frequency);
+
+  const sample = (x: number, y: number): number =>
+    Math.max(0, Math.min(1, noise.GetNoise(x, y) * 0.5 + 0.5));
+
+  const sampleWithSeamlessX = (x: number, y: number, u: number): number => {
+    const value = sample(x, y);
+    const skirt = GODOT_NOISE_SEAMLESS_SKIRT;
+    if (u < skirt) {
+      return mix(
+        sample(x + GODOT_NOISE_TEXTURE_SIZE, y),
+        value,
+        smoothstep(0, skirt, u),
+      );
+    }
+    if (u > 1 - skirt) {
+      return mix(
+        sample(x - GODOT_NOISE_TEXTURE_SIZE, y),
+        value,
+        smoothstep(0, skirt, 1 - u),
+      );
+    }
+    return value;
+  };
+
   const data = new Uint8Array(size * size * 4);
-  const octaveCells = [3, 6, 12, 24];
-  const octaveWeights = [0.48, 0.27, 0.16, 0.09];
-
-  const hash = (x: number, y: number, octave: number): number => {
-    const value = Math.sin(
-      (x + seed * 17.17 + octave * 41.31) * 127.1 +
-      (y + seed * 7.73 + octave * 19.19) * 311.7,
-    ) * 43758.5453123;
-    return value - Math.floor(value);
-  };
-
-  const sampleOctave = (u: number, v: number, cells: number, octave: number): number => {
-    const px = u * cells;
-    const py = v * cells;
-    const x0 = Math.floor(px);
-    const y0 = Math.floor(py);
-    const tx0 = px - x0;
-    const ty0 = py - y0;
-    const tx = tx0 * tx0 * (3 - 2 * tx0);
-    const ty = ty0 * ty0 * (3 - 2 * ty0);
-    const wrap = (n: number): number => ((n % cells) + cells) % cells;
-    const top = hash(wrap(x0), wrap(y0), octave) * (1 - tx) +
-      hash(wrap(x0 + 1), wrap(y0), octave) * tx;
-    const bottom = hash(wrap(x0), wrap(y0 + 1), octave) * (1 - tx) +
-      hash(wrap(x0 + 1), wrap(y0 + 1), octave) * tx;
-    return top * (1 - ty) + bottom * ty;
-  };
+  const sourcePerPixel = GODOT_NOISE_TEXTURE_SIZE / size;
 
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
-      const u = x / size;
-      const v = y / size;
-      let value = 0;
-      for (let octave = 0; octave < octaveCells.length; octave += 1) {
-        value += sampleOctave(u, v, octaveCells[octave]!, octave) * octaveWeights[octave]!;
-      }
-      const channel = Math.max(0, Math.min(255, Math.round(value * 255)));
+      const u = (x + 0.5) / size;
+      const v = (y + 0.5) / size;
+      const sourceX = (x + 0.5) * sourcePerPixel;
+      const sourceY = (y + 0.5) * sourcePerPixel;
+      const atY = (sampleY: number): number =>
+        sampleWithSeamlessX(sourceX, sampleY, u);
+
+      const value = v < GODOT_NOISE_SEAMLESS_SKIRT
+        ? mix(
+            atY(sourceY + GODOT_NOISE_TEXTURE_SIZE),
+            atY(sourceY),
+            smoothstep(0, GODOT_NOISE_SEAMLESS_SKIRT, v),
+          )
+        : v > 1 - GODOT_NOISE_SEAMLESS_SKIRT
+          ? mix(
+              atY(sourceY - GODOT_NOISE_TEXTURE_SIZE),
+              atY(sourceY),
+              smoothstep(0, GODOT_NOISE_SEAMLESS_SKIRT, 1 - v),
+            )
+          : atY(sourceY);
+
+      const channel = Math.round(Math.max(0, Math.min(1, value)) * 255);
       const offset = (y * size + x) * 4;
       data[offset] = channel;
       data[offset + 1] = channel;
@@ -71,15 +112,42 @@ export function createFieldNoiseTexture(seed: number, size = 128): DataTexture {
   return texture;
 }
 
-const cloudNoiseTexture = createFieldNoiseTexture(9041);
+// These match the seeds and FastNoiseLite frequencies in the author's .tres resources.
+export const FIELD_WIND_NOISE_TEXTURE = createFieldNoiseTexture(0, 0.01);
+export const FIELD_CLOUD_NOISE_TEXTURE = createFieldNoiseTexture(0, 0.01);
+export const FIELD_ALBEDO_NOISE_2_TEXTURE = createFieldNoiseTexture(0, 0.0046);
+export const FIELD_ALBEDO_NOISE_3_TEXTURE = createFieldNoiseTexture(1, 0.0052);
+
+export const FIELD_SURFACE_UNIFORMS = {
+  uFieldSurfaceNoise2: { value: FIELD_ALBEDO_NOISE_2_TEXTURE },
+  uFieldSurfaceNoise3: { value: FIELD_ALBEDO_NOISE_3_TEXTURE },
+  uFieldSurfaceScale2: { value: 0.0011 },
+  uFieldSurfaceThreshold2: { value: 0.537 },
+  uFieldSurfaceScale3: { value: 0.001 },
+  uFieldSurfaceThreshold3: { value: 0.471 },
+  uFieldSurfaceAlbedo1: { value: new Color(0x71a200) },
+  uFieldSurfaceAlbedo2: { value: new Color(0x8ead36) },
+  uFieldSurfaceAlbedo3: { value: new Color(0x80a739) },
+};
+
+export const FIELD_SURFACE_FRAGMENT_DECLARATIONS = [
+  'uniform sampler2D uFieldSurfaceNoise2;',
+  'uniform sampler2D uFieldSurfaceNoise3;',
+  'uniform float uFieldSurfaceScale2;',
+  'uniform float uFieldSurfaceThreshold2;',
+  'uniform float uFieldSurfaceScale3;',
+  'uniform float uFieldSurfaceThreshold3;',
+  'uniform vec3 uFieldSurfaceAlbedo1;',
+  'uniform vec3 uFieldSurfaceAlbedo2;',
+  'uniform vec3 uFieldSurfaceAlbedo3;',
+].join('\n');
 
 /**
- * Adapted from Dylearn's Demo.tscn. Twilite uses 100 world units per metre,
- * so the original 40-unit cloud scale / 50-unit cloud height become 4000 / 5000.
- * Directional light and world axes are converted from Godot's Y-up to Twilite's Z-up.
+ * Cloud-shadow settings from Demo.tscn. Twilite uses 100 world units per metre,
+ * so the source 40 m cloud scale and 50 m cloud height become 4000 and 5000.
  */
 export const FIELD_CLOUD_UNIFORMS = {
-  uCloudNoise: { value: cloudNoiseTexture },
+  uCloudNoise: { value: FIELD_CLOUD_NOISE_TEXTURE },
   uCloudTime: { value: 0 },
   uCloudScale: { value: 4000 },
   uCloudWorldHeight: { value: 5000 },
@@ -87,7 +155,7 @@ export const FIELD_CLOUD_UNIFORMS = {
   uCloudContrast: { value: 3.845 },
   uCloudThreshold: { value: 0.27 },
   uCloudDirection: { value: new Vector2(0, -1) },
-  uCloudLightDirection: { value: new Vector3(0.2, -0.15, 1).normalize() },
+  uCloudLightDirection: { value: new Vector3(-160, 260, 420).normalize() },
   uCloudShadowMin: { value: 0.2 },
   uCloudDivergeAngle: { value: 20 },
 };
@@ -132,13 +200,18 @@ export function syncFieldCloudTime(elapsedTimeSec: number): void {
   FIELD_CLOUD_UNIFORMS.uCloudTime.value = elapsedTimeSec;
 }
 
+/**
+ * Project the cloud plane along the direction from the field toward the light.
+ * A line and its inverse describe the same projection; here we keep the Z
+ * component positive so the intersection test has a stable sign.
+ */
 export function syncFieldCloudLightDirection(
   direction: readonly [number, number, number],
 ): void {
   const light = FIELD_CLOUD_UNIFORMS.uCloudLightDirection.value;
-  light.set(direction[0], direction[1], direction[2]);
+  light.set(direction[0], direction[1], Math.abs(direction[2]));
   if (light.lengthSq() < 0.0001) {
-    light.set(0.2, -0.15, 1);
+    light.set(-160, 260, 420);
   }
   light.normalize();
 }
