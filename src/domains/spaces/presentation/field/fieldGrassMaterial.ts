@@ -168,6 +168,7 @@ const grassVertexBody = [
   'vec3 grassWorldOrigin = (modelMatrix * vec4(position, 1.0)).xyz;',
   '#ifdef USE_INSTANCING',
   '  grassWorldOrigin = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;',
+  '  grassWorldOrigin.z -= aGrassDimensions.y * 0.5;',
   '#endif',
   'float grassSeed = aGrassSeed;',
   'float grassFrameRate = max(uGrassFramerate, 1.0);',
@@ -285,6 +286,20 @@ function createFieldGrassMaterial(): MeshStandardMaterial {
     shader.vertexShader = shader.vertexShader.replace(
       '#include <begin_vertex>',
       grassVertexBody,
+    );
+
+    // Match Godot's LIGHT_VERTEX = model_origin: receive shadow/light samples at
+    // the undeformed grass root so swaying pixel blades do not shimmer.
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <worldpos_vertex>',
+      '#include <worldpos_vertex>\\n' + [
+        '#ifdef USE_SHADOWMAP',
+        '#ifdef USE_INSTANCING',
+        '  worldPosition.xyz = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;',
+        '  worldPosition.z -= aGrassDimensions.y * 0.5;',
+        '#endif',
+        '#endif',
+      ].join('\\n'),
     );
 
     shader.fragmentShader = shader.fragmentShader.replace(
