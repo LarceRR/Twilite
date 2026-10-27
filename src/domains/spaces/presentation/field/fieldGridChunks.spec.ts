@@ -44,7 +44,7 @@ describe('fieldGridChunks', () => {
     expect(fieldChunkIndicesForCameraX(700, cellSize)).toEqual([1, 2, 3, 4, 5]);
   });
 
-  it('places chunk meshes on absolute world X', () => {
+  it('does not unload the physical camera chunk when the focus trigger advances', () => {\n    const cameraX = 420;\n    const cameraChunk = fieldChunkIndexFromWorldX(cameraX, cellSize);\n    const mounted = fieldChunkIndicesForCameraX(cameraX, cellSize);\n\n    // The former 780-unit look-ahead advanced focus into chunk 2 while the\n    // camera was still in chunk 0, causing that chunk to disappear too early.\n    expect(cameraChunk).toBe(0);\n    expect(mounted).toContain(cameraChunk);\n  });\n  it('places chunk meshes on absolute world X', () => {
     const spec = createFieldGridChunkSpec(1, { rows: 15, cellSize });
     expect(spec.colStart).toBe(10);
     expect(fieldChunkPlanePosition(spec)).toEqual([915, 0, 0]);
