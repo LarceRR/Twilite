@@ -35,7 +35,7 @@ const TILE_EMISSIVE_FLOOR_SCALE = 0.18;
 const CANDLE_INVERSE_SQUARE_SCALE = 16;
 /** Add candle light on top of dark albedo so nearby surfaces remain readable. */
 const CANDLE_ALBEDO_FLOOR = 0.35;
-const PROGRAM_CACHE_KEY = 'twilite-field-tile-v14-shared-palette-cloud-contrast';
+const PROGRAM_CACHE_KEY = 'twilite-field-tile-v15-visible-cloud-shadows';
 
 export type FieldTileMaterial = MeshStandardMaterial & FieldGridEffectMaterial;
 
@@ -245,7 +245,7 @@ const fragmentBody = /* glsl */ `
   );
   // Retain a readable cloud mask after the discrete toon step, which otherwise
   // rounds multiple cloud values to the same brightness level.
-  float fieldSurfaceCloudShadow = mix(1.0, pow(fieldSurfaceCloud, 1.35), 0.82);
+  float fieldSurfaceCloudShadow = mix(1.0, pow(fieldSurfaceCloud, 1.35), uCloudShadowStrength);
   float fieldSurfaceDirectScale = fieldSurfaceNdotL > 0.0001
     ? (fieldSurfaceStepped / fieldSurfaceNdotL) * uFieldToonDirectLightScale * fieldSurfaceCloudShadow
     : 0.0;
