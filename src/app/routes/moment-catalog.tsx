@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 import { useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { featureFlags } from '@/app/config/featureFlags';
 import { openMomentFilters } from '@/app/navigation/openMomentFilters';
 import { useUiStore } from '@/app/stores/uiStore';
 import { useThemeColors } from '@/design-system/colors/colors';
@@ -33,6 +34,11 @@ export default function MomentCatalogRoute(): ReactElement {
 
   const selectMoment = async (moment: MomentPreview): Promise<void> => {
     if (kind === null || activeSpace === null || createSurfaceObject.isPending) return;
+    if (!featureFlags.isEnabled('surfaceObjectSpawning')) {
+      router.dismissAll();
+      showToast('Размещение объектов временно отключено');
+      return;
+    }
     const idempotencyKey = idempotencyKeys.current.get(moment.id) ?? createLocalId('surface');
     idempotencyKeys.current.set(moment.id, idempotencyKey);
     router.dismissAll();
