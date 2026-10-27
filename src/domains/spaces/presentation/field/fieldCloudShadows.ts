@@ -142,6 +142,33 @@ export const FIELD_SURFACE_FRAGMENT_DECLARATIONS = [
  * Cloud-shadow settings from Demo.tscn. Twilite uses 100 world units per metre,
  * so the source 40 m cloud scale and 50 m cloud height become 4000 and 5000.
  */
+/**
+ * Normalize Twilite's stronger configurable lights to the author's Godot
+ * shader baseline. This affects only grass/field materials, not the scene lights.
+ */
+export const FIELD_TOON_LIGHT_UNIFORMS = {
+  uFieldToonDirectLightScale: { value: 1 / 2.2 },
+  uFieldToonAmbientScale: { value: 0.18 / 1.4 },
+};
+
+export const FIELD_TOON_LIGHT_FRAGMENT_DECLARATIONS = [
+  'uniform float uFieldToonDirectLightScale;',
+  'uniform float uFieldToonAmbientScale;',
+].join('\n');
+
+export function syncFieldToonLighting(
+  directionalIntensity: number,
+  ambientIntensity: number,
+): void {
+  FIELD_TOON_LIGHT_UNIFORMS.uFieldToonDirectLightScale.value =
+    Number.isFinite(directionalIntensity) && directionalIntensity > 0.001
+      ? 1 / directionalIntensity
+      : 0;
+  FIELD_TOON_LIGHT_UNIFORMS.uFieldToonAmbientScale.value =
+    Number.isFinite(ambientIntensity) && ambientIntensity > 0.001
+      ? 0.18 / ambientIntensity
+      : 0;
+}
 export const FIELD_CLOUD_UNIFORMS = {
   uCloudNoise: { value: FIELD_CLOUD_NOISE_TEXTURE },
   uCloudTime: { value: 0 },
