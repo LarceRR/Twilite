@@ -18,6 +18,8 @@ function options(chunkIndex: number, occupiedCellKeys: ReadonlySet<string> = new
     tileMinHeight: 0,
     tileMaxHeight: 3,
     platformHeight: 6,
+    objectMinHeight: 7,
+    objectMaxHeight: 10,
     generatedTilesEnabled: true,
     occupiedCellKeys,
   };
