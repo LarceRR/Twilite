@@ -7,7 +7,12 @@ import {
 } from './fieldGridWaveMaterial';
 import { FIELD_WAVE_MAX_COUNT } from './fieldGridWave';
 import { getFieldOccupiedTileMaps } from './fieldOccupiedTileMaps';
-import { FIELD_CLOUD_FRAGMENT_DECLARATIONS, FIELD_CLOUD_UNIFORMS } from './fieldCloudShadows';
+import {
+  FIELD_CLOUD_FRAGMENT_DECLARATIONS,
+  FIELD_CLOUD_UNIFORMS,
+  FIELD_SURFACE_FRAGMENT_DECLARATIONS,
+  FIELD_SURFACE_UNIFORMS,
+} from './fieldCloudShadows';
 
 /** Default finish for ordinary, non-occupied tiles. */
 const TILE_ROUGHNESS = 0.9;
@@ -28,7 +33,7 @@ const TILE_EMISSIVE_FLOOR_SCALE = 0.18;
 const CANDLE_INVERSE_SQUARE_SCALE = 16;
 /** Add candle light on top of dark albedo so nearby surfaces remain readable. */
 const CANDLE_ALBEDO_FLOOR = 0.35;
-const PROGRAM_CACHE_KEY = 'twilite-field-tile-v9-cloud-shadows';
+const PROGRAM_CACHE_KEY = 'twilite-field-tile-v10-fastnoise-cloud-toon';
 
 export type FieldTileMaterial = MeshStandardMaterial & FieldGridEffectMaterial;
 
@@ -165,6 +170,32 @@ diffuseColor.rgb = mix(
 );
 `;
 
+const fieldSurfaceColorBody = /* glsl */ `
+float fieldSurfaceGlowMax = max(vGlow.r, max(vGlow.g, vGlow.b));
+float fieldSurfaceGlowMask = smoothstep(0.001, 0.08, fieldSurfaceGlowMax);
+
+// Port of the author's Floor.gdshader albedo selection. Empty tile tops and the
+// underlay use the same world-space noise palette as the grass, not the app UI
+// surface colour. Custom user textures and glowing occupied cells remain intact.
+if (uUseGeneratedTileAlbedo > 0.5 && fieldSurfaceGlowMask < 0.08) {
+  float fieldSurfacePatch2 = texture2D(
+    uFieldSurfaceNoise2,
+    vFieldWorldPos.xy * uFieldSurfaceScale2
+  ).r;
+  float fieldSurfacePatch3 = texture2D(
+    uFieldSurfaceNoise3,
+    vFieldWorldPos.xy * uFieldSurfaceScale3
+  ).r;
+  vec3 fieldSurfaceAlbedo = uFieldSurfaceAlbedo1;
+  if (fieldSurfacePatch2 > uFieldSurfaceThreshold2) {
+    fieldSurfaceAlbedo = uFieldSurfaceAlbedo2;
+  }
+  if (fieldSurfacePatch3 > uFieldSurfaceThreshold3) {
+    fieldSurfaceAlbedo = uFieldSurfaceAlbedo3;
+  }
+  diffuseColor.rgb = fieldSurfaceAlbedo;
+}
+`;
 const occupiedTileSurfaceBody = /* glsl */ `
 // Apply material variation after Three.js has declared roughnessFactor and
 // metalnessFactor. The first narrow UV band is the chamfer; side walls stay rough.
@@ -195,9 +226,15 @@ const fragmentBody = /* glsl */ `
     fieldCandleIrradiance( vFieldWorldPos, fieldNormal );
   lit += fieldAlbedo * uAmbientColor *
     ( ( uAmbientIntensity + uTileEmissiveIntensity ) * ${TILE_EMISSIVE_FLOOR_SCALE.toFixed(3)} );
-  // Apply the same moving world-space cloud shadow as the grass shader.
-  // The local candle contribution added below remains visible in cloud shade.
-  outgoingLight *= fieldCloudVisibility(vFieldWorldPos);
+  // Port the author's cloud cap + three-step toon response to the field surface.
+  // Quantize before adding local candle light, so glows still illuminate nearby tiles.
+  float fieldSurfaceCloud = fieldCloudVisibility(vFieldWorldPos);
+  float fieldSurfaceAlbedoLuminance = max(dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722)), 0.0001);
+  float fieldSurfaceOutgoingLuminance = max(dot(outgoingLight, vec3(0.2126, 0.7152, 0.0722)), 0.0);
+  float fieldSurfaceSourceLight = clamp(fieldSurfaceOutgoingLuminance / fieldSurfaceAlbedoLuminance, 0.0, 1.0);
+  float fieldSurfaceDiffuse = min(fieldSurfaceSourceLight, fieldSurfaceCloud);
+  float fieldSurfaceStepped = clamp(ceil(fieldSurfaceDiffuse * 3.0) / 3.0, 0.0, 1.0);
+  outgoingLight *= fieldSurfaceStepped / max(fieldSurfaceSourceLight, 0.0001);
   outgoingLight = mix(
     outgoingLight + lit,
     vec3( 0.0 ),
@@ -265,10 +302,10 @@ export function createFieldTileMaterial(map: Texture): FieldTileMaterial {
   material.receivesPixelLights = true;
 
   material.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, material.uniforms, FIELD_CLOUD_UNIFORMS);
+    Object.assign(shader.uniforms, material.uniforms, FIELD_CLOUD_UNIFORMS, FIELD_SURFACE_UNIFORMS);
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <common>',
-      '#include <common>\n' + FIELD_CLOUD_FRAGMENT_DECLARATIONS,
+      '#include <common>\n' + FIELD_CLOUD_FRAGMENT_DECLARATIONS + '\n' + FIELD_SURFACE_FRAGMENT_DECLARATIONS,
     );
     const occupiedTileMaps = getFieldOccupiedTileMaps();
     const occupiedTileUniforms = material.userData.occupiedTileUniforms as {
@@ -280,6 +317,7 @@ export function createFieldTileMaterial(map: Texture): FieldTileMaterial {
     shader.vertexShader = inject(shader.vertexShader, '#include <common>', vertexDeclarations);
     shader.vertexShader = inject(shader.vertexShader, '#include <project_vertex>', vertexBody);
     shader.fragmentShader = inject(shader.fragmentShader, '#include <common>', fragmentDeclarations);
+    shader.fragmentShader = inject(shader.fragmentShader, '#include <color_fragment>', fieldSurfaceColorBody);
     shader.fragmentShader = inject(shader.fragmentShader, '#include <color_fragment>', occupiedTileColorBody);
     // Place this after metalnessmap_fragment, where both PBR factors exist.
     shader.fragmentShader = inject(shader.fragmentShader, '#include <metalnessmap_fragment>', occupiedTileSurfaceBody);
