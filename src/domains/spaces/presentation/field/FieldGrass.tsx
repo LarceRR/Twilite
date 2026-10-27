@@ -150,7 +150,7 @@ export function FieldGrass({
       dummy.position.set(
         instance.x,
         instance.y,
-        instance.rootZ + instance.height / 2,
+        instance.rootZ + instance.height / 2 + (instance.accent === 1 ? 10 : instance.accent === 2 ? 18.5 : 0),
       );
       dummy.quaternion.copy(billboardQuaternion);
       dummy.scale.set(instance.width, instance.height, 1);
