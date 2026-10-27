@@ -33,7 +33,7 @@ const TILE_EMISSIVE_FLOOR_SCALE = 0.18;
 const CANDLE_INVERSE_SQUARE_SCALE = 16;
 /** Add candle light on top of dark albedo so nearby surfaces remain readable. */
 const CANDLE_ALBEDO_FLOOR = 0.35;
-const PROGRAM_CACHE_KEY = 'twilite-field-tile-v10-fastnoise-cloud-toon';
+const PROGRAM_CACHE_KEY = 'twilite-field-tile-v11-surface-top-normal';
 
 export type FieldTileMaterial = MeshStandardMaterial & FieldGridEffectMaterial;
 
