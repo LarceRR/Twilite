@@ -161,7 +161,10 @@ export function createFieldNoiseTexture(
 export const FIELD_WIND_NOISE_TEXTURE = createFieldNoiseTexture(0, 0.01);
 FIELD_WIND_NOISE_TEXTURE.magFilter = NearestFilter;
 FIELD_WIND_NOISE_TEXTURE.minFilter = NearestFilter;
-export const FIELD_CLOUD_NOISE_TEXTURE = createFieldNoiseTexture(0, 0.01);
+export const FIELD_CLOUD_NOISE_TEXTURE = FIELD_WIND_NOISE_TEXTURE.clone();
+FIELD_CLOUD_NOISE_TEXTURE.magFilter = LinearFilter;
+FIELD_CLOUD_NOISE_TEXTURE.minFilter = LinearFilter;
+FIELD_CLOUD_NOISE_TEXTURE.needsUpdate = true;
 export const FIELD_ALBEDO_NOISE_2_TEXTURE = createFieldNoiseTexture(0, 0.0046);
 export const FIELD_ALBEDO_NOISE_3_TEXTURE = createFieldNoiseTexture(1, 0.0052);
 
