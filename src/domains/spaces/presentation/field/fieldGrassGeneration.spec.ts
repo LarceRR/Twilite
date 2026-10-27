@@ -88,6 +88,7 @@ describe('continuous field grass generation', () => {
     const clearance = grid.cellSize * 0.28;
 
     expect(inOccupiedCell.length).toBeGreaterThan(0);
+    expect(inOccupiedCell.every((instance) => instance.rootZ >= 7 && instance.rootZ <= 10)).toBe(true);
     expect(inOccupiedCell.every((instance) => {
       const dx = instance.x - centerX;
       const dy = instance.y - centerY;
