@@ -28,6 +28,8 @@ export type FieldGrassGenerationOptions = {
   readonly tileMinHeight: number;
   readonly tileMaxHeight: number;
   readonly platformHeight: number;
+  readonly objectMinHeight: number;
+  readonly objectMaxHeight: number;
   readonly generatedTilesEnabled: boolean;
   readonly occupiedCellKeys: ReadonlySet<string>;
   readonly spacing?: number;
@@ -122,7 +124,13 @@ export function generateFieldGrassInstances(
       }
 
       const rootZ = isOccupied
-        ? objectPlatformHeight(options.worldSeed, col, row) * FIELD_TILE_HEIGHT_STEP
+        ? objectPlatformHeight(
+            options.worldSeed,
+            col,
+            row,
+            options.objectMinHeight,
+            options.objectMaxHeight,
+          ) * FIELD_TILE_HEIGHT_STEP
         : options.generatedTilesEnabled
           ? fieldTileHeight(
               options.worldSeed,
