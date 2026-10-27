@@ -252,17 +252,12 @@ const grassColorBody = [
 
 const grassLightingBody = [
   'float fieldGrassCloud = fieldCloudVisibility(vGrassWorldOrigin);',
-  'float fieldGrassLuminance = max(dot(outgoingLight, vec3(0.2126, 0.7152, 0.0722)), 0.0);',
-  'float fieldGrassDiffuse = clamp(fieldGrassLuminance * fieldGrassCloud, 0.0, 1.0);',
-  'float fieldGrassCut = 1.0 / 3.0;',
-  'float fieldGrassNearestCut = floor(fieldGrassDiffuse / fieldGrassCut + 0.5);',
-  'float fieldGrassThreshold = fieldGrassNearestCut * fieldGrassCut;',
-  'float fieldGrassHalfWidth = 0.5 * fieldGrassCut * 0.255;',
-  'float fieldGrassLow = max(0.0, fieldGrassThreshold - fieldGrassHalfWidth);',
-  'float fieldGrassHigh = min(1.0, fieldGrassThreshold + fieldGrassHalfWidth);',
-  'float fieldGrassBlend = fieldGrassHigh > fieldGrassLow ? smoothstep(fieldGrassLow, fieldGrassHigh, fieldGrassDiffuse) : step(fieldGrassThreshold, fieldGrassDiffuse);',
-  'float fieldGrassStepped = clamp(mix(fieldGrassThreshold, min(fieldGrassThreshold + fieldGrassCut, 1.0), fieldGrassBlend), 0.0, 1.0);',
-  'outgoingLight *= fieldGrassStepped / max(fieldGrassLuminance, 0.0001);',
+  'float fieldGrassAlbedoLuminance = max(dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722)), 0.0001);',
+  'float fieldGrassOutgoingLuminance = max(dot(outgoingLight, vec3(0.2126, 0.7152, 0.0722)), 0.0);',
+  'float fieldGrassSourceLight = clamp(fieldGrassOutgoingLuminance / fieldGrassAlbedoLuminance, 0.0, 1.0);',
+  'float fieldGrassDiffuse = min(fieldGrassSourceLight, fieldGrassCloud);',
+  'float fieldGrassStepped = clamp(ceil(fieldGrassDiffuse * 3.0) / 3.0, 0.0, 1.0);',
+  'outgoingLight *= fieldGrassStepped / max(fieldGrassSourceLight, 0.0001);',
 ].join('\n');
 
 export const FIELD_GRASS_MATERIAL = createFieldGrassMaterial();
@@ -306,7 +301,7 @@ function createFieldGrassMaterial(): MeshStandardMaterial {
     );
   };
 
-  material.customProgramCacheKey = () => 'twilite-field-grass-v1';
+  material.customProgramCacheKey = () => 'twilite-field-grass-v2-fastnoise-toon';
   return material;
 }
 
