@@ -3,6 +3,7 @@ import {
   DataTexture,
   LinearFilter,
   NoColorSpace,
+  NearestFilter,
   RGBAFormat,
   RepeatWrapping,
   Vector2,
@@ -108,9 +109,12 @@ export function createFieldNoiseTexture(
   texture.needsUpdate = true;
   return texture;
 }
-// These match the seeds and FastNoiseLite frequencies in the author's .tres resources.
+// These match the seeds, frequencies and distinct sampler filters in the author's .tres resources.
+// The original grass shader samples wind with nearest filtering; the cloud include uses linear.
 export const FIELD_WIND_NOISE_TEXTURE = createFieldNoiseTexture(0, 0.01);
-export const FIELD_CLOUD_NOISE_TEXTURE = FIELD_WIND_NOISE_TEXTURE;
+FIELD_WIND_NOISE_TEXTURE.magFilter = NearestFilter;
+FIELD_WIND_NOISE_TEXTURE.minFilter = NearestFilter;
+export const FIELD_CLOUD_NOISE_TEXTURE = createFieldNoiseTexture(0, 0.01);
 export const FIELD_ALBEDO_NOISE_2_TEXTURE = createFieldNoiseTexture(0, 0.0046);
 export const FIELD_ALBEDO_NOISE_3_TEXTURE = createFieldNoiseTexture(1, 0.0052);
 
