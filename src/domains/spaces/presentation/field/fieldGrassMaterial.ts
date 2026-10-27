@@ -8,6 +8,8 @@ import {
   RGBAFormat,
   SRGBColorSpace,
   Vector2,
+  Vector3,
+  type Camera,
 } from 'three';
 
 import {
@@ -34,17 +36,13 @@ function createGrassSpriteTexture(variant: 0 | 1 | 2): DataTexture {
     data[offset + 3] = 255;
   };
 
-  const dark: readonly [number, number, number] = [38, 76, 13];
+  const dark: readonly [number, number, number] = [172, 172, 172];
   const mid: readonly [number, number, number] = variant === 2
-    ? [80, 135, 21]
+    ? [238, 238, 238]
     : variant === 1
-      ? [126, 157, 26]
-      : [105, 145, 18];
-  const light: readonly [number, number, number] = variant === 2
-    ? [151, 177, 42]
-    : variant === 1
-      ? [181, 203, 59]
-      : [153, 184, 31];
+      ? [224, 224, 224]
+      : [255, 255, 255];
+  const light: readonly [number, number, number] = [255, 255, 255];
 
   for (let y = 0; y < height; y += 1) {
     const progress = y / (height - 1);
@@ -181,7 +179,7 @@ const grassVertexBody = [
   'transformed.x += uv.y * (aGrassDimensions.y / max(aGrassDimensions.x, 0.001)) * sin(grassSway);',
   'vGrassWorldOrigin = grassWorldOrigin;',
   'vGrassWindSample = grassWind;',
-  'vGrassFakePerspective = grassWind * uGrassFakePerspectiveScale * uGrassWindAlignment;',
+  'vGrassFakePerspective = grassWind * uGrassWindAlignment;',
   'vGrassSeed = aGrassSeed;',
   'vGrassAccent = aGrassAccent;',
   'vGrassUv = uv;',
@@ -297,4 +295,30 @@ function createFieldGrassMaterial(): MeshStandardMaterial {
 
   material.customProgramCacheKey = () => 'twilite-field-grass-v1';
   return material;
+}
+
+
+const grassCameraForward = new Vector3();
+
+/** Sync time and derive wind projection from the existing camera pose without moving or rotating it. */
+export function syncFieldGrassSceneTime(elapsedTimeSec: number, camera: Camera): void {
+  FIELD_GRASS_UNIFORMS.uGrassTime.value = elapsedTimeSec;
+  camera.getWorldDirection(grassCameraForward);
+  grassCameraForward.z = 0;
+  if (grassCameraForward.lengthSq() < 0.0001) {
+    grassCameraForward.set(1, 0, 0);
+  }
+  grassCameraForward.normalize();
+
+  const wind = FIELD_GRASS_UNIFORMS.uGrassWindDirection.value;
+  const windLength = Math.hypot(wind.x, wind.y);
+  const windX = windLength > 0.0001 ? wind.x / windLength : 0;
+  const windY = windLength > 0.0001 ? wind.y / windLength : 1;
+  const cameraRightX = grassCameraForward.y;
+  const cameraRightY = -grassCameraForward.x;
+
+  FIELD_GRASS_UNIFORMS.uGrassWindScreenDirection.value =
+    windX * cameraRightX + windY * cameraRightY;
+  FIELD_GRASS_UNIFORMS.uGrassWindAlignment.value =
+    windX * grassCameraForward.x + windY * grassCameraForward.y;
 }
