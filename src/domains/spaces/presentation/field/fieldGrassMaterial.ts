@@ -27,11 +27,11 @@ import {
 } from './fieldCloudShadows';
 
 /**
- * Temporary pixel-art blade textures. Replace these three generated sprites
- * with the final grass PNGs when the artwork is ready.
+ * The main sprite is the replaceable Twilite 24×24 PNG. Generated textures are
+ * only a fallback if Expo cannot load the bundled images; accent sprites are Dylearn's originals.
  */
 function createGrassSpriteTexture(variant: 0 | 1 | 2): DataTexture {
-  const width = 16;
+  const width = 24;
   const height = 24;
   const data = new Uint8Array(width * height * 4);
 
@@ -54,7 +54,7 @@ function createGrassSpriteTexture(variant: 0 | 1 | 2): DataTexture {
 
   for (let y = 0; y < height; y += 1) {
     const progress = y / (height - 1);
-    const center = Math.round(8 + (variant === 1 ? -1 : 1) * progress * 2);
+    const center = Math.round(12 + (variant === 1 ? -1 : 1) * progress * 2);
     const halfWidth = y < 3 ? 1 : y < 8 ? 2 : y < 15 ? 3 : y < 20 ? 2 : 1;
 
     for (let x = center - halfWidth; x <= center + halfWidth; x += 1) {
@@ -66,8 +66,8 @@ function createGrassSpriteTexture(variant: 0 | 1 | 2): DataTexture {
 
   // Two shorter side blades make the temporary sprite read as a small grass tuft.
   for (let y = 0; y < 13; y += 1) {
-    const leftX = Math.round(5 - y * 0.22);
-    const rightX = Math.round(10 + y * 0.18);
+    const leftX = Math.round(8 - y * 0.22);
+    const rightX = Math.round(15 + y * 0.18);
     const bladeColor = y % 4 === 0 ? light : mid;
     setPixel(leftX, y, dark);
     setPixel(leftX + 1, y, bladeColor);
@@ -123,7 +123,7 @@ const FIELD_GRASS_UNIFORMS = {
   uGrassAlbedoScale3: { value: 0.001 },
   uGrassAlbedoThreshold3: { value: 0.471 },
   uGrassAlbedo1: { value: new Color(0x71a200) },
-  uGrassAlbedo2: { value: new Color(0x8eae36) },
+  uGrassAlbedo2: { value: new Color(0x8ead36) },
   uGrassAlbedo3: { value: new Color(0x80a739) },
   uGrassAccentAlbedo1: { value: new Color(0x9ab700) },
   uGrassAccentAlbedo2: { value: new Color(0x6c9a00) },
