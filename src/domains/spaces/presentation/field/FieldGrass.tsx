@@ -17,7 +17,7 @@ import {
   FIELD_GRASS_SPACING,
   generateFieldGrassInstances,
 } from './fieldGrassGeneration';
-import { FIELD_GRASS_MATERIAL } from './fieldGrassMaterial';
+import { FIELD_GRASS_MATERIAL, loadFieldGrassSprite } from './fieldGrassMaterial';
 import {
   FIELD_GRID_DIVIDER_WIDTH,
   fieldGridWorldSize,
@@ -104,7 +104,10 @@ export function FieldGrass({
   const billboardMatrix = useMemo(() => new Matrix4(), []);
   const billboardQuaternion = useMemo(() => new Quaternion(), []);
 
-  useEffect(() => () => geometry.dispose(), [geometry]);
+  useEffect(() => {
+    void loadFieldGrassSprite();
+    return () => geometry.dispose();
+  }, [geometry]);
 
   useLayoutEffect(() => {
     const mesh = meshRef.current;
