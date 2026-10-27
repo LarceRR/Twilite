@@ -316,7 +316,7 @@ function createFieldGrassMaterial(): MeshStandardMaterial {
     );
   };
 
-  material.customProgramCacheKey = () => 'twilite-field-grass-v2-fastnoise-toon';
+  material.customProgramCacheKey = () => 'twilite-field-grass-v3-root-shadow-toon';
   return material;
 }
 
