@@ -41,6 +41,7 @@ const vertexDeclarations = /* glsl */ `
 attribute vec3 aGlow;
 attribute float aSideDim;
 varying vec3 vFieldWorldPos;
+varying vec3 vFieldWorldNormal;
 varying vec3 vGlow;
 varying vec2 vTileUv;
 varying float vSideDim;
@@ -53,6 +54,7 @@ vec4 fieldWorldPosition = vec4( transformed, 1.0 );
 #endif
 fieldWorldPosition = modelMatrix * fieldWorldPosition;
 vFieldWorldPos = fieldWorldPosition.xyz;
+vFieldWorldNormal = normalize(inverseTransformDirection(transformedNormal, viewMatrix));
 vGlow = aGlow;
 vTileUv = uv;
 vSideDim = aSideDim;
@@ -177,7 +179,7 @@ float fieldSurfaceGlowMask = smoothstep(0.001, 0.08, fieldSurfaceGlowMax);
 // Port of the author's Floor.gdshader albedo selection. Empty tile tops and the
 // underlay use the same world-space noise palette as the grass, not the app UI
 // surface colour. Custom user textures and glowing occupied cells remain intact.
-if (uUseGeneratedTileAlbedo > 0.5 && fieldSurfaceGlowMask < 0.08) {
+if (uUseGeneratedTileAlbedo > 0.5 && vFieldWorldNormal.z > 0.5 && fieldSurfaceGlowMask < 0.08) {
   float fieldSurfacePatch2 = texture2D(
     uFieldSurfaceNoise2,
     vFieldWorldPos.xy * uFieldSurfaceScale2
