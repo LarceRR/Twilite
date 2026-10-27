@@ -23,6 +23,8 @@ import {
   FIELD_ALBEDO_NOISE_3_TEXTURE,
   FIELD_CLOUD_FRAGMENT_DECLARATIONS,
   FIELD_CLOUD_UNIFORMS,
+  FIELD_TOON_LIGHT_FRAGMENT_DECLARATIONS,
+  FIELD_TOON_LIGHT_UNIFORMS,
   FIELD_WIND_NOISE_TEXTURE,
 } from './fieldCloudShadows';
 
@@ -253,14 +255,18 @@ const grassColorBody = [
 
 const grassLightingBody = [
   'float fieldGrassCloud = fieldCloudVisibility(vGrassWorldOrigin);',
-  'float fieldGrassAlbedoLuminance = max(dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722)), 0.0001);',
-  'float fieldGrassOutgoingLuminance = max(dot(outgoingLight, vec3(0.2126, 0.7152, 0.0722)), 0.0);',
-  'float fieldGrassSourceLight = clamp(fieldGrassOutgoingLuminance / fieldGrassAlbedoLuminance, 0.0, 1.0);',
-  'float fieldGrassDiffuse = min(fieldGrassSourceLight, fieldGrassCloud);',
-  'float fieldGrassStepped = clamp(ceil(fieldGrassDiffuse * 3.0) / 3.0, 0.0, 1.0);',
-  'outgoingLight *= fieldGrassStepped / max(fieldGrassSourceLight, 0.0001);',
+  '#if NUM_DIR_LIGHTS > 0',
+  'float fieldGrassNdotL = max(dot(normalize(normal), directionalLights[0].direction), 0.0);',
+  'float fieldGrassDiffuse = min(fieldGrassNdotL, fieldGrassCloud);',
+  'float fieldGrassStepped = clamp(fieldGrassDiffuse + mod(1.0 - fieldGrassDiffuse, 1.0 / 3.0), 0.0, 1.0);',
+  'float fieldGrassDirectScale = fieldGrassNdotL > 0.0001 ? (fieldGrassStepped / fieldGrassNdotL) * uFieldToonDirectLightScale : 0.0;',
+  'outgoingLight -= reflectedLight.directDiffuse + reflectedLight.indirectDiffuse;',
+  'outgoingLight += reflectedLight.directDiffuse * fieldGrassDirectScale;',
+  'outgoingLight += reflectedLight.indirectDiffuse * uFieldToonAmbientScale;',
+  '#else',
+  'outgoingLight *= fieldGrassCloud;',
+  '#endif',
 ].join('\n');
-
 export const FIELD_GRASS_MATERIAL = createFieldGrassMaterial();
 
 function createFieldGrassMaterial(): MeshStandardMaterial {
@@ -277,7 +283,7 @@ function createFieldGrassMaterial(): MeshStandardMaterial {
   });
 
   material.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, FIELD_GRASS_UNIFORMS, FIELD_CLOUD_UNIFORMS);
+    Object.assign(shader.uniforms, FIELD_GRASS_UNIFORMS, FIELD_CLOUD_UNIFORMS, FIELD_TOON_LIGHT_UNIFORMS);
 
     shader.vertexShader = shader.vertexShader.replace(
       '#include <common>',
@@ -304,7 +310,7 @@ function createFieldGrassMaterial(): MeshStandardMaterial {
 
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <common>',
-      '#include <common>\n' + grassFragmentDeclarations + '\n' + FIELD_CLOUD_FRAGMENT_DECLARATIONS,
+      '#include <common>\n' + grassFragmentDeclarations + '\n' + FIELD_CLOUD_FRAGMENT_DECLARATIONS + '\n' + FIELD_TOON_LIGHT_FRAGMENT_DECLARATIONS,
     );
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <color_fragment>',
