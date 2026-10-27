@@ -12,24 +12,26 @@ import {
 
 import FastNoiseLite from './vendor/FastNoiseLite.js';
 
-/** Godot NoiseTexture2D defaults to a 512 × 512 image and 0.1 seamless blend skirt. */
+/** Godot NoiseTexture2D defaults to 512×512, normalize=true, and seamless blend skirt=0.1. */
 const GODOT_NOISE_TEXTURE_SIZE = 512;
 const GODOT_NOISE_SEAMLESS_SKIRT = 0.1;
 const NOISE_TEXTURE_SIZE = 128;
+
+type NoiseSourceMode = 'default' | 'x' | 'y' | 'xy';
 
 function smoothstep(edge0: number, edge1: number, value: number): number {
   const t = Math.max(0, Math.min(1, (value - edge0) / (edge1 - edge0)));
   return t * t * (3 - 2 * t);
 }
 
-function mix(a: number, b: number, weight: number): number {
-  return a + (b - a) * weight;
+function godotAlphaBlend(background: number, foreground: number, alpha: number): number {
+  return (((alpha + 1) * foreground + (256 - alpha) * background) >> 8) & 255;
 }
 
 /**
- * Recreate the author's FastNoiseLite NoiseTexture2D resources with a small
- * seamless edge skirt. The 128² texture stores samples from the same 512²
- * coordinate domain as Godot so the noise frequency remains world-correct.
+ * Reproduce Godot NoiseTexture2D's normalized FastNoiseLite map and seamless
+ * quadrant-swapping skirt. The 128² output samples the same 512² noise domain,
+ * preserving the source's world-space scale without allocating 512² maps on mobile.
  */
 export function createFieldNoiseTexture(
   seed: number,
@@ -40,66 +42,111 @@ export function createFieldNoiseTexture(
   noise.SetNoiseType(FastNoiseLite.NoiseType.OpenSimplex2S);
   noise.SetFrequency(frequency);
 
-  const sample = (x: number, y: number): number =>
-    Math.max(0, Math.min(1, noise.GetNoise(x, y) * 0.5 + 0.5));
-  const edgeWeight = (distanceFromEdge: number): number =>
-    0.5 + 0.5 * smoothstep(0, GODOT_NOISE_SEAMLESS_SKIRT, distanceFromEdge);
+  const skirtWidth = Math.max(1, Math.floor(size * GODOT_NOISE_SEAMLESS_SKIRT));
+  const skirtHeight = Math.max(1, Math.floor(size * GODOT_NOISE_SEAMLESS_SKIRT));
+  const sourceWidth = size + skirtWidth;
+  const sourceHeight = size + skirtHeight;
+  const halfWidth = Math.floor(size * 0.5);
+  const halfHeight = Math.floor(size * 0.5);
+  const skirtEdgeX = halfWidth + skirtWidth;
+  const skirtEdgeY = halfHeight + skirtHeight;
+  const sourceScale = GODOT_NOISE_TEXTURE_SIZE / size;
 
-  const data = new Uint8Array(size * size * 4);
-  const sourcePerPixel = GODOT_NOISE_TEXTURE_SIZE / size;
-
-  for (let y = 0; y < size; y += 1) {
-    for (let x = 0; x < size; x += 1) {
-      const u = (x + 0.5) / size;
-      const v = (y + 0.5) / size;
-      const sourceX = (x + 0.5) * sourcePerPixel;
-      const sourceY = (y + 0.5) * sourcePerPixel;
-
-      const sampleHorizontal = (sampleY: number): number => {
-        const local = sample(sourceX, sampleY);
-        if (u < GODOT_NOISE_SEAMLESS_SKIRT) {
-          return mix(
-            sample(sourceX + GODOT_NOISE_TEXTURE_SIZE, sampleY),
-            local,
-            edgeWeight(u),
-          );
-        }
-        if (u > 1 - GODOT_NOISE_SEAMLESS_SKIRT) {
-          return mix(
-            sample(sourceX - GODOT_NOISE_TEXTURE_SIZE, sampleY),
-            local,
-            edgeWeight(1 - u),
-          );
-        }
-        return local;
-      };
-
-      const local = sampleHorizontal(sourceY);
-      let value = local;
-      if (v < GODOT_NOISE_SEAMLESS_SKIRT) {
-        value = mix(
-          sampleHorizontal(sourceY + GODOT_NOISE_TEXTURE_SIZE),
-          local,
-          edgeWeight(v),
-        );
-      } else if (v > 1 - GODOT_NOISE_SEAMLESS_SKIRT) {
-        value = mix(
-          sampleHorizontal(sourceY - GODOT_NOISE_TEXTURE_SIZE),
-          local,
-          edgeWeight(1 - v),
-        );
-      }
-
-      const channel = Math.round(Math.max(0, Math.min(1, value)) * 255);
-      const offset = (y * size + x) * 4;
-      data[offset] = channel;
-      data[offset + 1] = channel;
-      data[offset + 2] = channel;
-      data[offset + 3] = 255;
+  // Godot normalize=true finds extrema over the whole source image, including
+  // the seamless skirt, then maps min→0 and max→255. Match that rather than
+  // assuming FastNoiseLite always spans its theoretical [-1, 1] range.
+  const noiseValues = new Float32Array(sourceWidth * sourceHeight);
+  let minimum = Number.POSITIVE_INFINITY;
+  let maximum = Number.NEGATIVE_INFINITY;
+  for (let y = 0; y < sourceHeight; y += 1) {
+    for (let x = 0; x < sourceWidth; x += 1) {
+      const value = noise.GetNoise(x * sourceScale, y * sourceScale);
+      const offset = y * sourceWidth + x;
+      noiseValues[offset] = value;
+      minimum = Math.min(minimum, value);
+      maximum = Math.max(maximum, value);
     }
   }
 
-  const texture = new DataTexture(data, size, size, RGBAFormat);
+  const source = new Uint8Array(noiseValues.length);
+  const range = maximum - minimum;
+  for (let i = 0; i < noiseValues.length; i += 1) {
+    source[i] = range <= 0 ? 0 : Math.max(0, Math.min(255, Math.floor(((noiseValues[i]! - minimum) / range) * 255)));
+  }
+
+  const readSource = (x: number, y: number, mode: NoiseSourceMode = 'default'): number => {
+    let wrappedX: number;
+    let wrappedY: number;
+    switch (mode) {
+      case 'xy':
+        wrappedX = (x + halfWidth) % size;
+        wrappedY = (y + halfHeight) % size;
+        break;
+      case 'x':
+        wrappedX = (x + halfWidth) % size;
+        wrappedY = (y + halfHeight) % sourceHeight;
+        break;
+      case 'y':
+        wrappedX = (x + halfWidth) % sourceWidth;
+        wrappedY = (y + halfHeight) % size;
+        break;
+      default:
+        wrappedX = (x + halfWidth) % sourceWidth;
+        wrappedY = (y + halfHeight) % sourceHeight;
+        break;
+    }
+    return source[wrappedY * sourceWidth + wrappedX]!;
+  };
+
+  const output = new Uint8Array(size * size);
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      output[y * size + x] = readSource(x, y, 'xy');
+    }
+  }
+
+  // Blend the vertical skirt over the middle seam, skipping the centre square.
+  for (let x = halfWidth; x < skirtEdgeX; x += 1) {
+    const alpha = Math.floor(255 * (1 - smoothstep(0.1, 0.9, (x - halfWidth) / skirtWidth)));
+    for (let y = 0; y < size; y += 1) {
+      if (y >= halfHeight && y < skirtEdgeY) continue;
+      const index = y * size + x;
+      output[index] = godotAlphaBlend(output[index]!, readSource(x, y, 'y'), alpha);
+    }
+  }
+
+  // Blend the horizontal skirt over the middle seam, skipping the centre square.
+  for (let y = halfHeight; y < skirtEdgeY; y += 1) {
+    const alpha = Math.floor(255 * (1 - smoothstep(0.1, 0.9, (y - halfHeight) / skirtHeight)));
+    for (let x = 0; x < size; x += 1) {
+      if (x >= halfWidth && x < skirtEdgeX) continue;
+      const index = y * size + x;
+      output[index] = godotAlphaBlend(output[index]!, readSource(x, y, 'x'), alpha);
+    }
+  }
+
+  // Blend the centre skirt from all four quadrants, exactly as Godot does.
+  for (let y = halfHeight; y < skirtEdgeY; y += 1) {
+    const yAlpha = Math.floor(255 * (1 - smoothstep(0.1, 0.9, (y - halfHeight) / skirtHeight)));
+    for (let x = halfWidth; x < skirtEdgeX; x += 1) {
+      const xAlpha = Math.floor(255 * (1 - smoothstep(0.1, 0.9, (x - halfWidth) / skirtWidth)));
+      const topBlend = godotAlphaBlend(readSource(x, y, 'x'), readSource(x, y), xAlpha);
+      const bottomBlend = godotAlphaBlend(readSource(x, y, 'xy'), readSource(x, y, 'y'), xAlpha);
+      output[y * size + x] = godotAlphaBlend(bottomBlend, topBlend, yAlpha);
+    }
+  }
+
+  const rgba = new Uint8Array(size * size * 4);
+  for (let i = 0; i < output.length; i += 1) {
+    const value = output[i]!;
+    const offset = i * 4;
+    rgba[offset] = value;
+    rgba[offset + 1] = value;
+    rgba[offset + 2] = value;
+    rgba[offset + 3] = 255;
+  }
+
+  const texture = new DataTexture(rgba, size, size, RGBAFormat);
   texture.colorSpace = NoColorSpace;
   texture.wrapS = RepeatWrapping;
   texture.wrapT = RepeatWrapping;
