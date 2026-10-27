@@ -4,7 +4,6 @@ import grassBladeAsset from './assets/grass-blade.png';
 import grassAccentAsset1 from './assets/author-grassleaf.png';
 import grassAccentAsset2 from './assets/author-accentleaf.png';
 import {
-  Color,
   DataTexture,
   DoubleSide,
   MeshStandardMaterial,
@@ -23,6 +22,7 @@ import {
   FIELD_ALBEDO_NOISE_3_TEXTURE,
   FIELD_CLOUD_FRAGMENT_DECLARATIONS,
   FIELD_CLOUD_UNIFORMS,
+  FIELD_GRASS_PALETTE,
   FIELD_TOON_LIGHT_FRAGMENT_DECLARATIONS,
   FIELD_TOON_LIGHT_UNIFORMS,
   FIELD_WIND_NOISE_TEXTURE,
@@ -124,11 +124,11 @@ const FIELD_GRASS_UNIFORMS = {
   uGrassAlbedoThreshold2: { value: 0.537 },
   uGrassAlbedoScale3: { value: 0.001 },
   uGrassAlbedoThreshold3: { value: 0.471 },
-  uGrassAlbedo1: { value: new Color(0x71a200) },
-  uGrassAlbedo2: { value: new Color(0x8ead36) },
-  uGrassAlbedo3: { value: new Color(0x80a739) },
-  uGrassAccentAlbedo1: { value: new Color(0x9ab700) },
-  uGrassAccentAlbedo2: { value: new Color(0x6c9a00) },
+  uGrassAlbedo1: { value: FIELD_GRASS_PALETTE.albedo1 },
+  uGrassAlbedo2: { value: FIELD_GRASS_PALETTE.albedo2 },
+  uGrassAlbedo3: { value: FIELD_GRASS_PALETTE.albedo3 },
+  uGrassAccentAlbedo1: { value: FIELD_GRASS_PALETTE.accentAlbedo1 },
+  uGrassAccentAlbedo2: { value: FIELD_GRASS_PALETTE.accentAlbedo2 },
 };
 
 const grassVertexDeclarations = [
