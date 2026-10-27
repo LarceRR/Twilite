@@ -54,7 +54,7 @@ describe('continuous field grass generation', () => {
     expect(positions.size).toBe(first.length + second.length);
   });
 
-  it('leaves occupied memory cells unobscured without using cells as grass spawn points', () => {
+  it('keeps grass continuous in occupied cells with only a local clearance around the object', () => {
     const occupied = generateFieldGrassInstances(options(0, new Set(['0:0'])));
     const surfaceHeight = fieldGridWorldSize({
       cols: 10,
@@ -62,13 +62,20 @@ describe('continuous field grass generation', () => {
       showDividers: false,
     }).height;
     const pitch = grid.cellSize + grid.dividerWidth;
+    const inOccupiedCell = occupied.filter((instance) => {
+      const col = Math.floor(instance.x / pitch);
+      const row = Math.floor((surfaceHeight / 2 - instance.y) / pitch);
+      return col === 0 && row === 0;
+    });
+    const centerX = grid.dividerWidth + grid.cellSize / 2;
+    const centerY = surfaceHeight / 2 - grid.dividerWidth - grid.cellSize / 2;
+    const clearance = grid.cellSize * 0.28;
 
-    expect(
-      occupied.every((instance) => {
-        const col = Math.floor(instance.x / pitch);
-        const row = Math.floor((surfaceHeight / 2 - instance.y) / pitch);
-        return col !== 0 || row !== 0;
-      }),
-    ).toBe(true);
+    expect(inOccupiedCell.length).toBeGreaterThan(0);
+    expect(inOccupiedCell.every((instance) => {
+      const dx = instance.x - centerX;
+      const dy = instance.y - centerY;
+      return dx * dx + dy * dy >= clearance * clearance;
+    })).toBe(true);
   });
 });
