@@ -328,6 +328,7 @@ function createFieldGrassMaterial(): MeshStandardMaterial {
 
 
 const grassCameraForward = new Vector3();
+const grassWorldUp = new Vector3(0, 0, 1);
 
 /** Sync time and derive wind projection from the existing camera pose without moving or rotating it. */
 export function syncFieldGrassSceneTime(elapsedTimeSec: number, camera: Camera): void {
@@ -348,7 +349,7 @@ export function syncFieldGrassSceneTime(elapsedTimeSec: number, camera: Camera):
   const cameraRightWorld = FIELD_GRASS_UNIFORMS.uGrassCameraRightWorld.value;
   cameraRightWorld.set(cameraRightX, cameraRightY, 0).normalize();
   FIELD_GRASS_UNIFORMS.uGrassCameraNormalWorld.value
-    .crossVectors(cameraRightWorld, new Vector3(0, 0, 1))
+    .crossVectors(cameraRightWorld, grassWorldUp)
     .normalize();
 
   FIELD_GRASS_UNIFORMS.uGrassWindAlignment.value =
