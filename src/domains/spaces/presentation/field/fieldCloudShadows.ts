@@ -168,6 +168,14 @@ FIELD_CLOUD_NOISE_TEXTURE.needsUpdate = true;
 export const FIELD_ALBEDO_NOISE_2_TEXTURE = createFieldNoiseTexture(0, 0.0046);
 export const FIELD_ALBEDO_NOISE_3_TEXTURE = createFieldNoiseTexture(1, 0.0052);
 
+/** Shared instances guarantee the surface and each grass blade use identical author colours. */
+export const FIELD_GRASS_PALETTE = {
+  albedo1: new Color(0x71a200),
+  albedo2: new Color(0x8ead36),
+  albedo3: new Color(0x80a739),
+  accentAlbedo1: new Color(0x9ab700),
+  accentAlbedo2: new Color(0x6c9a00),
+};
 export const FIELD_SURFACE_UNIFORMS = {
   uFieldSurfaceNoise2: { value: FIELD_ALBEDO_NOISE_2_TEXTURE },
   uFieldSurfaceNoise3: { value: FIELD_ALBEDO_NOISE_3_TEXTURE },
@@ -175,9 +183,9 @@ export const FIELD_SURFACE_UNIFORMS = {
   uFieldSurfaceThreshold2: { value: 0.537 },
   uFieldSurfaceScale3: { value: 0.001 },
   uFieldSurfaceThreshold3: { value: 0.471 },
-  uFieldSurfaceAlbedo1: { value: new Color(0x71a200) },
-  uFieldSurfaceAlbedo2: { value: new Color(0x8ead36) },
-  uFieldSurfaceAlbedo3: { value: new Color(0x80a739) },
+  uFieldSurfaceAlbedo1: { value: FIELD_GRASS_PALETTE.albedo1 },
+  uFieldSurfaceAlbedo2: { value: FIELD_GRASS_PALETTE.albedo2 },
+  uFieldSurfaceAlbedo3: { value: FIELD_GRASS_PALETTE.albedo3 },
 };
 
 export const FIELD_SURFACE_FRAGMENT_DECLARATIONS = [
@@ -235,6 +243,9 @@ export const FIELD_CLOUD_UNIFORMS = {
   uCloudDirection: { value: new Vector2(0, -1) },
   uCloudLightDirection: { value: new Vector3(-160, 260, 420).normalize() },
   uCloudShadowMin: { value: 0.2 },
+  // Godot's stepped toon response can lift cloud-capped light back up a level;
+  // this small post-cap contrast keeps the same pattern readable at Twilite scale.
+  uCloudShadowStrength: { value: 0.82 },
   uCloudDivergeAngle: { value: 20 },
 };
 
@@ -249,6 +260,7 @@ export const FIELD_CLOUD_FRAGMENT_DECLARATIONS = [
   'uniform vec2 uCloudDirection;',
   'uniform vec3 uCloudLightDirection;',
   'uniform float uCloudShadowMin;',
+  'uniform float uCloudShadowStrength;',
   'uniform float uCloudDivergeAngle;',
   'vec2 fieldCloudRotate(vec2 vector, float degrees) {',
   '  float angle = degrees * (3.141592653589793 / 180.0);',
@@ -270,7 +282,8 @@ export const FIELD_CLOUD_FRAGMENT_DECLARATIONS = [
   '  float sample2 = texture2D(uCloudNoise, hitPosition.xy / max(uCloudScale, 0.001) * 0.8 + offset2 * (0.89 * 3.141592653589793 / 3.0)).r;',
   '  float visibility = clamp(sample1 * sample2 + uCloudThreshold, 0.0, 1.0);',
   '  visibility = (visibility - 0.5) * uCloudContrast + 0.5;',
-  '  return clamp(visibility + uCloudThreshold, uCloudShadowMin, 1.0);',
+  '  visibility = clamp(visibility + uCloudThreshold, uCloudShadowMin, 1.0);',
+  '  return mix(1.0, pow(visibility, 1.35), uCloudShadowStrength);',
   '}',
 ].join('\n');
 
