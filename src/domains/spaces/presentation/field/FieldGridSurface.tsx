@@ -39,6 +39,7 @@ import {
 import {
   fieldChunkConfigsEqual,
   fieldChunkIndexFromWorldX,
+  fieldChunkStreamingLookAheadPx,
   fieldVisibleChunkIndices,
 } from './fieldGridChunks';
 import {
@@ -216,7 +217,14 @@ export function FieldGridSurface({
   const initialCameraX = useFieldCameraControlStore.getState().position.x;
   const initialCellPitch = fieldGridCellPitch(config);
   const initialAnchor = fieldChunkIndexFromWorldX(
-    Math.max(0, initialCameraX + fieldConfig.chunks.lookAheadPx),
+    Math.max(
+      0,
+      initialCameraX + fieldChunkStreamingLookAheadPx(
+        fieldConfig.chunks.lookAheadPx,
+        initialCellPitch,
+        fieldConfig.chunks.cols,
+      ),
+    ),
     initialCellPitch,
     fieldConfig.chunks.cols,
   );
@@ -336,7 +344,14 @@ export function FieldGridSurface({
     const cellPitch = fieldGridCellPitch(bakeNow.base);
     const chunkConfig = fieldConfig.chunks;
     const anchor = fieldChunkIndexFromWorldX(
-      Math.max(0, cameraX + chunkConfig.lookAheadPx),
+      Math.max(
+        0,
+        cameraX + fieldChunkStreamingLookAheadPx(
+          chunkConfig.lookAheadPx,
+          cellPitch,
+          chunkConfig.cols,
+        ),
+      ),
       cellPitch,
       chunkConfig.cols,
     );
