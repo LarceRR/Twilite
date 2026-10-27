@@ -259,7 +259,8 @@ const grassLightingBody = [
   'float fieldGrassNdotL = max(dot(normalize(normal), directionalLights[0].direction), 0.0);',
   'float fieldGrassDiffuse = min(fieldGrassNdotL, fieldGrassCloud);',
   'float fieldGrassStepped = clamp(fieldGrassDiffuse + mod(1.0 - fieldGrassDiffuse, 1.0 / 3.0), 0.0, 1.0);',
-  'float fieldGrassDirectScale = fieldGrassNdotL > 0.0001 ? (fieldGrassStepped / fieldGrassNdotL) * uFieldToonDirectLightScale : 0.0;',
+  'float fieldGrassCloudShadow = mix(1.0, pow(fieldGrassCloud, 1.35), uCloudShadowStrength);',
+  'float fieldGrassDirectScale = fieldGrassNdotL > 0.0001 ? (fieldGrassStepped / fieldGrassNdotL) * uFieldToonDirectLightScale * fieldGrassCloudShadow : 0.0;',
   'outgoingLight -= reflectedLight.directDiffuse + reflectedLight.indirectDiffuse;',
   'outgoingLight += reflectedLight.directDiffuse * fieldGrassDirectScale;',
   'outgoingLight += reflectedLight.indirectDiffuse * uFieldToonAmbientScale;',
@@ -322,7 +323,7 @@ function createFieldGrassMaterial(): MeshStandardMaterial {
     );
   };
 
-  material.customProgramCacheKey = () => 'twilite-field-grass-v5-root-accent-noise';
+  material.customProgramCacheKey = () => 'twilite-field-grass-v6-visible-cloud-shadows';
   return material;
 }
 
