@@ -322,7 +322,7 @@ function createFieldGrassMaterial(): MeshStandardMaterial {
     );
   };
 
-  material.customProgramCacheKey = () => 'twilite-field-grass-v4-authored-ndotl-cloud';
+  material.customProgramCacheKey = () => 'twilite-field-grass-v5-root-accent-noise';
   return material;
 }
 
