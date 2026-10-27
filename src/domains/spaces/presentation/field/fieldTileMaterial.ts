@@ -7,6 +7,7 @@ import {
 } from './fieldGridWaveMaterial';
 import { FIELD_WAVE_MAX_COUNT } from './fieldGridWave';
 import { getFieldOccupiedTileMaps } from './fieldOccupiedTileMaps';
+import { FIELD_CLOUD_FRAGMENT_DECLARATIONS, FIELD_CLOUD_UNIFORMS } from './fieldCloudShadows';
 
 /** Default finish for ordinary, non-occupied tiles. */
 const TILE_ROUGHNESS = 0.9;
@@ -194,6 +195,9 @@ const fragmentBody = /* glsl */ `
     fieldCandleIrradiance( vFieldWorldPos, fieldNormal );
   lit += fieldAlbedo * uAmbientColor *
     ( ( uAmbientIntensity + uTileEmissiveIntensity ) * ${TILE_EMISSIVE_FLOOR_SCALE.toFixed(3)} );
+  // Apply the same moving world-space cloud shadow as the grass shader.
+  // The local candle contribution added below remains visible in cloud shade.
+  outgoingLight *= fieldCloudVisibility(vFieldWorldPos);
   outgoingLight = mix(
     outgoingLight + lit,
     vec3( 0.0 ),
@@ -261,7 +265,11 @@ export function createFieldTileMaterial(map: Texture): FieldTileMaterial {
   material.receivesPixelLights = true;
 
   material.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, material.uniforms);
+    Object.assign(shader.uniforms, material.uniforms, FIELD_CLOUD_UNIFORMS);
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <common>',
+      '#include <common>\n' + FIELD_CLOUD_FRAGMENT_DECLARATIONS,
+    );
     const occupiedTileMaps = getFieldOccupiedTileMaps();
     const occupiedTileUniforms = material.userData.occupiedTileUniforms as {
       readonly uUseGeneratedTileAlbedo: { value: number };
