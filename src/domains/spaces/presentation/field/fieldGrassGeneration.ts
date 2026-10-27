@@ -1,4 +1,8 @@
-import { fieldTileHeight, FIELD_TILE_HEIGHT_STEP } from './fieldTileGeneration';
+import {
+  fieldTileHeight,
+  FIELD_TILE_HEIGHT_STEP,
+  objectPlatformHeight,
+} from './fieldTileGeneration';
 import { FIELD_GRID_DIVIDER_WIDTH, fieldGridWorldSize, type FieldGridConfig } from './fieldGridConfig';
 
 /** sqrt(1 / 48 blades per square metre) converted to Twilite world units. */
@@ -103,19 +107,31 @@ export function generateFieldGrassInstances(
       const row = Math.floor((halfSurfaceHeight - y) / pitch);
       if (col < 0 || row < 0 || row >= options.grid.rows) continue;
 
-      // Twilite objects keep their existing cell footprint unobscured. The rest
-      // of the field is populated continuously, unrelated to cell centres.
-      if (options.occupiedCellKeys.has(col + ':' + row)) continue;
+      const isOccupied = options.occupiedCellKeys.has(col + ':' + row);
+      if (isOccupied) {
+        const centerX = col * pitch + (options.grid.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH) + options.grid.cellSize / 2;
+        const centerY = halfSurfaceHeight - (
+          row * pitch + (options.grid.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH) + options.grid.cellSize / 2
+        );
+        // Keep only a small local clearance around the artwork itself. Do not
+        // clear the whole logical cell: cells must not be visible in the grass pattern.
+        const objectClearance = options.grid.cellSize * 0.28;
+        const dx = x - centerX;
+        const dy = y - centerY;
+        if (dx * dx + dy * dy < objectClearance * objectClearance) continue;
+      }
 
-      const rootZ = options.generatedTilesEnabled
-        ? fieldTileHeight(
-            options.worldSeed,
-            col,
-            row,
-            options.tileMinHeight,
-            options.tileMaxHeight,
-          ) * FIELD_TILE_HEIGHT_STEP
-        : -options.platformHeight;
+      const rootZ = isOccupied
+        ? objectPlatformHeight(options.worldSeed, col, row) * FIELD_TILE_HEIGHT_STEP
+        : options.generatedTilesEnabled
+          ? fieldTileHeight(
+              options.worldSeed,
+              col,
+              row,
+              options.tileMinHeight,
+              options.tileMaxHeight,
+            ) * FIELD_TILE_HEIGHT_STEP
+          : -options.platformHeight;
 
       const sizeRandom = grassRandom(latticeX, latticeY, 4);
       const width = 16 + sizeRandom * 8;
