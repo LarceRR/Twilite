@@ -92,6 +92,33 @@ describe('continuous field grass generation', () => {
     expect(yBins.every((count) => count > 0)).toBe(true);
   });
 
+  it('samples the whole chunk instead of exhausting the instance budget in one strip', () => {
+    const instances = generateFieldGrassInstances({
+      ...options(0),
+      spacing: 4,
+      maxInstances: 1200,
+    });
+    const surface = fieldGridWorldSize({ cols: 10, ...grid, showDividers: false });
+    const xBins = Array.from({ length: 8 }, (_, bin) =>
+      instances.filter((instance) =>
+        instance.x >= (surface.width * bin) / 8 &&
+        instance.x < (surface.width * (bin + 1)) / 8,
+      ).length,
+    );
+    const yBins = Array.from({ length: 8 }, (_, bin) =>
+      instances.filter((instance) =>
+        instance.y >= -surface.height / 2 + (surface.height * bin) / 8 &&
+        instance.y < -surface.height / 2 + (surface.height * (bin + 1)) / 8,
+      ).length,
+    );
+
+    expect(instances.length).toBeLessThanOrEqual(1200);
+    expect(xBins.every((count) => count > 0)).toBe(true);
+    expect(yBins.every((count) => count > 0)).toBe(true);
+    expect(Math.max(...xBins)).toBeLessThan(Math.min(...xBins) * 3);
+    expect(Math.max(...yBins)).toBeLessThan(Math.min(...yBins) * 3);
+  });
+
   it('keeps occupied-cell inputs for an existing chunk stable when another chunk loads', () => {
     const before = new Set(['1:3', '5:4']);
     const after = new Set(['1:3', '5:4', '11:8']);
