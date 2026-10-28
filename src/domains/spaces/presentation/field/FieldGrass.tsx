@@ -13,6 +13,7 @@ import {
 } from 'three';
 
 import { FIELD_GRASS_BUFFER_CAPACITY } from './fieldConfig';
+import { scheduleFieldGrassGeneration } from './fieldGrassGenerationScheduler';
 import { useFieldTileStore } from './fieldTileStore';
 import { iterateFieldGrassInstances } from './fieldGrassGeneration';
 import { FIELD_GRASS_MATERIAL, loadFieldGrassSprite } from './fieldGrassMaterial';
@@ -68,6 +69,7 @@ export function FieldGrass({
       bladeHeight: grassConfig.bladeHeight,
       maxInstancesPerChunk: grassConfig.maxInstancesPerChunk,
       generationBatchSize: grassConfig.generationBatchSize,
+      maxGeneratedPerFrame: grassConfig.maxGeneratedPerFrame,
       edgeMargin: grassConfig.edgeMargin,
       jitterRatio: grassConfig.jitterRatio,
       occupiedClearanceRatio: grassConfig.occupiedClearanceRatio,
@@ -83,6 +85,7 @@ export function FieldGrass({
       grassConfig.bladeHeight,
       grassConfig.maxInstancesPerChunk,
       grassConfig.generationBatchSize,
+      grassConfig.maxGeneratedPerFrame,
       grassConfig.edgeMargin,
       grassConfig.jitterRatio,
       grassConfig.occupiedClearanceRatio,
@@ -145,7 +148,6 @@ export function FieldGrass({
     const token = generationToken.current + 1;
     generationToken.current = token;
     let active = true;
-    let frameId: number | null = null;
     let written = 0;
     let finished = false;
 
@@ -185,8 +187,13 @@ export function FieldGrass({
     const dimensionsAttribute = geometry.getAttribute('aGrassDimensions') as InstancedBufferAttribute;
     const accentAttribute = geometry.getAttribute('aGrassAccent') as InstancedBufferAttribute;
 
-    const processBatch = (): void => {
-      if (!active || generationToken.current !== token) return;
+    const processBatch = (allowance: number): {
+      readonly processed: number;
+      readonly done: boolean;
+    } => {
+      if (!active || generationToken.current !== token) {
+        return { processed: 0, done: true };
+      }
 
       camera.getWorldDirection(cameraForward);
       cameraForward.z = 0;
@@ -199,7 +206,8 @@ export function FieldGrass({
 
       const rangeStart = written;
       let produced = 0;
-      while (produced < batchSize && written < instanceLimit) {
+      const targetCount = Math.max(1, Math.min(batchSize, Math.floor(allowance)));
+      while (produced < targetCount && written < instanceLimit) {
         const next = iterator.next();
         if (next.done) {
           finished = true;
@@ -246,17 +254,23 @@ export function FieldGrass({
 
       // frustumCulled is disabled on this mesh, so computing a new bounding
       // sphere for every streamed chunk would only add unnecessary CPU work.
-      if (!finished && written < instanceLimit) {
-        frameId = requestAnimationFrame(processBatch);
-      }
+      return {
+        processed: produced,
+        done: finished || written >= instanceLimit,
+      };
     };
 
-    frameId = requestAnimationFrame(processBatch);
+    const cancelScheduledGeneration = scheduleFieldGrassGeneration({
+      batchSize,
+      frameBudget: generationConfig.maxGeneratedPerFrame,
+      process: processBatch,
+    });
     return () => {
       active = false;
-      if (frameId !== null) cancelAnimationFrame(frameId);
+      cancelScheduledGeneration();
       if (generationToken.current === token) generationToken.current += 1;
     };
+
   }, [
     chunkIndex,
     chunkCols,
