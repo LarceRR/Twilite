@@ -1,5 +1,5 @@
 import { useThree } from '@react-three/fiber/native';
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { ReactElement } from 'react';
 import {
   DynamicDrawUsage,
@@ -13,10 +13,7 @@ import {
 } from 'three';
 
 import { useFieldTileStore } from './fieldTileStore';
-import {
-  FIELD_GRASS_SPACING,
-  generateFieldGrassInstances,
-} from './fieldGrassGeneration';
+import { iterateFieldGrassInstances } from './fieldGrassGeneration';
 import { FIELD_GRASS_MATERIAL, loadFieldGrassSprite } from './fieldGrassMaterial';
 import {
   FIELD_GRID_DIVIDER_WIDTH,
@@ -43,6 +40,8 @@ export function FieldGrass({
 }: FieldGrassProps): ReactElement {
   const camera = useThree((state) => state.camera);
   const fieldConfig = useFieldConfig();
+  const grassConfig = fieldConfig.grass;
+  const generationToken = useRef(0);
   const worldSeed = useFieldTileStore((state) => state.worldSeed);
   const generatedTilesEnabled = useFieldTileStore((state) => state.generatedTilesEnabled);
   const tileMinHeight = useFieldTileStore((state) => state.tileMinHeight);
@@ -75,11 +74,9 @@ export function FieldGrass({
 
   // The extra rows account for jitter at lattice edges; invalid positions are
   // discarded by the generator. This bounds allocation per chunk.
-  const capacity = Math.max(
-    1,
-    (Math.ceil(worldSize.width / FIELD_GRASS_SPACING) + 4) *
-      (Math.ceil(worldSize.height / FIELD_GRASS_SPACING) + 4),
-  );
+  // Keep allocation stable while tweaking spacing; only the explicit capacity
+  // setting reallocates GPU buffers.
+  const capacity = Math.max(1, Math.floor(grassConfig.maxInstancesPerChunk));
 
   const seedData = useMemo(() => new Float32Array(capacity), [capacity]);
   const dimensionsData = useMemo(() => new Float32Array(capacity * 2), [capacity]);
@@ -111,17 +108,30 @@ export function FieldGrass({
     return () => geometry.dispose();
   }, [geometry]);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const mesh = meshRef.current;
     if (mesh === null) return;
 
-    if (chunkIndex === null) {
-      mesh.count = 0;
-      mesh.instanceMatrix.needsUpdate = true;
-      return;
+    // Slot recycling is common during world streaming. Invalidate the previous
+    // iterator before starting another chunk so stale batches cannot write into it.
+    const token = generationToken.current + 1;
+    generationToken.current = token;
+    let active = true;
+    let frameId: number | null = null;
+    let written = 0;
+    let finished = false;
+
+    mesh.count = 0;
+    mesh.instanceMatrix.setUsage(DynamicDrawUsage);
+
+    if (chunkIndex === null || !grassConfig.enabled) {
+      return () => {
+        active = false;
+        if (generationToken.current === token) generationToken.current += 1;
+      };
     }
 
-    const instances = generateFieldGrassInstances({
+    const iterator = iterateFieldGrassInstances({
       chunkIndex,
       chunkCols,
       grid,
@@ -133,43 +143,92 @@ export function FieldGrass({
       objectMaxHeight,
       generatedTilesEnabled,
       occupiedCellKeys,
+      spacing: grassConfig.spacing,
+      bladeWidth: grassConfig.bladeWidth,
+      bladeHeight: grassConfig.bladeHeight,
+      edgeMargin: grassConfig.edgeMargin,
+      jitterRatio: grassConfig.jitterRatio,
+      occupiedClearanceRatio: grassConfig.occupiedClearanceRatio,
+      accentProbability1: grassConfig.accentProbability1,
+      accentProbability2: grassConfig.accentProbability2,
     });
+    const batchSize = Math.max(1, Math.floor(grassConfig.generationBatchSize));
+    const seedAttribute = geometry.getAttribute('aGrassSeed') as InstancedBufferAttribute;
+    const dimensionsAttribute = geometry.getAttribute('aGrassDimensions') as InstancedBufferAttribute;
+    const accentAttribute = geometry.getAttribute('aGrassAccent') as InstancedBufferAttribute;
 
-    camera.getWorldDirection(cameraForward);
-    cameraForward.z = 0;
-    if (cameraForward.lengthSq() < 0.0001) cameraForward.set(1, 0, 0);
-    cameraForward.normalize();
-    cameraRight.crossVectors(cameraForward, worldUp).normalize();
-    billboardNormal.crossVectors(cameraRight, worldUp).normalize();
-    billboardMatrix.makeBasis(cameraRight, worldUp, billboardNormal);
-    billboardQuaternion.setFromRotationMatrix(billboardMatrix);
+    const processBatch = (): void => {
+      if (!active || generationToken.current !== token) return;
 
-    const count = Math.min(instances.length, capacity);
-    for (let index = 0; index < count; index += 1) {
-      const instance = instances[index]!;
-      dummy.position.set(
-        instance.x,
-        instance.y,
-        instance.rootZ + instance.height / 2 + (instance.accent === 1 ? 10 : instance.accent === 2 ? 18.5 : 0),
-      );
-      dummy.quaternion.copy(billboardQuaternion);
-      dummy.scale.set(instance.width, instance.height, 1);
-      dummy.updateMatrix();
-      mesh.setMatrixAt(index, dummy.matrix);
+      camera.getWorldDirection(cameraForward);
+      cameraForward.z = 0;
+      if (cameraForward.lengthSq() < 0.0001) cameraForward.set(1, 0, 0);
+      cameraForward.normalize();
+      cameraRight.crossVectors(cameraForward, worldUp).normalize();
+      billboardNormal.crossVectors(cameraRight, worldUp).normalize();
+      billboardMatrix.makeBasis(cameraRight, worldUp, billboardNormal);
+      billboardQuaternion.setFromRotationMatrix(billboardMatrix);
 
-      seedData[index] = instance.seed;
-      dimensionsData[index * 2] = instance.width;
-      dimensionsData[index * 2 + 1] = instance.height;
-      accentData[index] = instance.accent;
-    }
+      const rangeStart = written;
+      let produced = 0;
+      while (produced < batchSize && written < capacity) {
+        const next = iterator.next();
+        if (next.done) {
+          finished = true;
+          break;
+        }
 
-    mesh.count = count;
-    mesh.instanceMatrix.setUsage(DynamicDrawUsage);
-    mesh.instanceMatrix.needsUpdate = true;
-    geometry.getAttribute('aGrassSeed').needsUpdate = true;
-    geometry.getAttribute('aGrassDimensions').needsUpdate = true;
-    geometry.getAttribute('aGrassAccent').needsUpdate = true;
-    mesh.computeBoundingSphere();
+        const instance = next.value;
+        dummy.position.set(
+          instance.x,
+          instance.y,
+          instance.rootZ +
+            instance.height / 2 +
+            (instance.accent === 1
+              ? grassConfig.accentOffset1
+              : instance.accent === 2
+                ? grassConfig.accentOffset2
+                : 0),
+        );
+        dummy.quaternion.copy(billboardQuaternion);
+        dummy.scale.set(instance.width, instance.height, 1);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(written, dummy.matrix);
+
+        seedData[written] = instance.seed;
+        dimensionsData[written * 2] = instance.width;
+        dimensionsData[written * 2 + 1] = instance.height;
+        accentData[written] = instance.accent;
+        written += 1;
+        produced += 1;
+      }
+
+      const rangeCount = written - rangeStart;
+      mesh.count = written;
+      if (rangeCount > 0) {
+        mesh.instanceMatrix.addUpdateRange(rangeStart * 16, rangeCount * 16);
+        mesh.instanceMatrix.needsUpdate = true;
+        seedAttribute.addUpdateRange(rangeStart, rangeCount);
+        dimensionsAttribute.addUpdateRange(rangeStart * 2, rangeCount * 2);
+        accentAttribute.addUpdateRange(rangeStart, rangeCount);
+        seedAttribute.needsUpdate = true;
+        dimensionsAttribute.needsUpdate = true;
+        accentAttribute.needsUpdate = true;
+      }
+
+      // frustumCulled is disabled on this mesh, so computing a new bounding
+      // sphere for every streamed chunk would only add unnecessary CPU work.
+      if (!finished && written < capacity) {
+        frameId = requestAnimationFrame(processBatch);
+      }
+    };
+
+    frameId = requestAnimationFrame(processBatch);
+    return () => {
+      active = false;
+      if (frameId !== null) cancelAnimationFrame(frameId);
+      if (generationToken.current === token) generationToken.current += 1;
+    };
   }, [
     chunkIndex,
     chunkCols,
@@ -182,6 +241,7 @@ export function FieldGrass({
     objectMaxHeight,
     generatedTilesEnabled,
     occupiedCellKeys,
+    grassConfig,
     camera,
     cameraForward,
     cameraRight,
@@ -202,7 +262,7 @@ export function FieldGrass({
       ref={meshRef}
       args={[geometry, FIELD_GRASS_MATERIAL, capacity]}
       castShadow={false}
-      receiveShadow
+      receiveShadow={grassConfig.receiveShadows}
       frustumCulled={false}
       renderOrder={1.2}
     />
