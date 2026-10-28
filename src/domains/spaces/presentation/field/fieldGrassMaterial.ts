@@ -390,7 +390,10 @@ export function syncFieldGrassConfig(config: FieldConfig['grass']): void {
     config.windDirectionY,
   );
   if (FIELD_GRASS_UNIFORMS.uGrassWindDirection.value.lengthSq() < 0.0001) {
-    FIELD_GRASS_UNIFORMS.uGrassWindDirection.value.set(0, 1);
+    FIELD_GRASS_UNIFORMS.uGrassWindDirection.value.set(
+      defaultGrassConfig.windDirectionX,
+      defaultGrassConfig.windDirectionY,
+    );
   } else {
     FIELD_GRASS_UNIFORMS.uGrassWindDirection.value.normalize();
   }
@@ -429,8 +432,8 @@ export function syncFieldGrassSceneTime(elapsedTimeSec: number, camera: Camera):
 
   const wind = FIELD_GRASS_UNIFORMS.uGrassWindDirection.value;
   const windLength = Math.hypot(wind.x, wind.y);
-  const windX = windLength > 0.0001 ? wind.x / windLength : 0;
-  const windY = windLength > 0.0001 ? wind.y / windLength : 1;
+  const windX = windLength > 0.0001 ? wind.x / windLength : defaultGrassConfig.windDirectionX;
+  const windY = windLength > 0.0001 ? wind.y / windLength : defaultGrassConfig.windDirectionY;
   const cameraRightX = grassCameraForward.y;
   const cameraRightY = -grassCameraForward.x;
   const cameraRightWorld = FIELD_GRASS_UNIFORMS.uGrassCameraRightWorld.value;
