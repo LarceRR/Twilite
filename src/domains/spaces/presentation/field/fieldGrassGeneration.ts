@@ -33,6 +33,7 @@ export type FieldGrassGenerationOptions = {
   readonly objectMaxHeight: number;
   readonly generatedTilesEnabled: boolean;
   readonly occupiedCellKeys: ReadonlySet<string>;
+  readonly maxInstances?: number;
   readonly spacing?: number;
   readonly bladeWidth?: number;
   readonly bladeHeight?: number;
@@ -42,6 +43,26 @@ export type FieldGrassGenerationOptions = {
   readonly accentProbability1?: number;
   readonly accentProbability2?: number;
 };
+
+/** Stable occupied-cell input for one chunk, unaffected by objects loading in other chunks. */
+export function fieldGrassOccupiedCellKeysSignature(
+  occupiedCellKeys: ReadonlySet<string>,
+  chunkIndex: number | null,
+  chunkCols: number,
+): string {
+  if (chunkIndex === null || !Number.isInteger(chunkCols) || chunkCols < 1) return '';
+
+  const keys: string[] = [];
+  for (const key of occupiedCellKeys) {
+    const separator = key.indexOf(':');
+    if (separator < 1) continue;
+    const col = Number(key.slice(0, separator));
+    if (Number.isInteger(col) && col >= 0 && Math.floor(col / chunkCols) === chunkIndex) {
+      keys.push(key);
+    }
+  }
+  return keys.sort().join('|');
+}
 
 /** Stable hash of the global distribution lattice, independent of chunk boundaries. */
 function grassRandom(x: number, y: number, channel: number): number {
@@ -108,9 +129,22 @@ export function* iterateFieldGrassInstances(
   const lastLatticeX = Math.ceil(chunkEndX / spacing) + 1;
   const firstLatticeY = -1;
   const lastLatticeY = Math.ceil(surfaceHeight / spacing) + 1;
+  const candidateCount =
+    (lastLatticeX - firstLatticeX + 1) * (lastLatticeY - firstLatticeY + 1);
+  const maxInstances = options.maxInstances == null || !Number.isFinite(options.maxInstances)
+    ? Number.POSITIVE_INFINITY
+    : Math.max(1, Math.floor(options.maxInstances));
+  const samplingStride = Number.isFinite(maxInstances)
+    ? Math.max(1, Math.ceil(candidateCount / maxInstances))
+    : 1;
+  let candidateIndex = 0;
 
   for (let latticeX = firstLatticeX; latticeX <= lastLatticeX; latticeX += 1) {
     for (let latticeY = firstLatticeY; latticeY <= lastLatticeY; latticeY += 1) {
+      const shouldSample = candidateIndex % samplingStride === 0;
+      candidateIndex += 1;
+      if (!shouldSample) continue;
+
       const positionSeed = grassRandom(latticeX, latticeY, 1);
       const jitterX = (grassRandom(latticeX, latticeY, 2) - 0.5) * jitterRatio;
       const jitterY = (grassRandom(latticeX, latticeY, 3) - 0.5) * jitterRatio;
