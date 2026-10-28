@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { generateFieldGrassInstances, iterateFieldGrassInstances } from './fieldGrassGeneration';
+import {
+  fieldGrassOccupiedCellKeysSignature,
+  generateFieldGrassInstances,
+  iterateFieldGrassInstances,
+} from './fieldGrassGeneration';
 import { fieldGridWorldSize } from './fieldGridConfig';
 
 const grid = {
@@ -47,7 +51,36 @@ describe('continuous field grass generation', () => {
     expect(instances.every((instance) => instance.width === 20 && instance.height === 30)).toBe(true);
   });
 
-  it('supports adjustable density and blade dimensions', () => {
+  it('distributes dense grass across the whole chunk when the instance limit is reached', () => {
+    const instances = generateFieldGrassInstances({
+      ...options(0),
+      spacing: 5,
+      maxInstances: 400,
+    });
+    const surface = fieldGridWorldSize({ cols: 10, ...grid, showDividers: false });
+
+    expect(instances.length).toBeGreaterThan(250);
+    expect(instances.length).toBeLessThanOrEqual(400);
+    expect(Math.min(...instances.map((instance) => instance.x))).toBeLessThan(surface.width * 0.1);
+    expect(Math.max(...instances.map((instance) => instance.x))).toBeGreaterThan(surface.width * 0.9);
+    expect(Math.min(...instances.map((instance) => instance.y))).toBeLessThan(-surface.height * 0.4);
+    expect(Math.max(...instances.map((instance) => instance.y))).toBeGreaterThan(surface.height * 0.4);
+  });
+
+  it('keeps occupied-cell inputs for an existing chunk stable when another chunk loads', () => {
+    const before = new Set(['1:3', '5:4']);
+    const after = new Set(['1:3', '5:4', '11:8']);
+
+    expect(fieldGrassOccupiedCellKeysSignature(before, 0, 10)).toBe(
+      fieldGrassOccupiedCellKeysSignature(after, 0, 10),
+    );
+    expect(fieldGrassOccupiedCellKeysSignature(after, 1, 10)).toBe('11:8');
+    expect(fieldGrassOccupiedCellKeysSignature(after, 0, 10)).toBe(
+      fieldGrassOccupiedCellKeysSignature(new Set(['5:4', '1:3']), 0, 10),
+    );
+  });
+
+  it('supports adjustable density and blade dimensions', () =>
     const defaultInstances = generateFieldGrassInstances(options(0));
     const adjustedInstances = generateFieldGrassInstances({
       ...options(0),
