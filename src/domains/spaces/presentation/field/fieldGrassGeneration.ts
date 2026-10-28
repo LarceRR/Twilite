@@ -128,20 +128,35 @@ export function* iterateFieldGrassInstances(
   const maxInstances = options.maxInstances == null || !Number.isFinite(options.maxInstances)
     ? Number.POSITIVE_INFINITY
     : Math.max(1, Math.floor(options.maxInstances));
-  // Keep the entire chunk under its instance budget by increasing the lattice
-  // spacing, not by stopping halfway through the x-major iterator. The same
-  // effective spacing is used for every chunk, so the global lattice stays aligned.
-  const budgetSpacing = Number.isFinite(maxInstances)
-    ? Math.sqrt((chunkWidth * Math.max(1, surfaceHeight - edgeMargin * 2)) / maxInstances) * 1.05
-    : requestedSpacing;
-  const spacing = Math.max(requestedSpacing, budgetSpacing);
+  const spacing = requestedSpacing;
   const firstLatticeX = Math.floor(chunkStartX / spacing) - 1;
   const lastLatticeX = Math.ceil(chunkEndX / spacing) + 1;
   const firstLatticeY = -1;
   const lastLatticeY = Math.ceil(surfaceHeight / spacing) + 1;
+  const latticeColumns = lastLatticeX - firstLatticeX + 1;
+  const latticeRows = lastLatticeY - firstLatticeY + 1;
+
+  // If the desired density exceeds the GPU instance budget, sample the 2D
+  // lattice across both axes. Never stop after the first N x-major instances:
+  // that creates a single horizontal strip and leaves most of the chunk bald.
+  let sampleStride = 1;
+  if (Number.isFinite(maxInstances)) {
+    while (
+      Math.ceil(latticeColumns / sampleStride) * Math.ceil(latticeRows / sampleStride) >
+      maxInstances
+    ) {
+      sampleStride += 1;
+    }
+  }
+  const positiveModulo = (value: number, divisor: number) =>
+    ((value % divisor) + divisor) % divisor;
 
   for (let latticeX = firstLatticeX; latticeX <= lastLatticeX; latticeX += 1) {
     for (let latticeY = firstLatticeY; latticeY <= lastLatticeY; latticeY += 1) {
+      if (
+        positiveModulo(latticeX, sampleStride) !== 0 ||
+        positiveModulo(latticeY, sampleStride) !== 0
+      ) continue;
 
       const positionSeed = grassRandom(latticeX, latticeY, 1);
       const jitterX = (grassRandom(latticeX, latticeY, 2) - 0.5) * jitterRatio;
