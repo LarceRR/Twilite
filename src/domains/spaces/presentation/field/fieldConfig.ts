@@ -82,6 +82,11 @@ export type FieldConfig = {
     readonly windDirectionY: number;
     readonly windScale: number;
     readonly windSpeed: number;
+    readonly windSecondaryScaleRatio: number;
+    readonly windSecondaryOffsetRatio: number;
+    readonly seedPhaseScale: number;
+    readonly quantizedAnimation: boolean;
+    readonly fakePerspectiveScale: number;
     readonly windThreshold: number;
     readonly windDivergence: number;
     readonly windAngle: number;
@@ -89,6 +94,11 @@ export type FieldConfig = {
     readonly viewSwaySpeed: number;
     readonly viewSwayAngle: number;
     readonly albedoNoiseEnabled: boolean;
+    readonly albedoColor1: string;
+    readonly albedoColor2: string;
+    readonly albedoColor3: string;
+    readonly accentAlbedoColor1: string;
+    readonly accentAlbedoColor2: string;
     readonly albedoScale2: number;
     readonly albedoThreshold2: number;
     readonly albedoScale3: number;
@@ -99,6 +109,7 @@ export type FieldConfig = {
     readonly cloudContrast: number;
     readonly cloudThreshold: number;
     readonly cloudShadowStrength: number;
+    readonly cloudShadowCurveExponent: number;
   };
   /** Controls the expanding pixel-style wave shown after tapping or holding a grid cell. */
   readonly wave: {
@@ -455,6 +466,11 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
     windDirectionY: 1,
     windScale: 0.00071,
     windSpeed: 0.025,
+    windSecondaryScaleRatio: 0.8,
+    windSecondaryOffsetRatio: 0.89,
+    seedPhaseScale: 10,
+    quantizedAnimation: true,
+    fakePerspectiveScale: 0.3,
     windThreshold: 0.365,
     windDivergence: 10,
     windAngle: 60,
@@ -462,6 +478,11 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
     viewSwaySpeed: 0.1,
     viewSwayAngle: 10,
     albedoNoiseEnabled: true,
+    albedoColor1: '#71A200',
+    albedoColor2: '#8EAD36',
+    albedoColor3: '#80A739',
+    accentAlbedoColor1: '#9AB700',
+    accentAlbedoColor2: '#6C9A00',
     albedoScale2: 0.0011,
     albedoThreshold2: 0.537,
     albedoScale3: 0.001,
@@ -472,6 +493,7 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
     cloudContrast: 3.845,
     cloudThreshold: 0.27,
     cloudShadowStrength: 0.82,
+    cloudShadowCurveExponent: 1.35,
   },
   wave: {
     sizePx: 96,
