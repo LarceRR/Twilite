@@ -32,7 +32,7 @@ describe('continuous field grass generation', () => {
     expect(instances.every((instance) => instance.width > 0 && instance.height > 0)).toBe(true);
   });
 
-  it('matches the author’s approximate 48 blades per square metre without density inflation', () => {
+  it('keeps the configured default density around 30 blades per square metre', () => {
     const instances = generateFieldGrassInstances(options(0));
     const surface = fieldGridWorldSize({
       cols: 10,
