@@ -273,12 +273,11 @@ export function FieldGrass({
         accentAttribute.needsUpdate = true;
       }
 
-      // Keep this chunk completely hidden while its buffer is being filled.
-      // Otherwise every batch becomes visible immediately and the grass appears
-      // as a left-to-right scanning stripe during initial load and slot recycling.
-      // Reveal the finished buffer atomically so the visual result is never partial.
+      // Instances arrive in a spatially distributed order, so partial batches
+      // fill the whole chunk instead of creating a moving grass stripe.
+      // The mesh remains hidden until the matching surface is GPU-ready.
       const done = finished || written >= instanceLimit;
-      mesh.count = done ? written : 0;
+      mesh.count = written;
 
       // frustumCulled is disabled on this mesh, so computing a new bounding
       // sphere for every streamed chunk would only add unnecessary CPU work.

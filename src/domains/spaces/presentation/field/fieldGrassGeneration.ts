@@ -157,75 +157,103 @@ export function* iterateFieldGrassInstances(
   const lastLatticeX = Math.ceil(chunkEndX / spacing) + 1;
   const firstLatticeY = -1;
   const lastLatticeY = Math.ceil(surfaceHeight / spacing) + 1;
+  const latticeColumns = lastLatticeX - firstLatticeX + 1;
+  const latticeRows = lastLatticeY - firstLatticeY + 1;
+  const latticeCount = latticeColumns * latticeRows;
 
-  for (let latticeX = firstLatticeX; latticeX <= lastLatticeX; latticeX += 1) {
-    for (let latticeY = firstLatticeY; latticeY <= lastLatticeY; latticeY += 1) {
-      const positionSeed = grassRandom(latticeX, latticeY, 1);
-      const jitterX = (grassRandom(latticeX, latticeY, 2) - 0.5) * jitterRatio;
-      const jitterY = (grassRandom(latticeX, latticeY, 3) - 0.5) * jitterRatio;
-      const x = (latticeX + 0.5 + jitterX) * spacing;
-      const y = -halfSurfaceHeight + (latticeY + 0.5 + jitterY) * spacing;
+  // A chunk can contain thousands of blades. Do not emit them in X-major order:
+  // early batches would occupy only a narrow depth strip. A deterministic
+  // coprime permutation visits the same world-aligned lattice in a spatially
+  // distributed order, so partial buffers already cover the whole chunk.
+  const greatestCommonDivisor = (left: number, right: number): number => {
+    let a = left;
+    let b = right;
+    while (b !== 0) {
+      const remainder = a % b;
+      a = b;
+      b = remainder;
+    }
+    return a;
+  };
+  let latticeStride = Math.max(1, Math.floor(latticeCount / 2));
+  while (greatestCommonDivisor(latticeStride, latticeCount) !== 1) {
+    latticeStride += 1;
+    if (latticeStride >= latticeCount) latticeStride = 1;
+  }
+  const latticeStart = Math.floor(
+    grassRandom(options.chunkIndex, latticeCount, 8) * latticeCount,
+  );
 
-      // Keep roots and blade width inside the finite depth of the existing surface.
-      const leftEdgeMargin = options.chunkIndex === 0 ? edgeMargin : 0;
-      if (x < chunkStartX + leftEdgeMargin || x >= chunkEndX || y < -halfSurfaceHeight + edgeMargin || y >= halfSurfaceHeight - edgeMargin) {
-        continue;
-      }
+  for (let sequenceIndex = 0; sequenceIndex < latticeCount; sequenceIndex += 1) {
+    const latticeIndex = (latticeStart + sequenceIndex * latticeStride) % latticeCount;
+    const latticeX = firstLatticeX + (latticeIndex % latticeColumns);
+    const latticeY = firstLatticeY + Math.floor(latticeIndex / latticeColumns);
+    const positionSeed = grassRandom(latticeX, latticeY, 1);
+    const jitterX = (grassRandom(latticeX, latticeY, 2) - 0.5) * jitterRatio;
+    const jitterY = (grassRandom(latticeX, latticeY, 3) - 0.5) * jitterRatio;
+    const x = (latticeX + 0.5 + jitterX) * spacing;
+    const y = -halfSurfaceHeight + (latticeY + 0.5 + jitterY) * spacing;
 
-      const col = Math.floor(x / pitch);
-      const row = Math.floor((halfSurfaceHeight - y) / pitch);
-      if (col < 0 || row < 0 || row >= options.grid.rows) continue;
+    // Keep roots and blade width inside the finite depth of the existing surface.
+    const leftEdgeMargin = options.chunkIndex === 0 ? edgeMargin : 0;
+    if (x < chunkStartX + leftEdgeMargin || x >= chunkEndX || y < -halfSurfaceHeight + edgeMargin || y >= halfSurfaceHeight - edgeMargin) {
+      continue;
+    }
 
-      const isOccupied = options.occupiedCellKeys.has(col + ':' + row);
-      if (isOccupied) {
-        const centerX = col * pitch + (options.grid.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH) + options.grid.cellSize / 2;
-        const centerY = halfSurfaceHeight - (
-          row * pitch + (options.grid.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH) + options.grid.cellSize / 2
-        );
-        // Keep only a small local clearance around the artwork itself. Do not
-        // clear the whole logical cell: cells must not be visible in the grass pattern.
-        const objectClearance = options.grid.cellSize * occupiedClearanceRatio;
-        const dx = x - centerX;
-        const dy = y - centerY;
-        if (dx * dx + dy * dy < objectClearance * objectClearance) continue;
-      }
+    const col = Math.floor(x / pitch);
+    const row = Math.floor((halfSurfaceHeight - y) / pitch);
+    if (col < 0 || row < 0 || row >= options.grid.rows) continue;
 
-      const rootZ = isOccupied
-        ? objectPlatformHeight(
+    const isOccupied = options.occupiedCellKeys.has(col + ':' + row);
+    if (isOccupied) {
+      const centerX = col * pitch + (options.grid.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH) + options.grid.cellSize / 2;
+      const centerY = halfSurfaceHeight - (
+        row * pitch + (options.grid.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH) + options.grid.cellSize / 2
+      );
+      // Keep only a small local clearance around the artwork itself. Do not
+      // clear the whole logical cell: cells must not be visible in the grass pattern.
+      const objectClearance = options.grid.cellSize * occupiedClearanceRatio;
+      const dx = x - centerX;
+      const dy = y - centerY;
+      if (dx * dx + dy * dy < objectClearance * objectClearance) continue;
+    }
+
+    const rootZ = isOccupied
+      ? objectPlatformHeight(
+          options.worldSeed,
+          col,
+          row,
+          options.objectMinHeight,
+          options.objectMaxHeight,
+        )
+      : options.generatedTilesEnabled
+        ? fieldTileHeight(
             options.worldSeed,
             col,
             row,
-            options.objectMinHeight,
-            options.objectMaxHeight,
-          )
-        : options.generatedTilesEnabled
-          ? fieldTileHeight(
-              options.worldSeed,
-              col,
-              row,
-              options.tileMinHeight,
-              options.tileMaxHeight,
-            ) * FIELD_TILE_HEIGHT_STEP
-          : -options.platformHeight;
+            options.tileMinHeight,
+            options.tileMaxHeight,
+          ) * FIELD_TILE_HEIGHT_STEP
+        : -options.platformHeight;
 
-      const accentSeed1 = grassRandom(latticeX, latticeY, 6);
-      const accentSeed2 = grassRandom(latticeX, latticeY, 7);
-      const accent = accentSeed1 < accentProbability1
-        ? 1
-        : accentSeed2 < accentProbability2
-          ? 2
-          : 0;
+    const accentSeed1 = grassRandom(latticeX, latticeY, 6);
+    const accentSeed2 = grassRandom(latticeX, latticeY, 7);
+    const accent = accentSeed1 < accentProbability1
+      ? 1
+      : accentSeed2 < accentProbability2
+        ? 2
+        : 0;
 
-      yield {
-        x,
-        y,
-        rootZ,
-        width: bladeWidth,
-        height: bladeHeight,
-        seed: positionSeed,
-        accent,
-      };
-    }
+    yield {
+      x,
+      y,
+      rootZ,
+      width: bladeWidth,
+      height: bladeHeight,
+      seed: positionSeed,
+      accent,
+
+    };
   }
 
 }

@@ -36,6 +36,26 @@ describe('continuous field grass generation', () => {
     expect(instances.every((instance) => instance.width > 0 && instance.height > 0)).toBe(true);
   });
 
+  it('spreads early generation batches across the whole chunk', () => {
+    const surface = fieldGridWorldSize({ cols: 10, ...grid, showDividers: false });
+    const firstBatch = Array.from(iterateFieldGrassInstances(options(0))).slice(0, 150);
+    const xBins = Array.from({ length: 5 }, (_, bin) =>
+      firstBatch.filter((instance) =>
+        instance.x >= (surface.width * bin) / 5 &&
+        instance.x < (surface.width * (bin + 1)) / 5,
+      ).length,
+    );
+    const yBins = Array.from({ length: 5 }, (_, bin) =>
+      firstBatch.filter((instance) =>
+        instance.y >= -surface.height / 2 + (surface.height * bin) / 5 &&
+        instance.y < -surface.height / 2 + (surface.height * (bin + 1) / 5),
+      ).length,
+    );
+
+    expect(xBins.every((count) => count > 0)).toBe(true);
+    expect(yBins.every((count) => count > 0)).toBe(true);
+  });
+
   it('keeps the configured default density around 30 blades per square metre', () => {
     const instances = generateFieldGrassInstances(options(0));
     const surface = fieldGridWorldSize({
