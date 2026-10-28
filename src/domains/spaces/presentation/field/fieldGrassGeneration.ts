@@ -3,6 +3,8 @@ import {
   FIELD_TILE_HEIGHT_STEP,
   objectPlatformHeight,
 } from './fieldTileGeneration';
+import { Matrix4, Object3D, Quaternion, Vector3 } from 'three';
+
 import { FIELD_GRID_DIVIDER_WIDTH, fieldGridWorldSize, type FieldGridConfig } from './fieldGridConfig';
 import { fieldChunkOccupiedCellsSignature } from './fieldGridChunks';
 
@@ -173,15 +175,27 @@ function generateFieldGrassInstancesUncached(
 
 const FIELD_GRASS_CACHE_MAX_ENTRIES = 16;
 const grassInstancesCache = new Map<string, readonly FieldGrassInstance[]>();
+const grassRenderCache = new Map<string, FieldGrassRenderData>();
+
+export type FieldGrassRenderData = {
+  readonly count: number;
+  readonly matrices: Float32Array;
+  readonly seeds: Float32Array;
+  readonly dimensions: Float32Array;
+  readonly accents: Float32Array;
+};
 
 type PendingGrassGeneration = {
   readonly key: string;
   readonly options: FieldGrassGenerationOptions;
+  readonly forwardX: number;
+  readonly forwardY: number;
   readonly sequence: number;
   priority: number;
 };
 
 const pendingGrassGenerations = new Map<string, PendingGrassGeneration>();
+const activeGrassPrefetchKeys = new Set<string>();
 let grassPumpScheduled = false;
 let grassGenerationSequence = 0;
 
@@ -215,6 +229,14 @@ export function fieldGrassGenerationCacheKey(
   ]);
 }
 
+export function fieldGrassRenderCacheKey(
+  options: FieldGrassGenerationOptions,
+  forwardX: number,
+  forwardY: number,
+): string {
+  return JSON.stringify([fieldGrassGenerationCacheKey(options), forwardX, forwardY]);
+}
+
 function touchGrassCacheEntry(
   key: string,
   instances: readonly FieldGrassInstance[],
@@ -229,6 +251,17 @@ function touchGrassCacheEntry(
   }
 }
 
+function touchGrassRenderCacheEntry(key: string, data: FieldGrassRenderData): void {
+  grassRenderCache.delete(key);
+  grassRenderCache.set(key, data);
+
+  while (grassRenderCache.size > FIELD_GRASS_CACHE_MAX_ENTRIES) {
+    const oldestKey = grassRenderCache.keys().next().value as string | undefined;
+    if (oldestKey === undefined) break;
+    grassRenderCache.delete(oldestKey);
+  }
+}
+
 export function getCachedFieldGrassInstances(
   options: FieldGrassGenerationOptions,
 ): readonly FieldGrassInstance[] | null {
@@ -239,10 +272,20 @@ export function getCachedFieldGrassInstances(
   return cached;
 }
 
-export function isFieldGrassGenerationCacheKeyReady(
-  key: string | undefined,
-): boolean {
-  return key !== undefined && grassInstancesCache.has(key);
+export function getCachedFieldGrassRenderData(
+  options: FieldGrassGenerationOptions,
+  forwardX: number,
+  forwardY: number,
+): FieldGrassRenderData | null {
+  const key = fieldGrassRenderCacheKey(options, forwardX, forwardY);
+  const cached = grassRenderCache.get(key);
+  if (cached === undefined) return null;
+  touchGrassRenderCacheEntry(key, cached);
+  return cached;
+}
+
+export function isFieldGrassRenderCacheKeyReady(key: string | undefined): boolean {
+  return key !== undefined && grassRenderCache.has(key);
 }
 
 export function generateFieldGrassInstances(
@@ -260,11 +303,77 @@ export function generateFieldGrassInstances(
   return instances;
 }
 
+function buildGrassRenderData(
+  instances: readonly FieldGrassInstance[],
+  forwardX: number,
+  forwardY: number,
+): FieldGrassRenderData {
+  const cameraForward = new Vector3(forwardX, forwardY, 0);
+  if (cameraForward.lengthSq() < 0.0001) cameraForward.set(1, 0, 0);
+  cameraForward.normalize();
+  const worldUp = new Vector3(0, 0, 1);
+  const cameraRight = new Vector3().crossVectors(cameraForward, worldUp).normalize();
+  const billboardNormal = new Vector3().crossVectors(cameraRight, worldUp).normalize();
+  const billboardMatrix = new Matrix4().makeBasis(cameraRight, worldUp, billboardNormal);
+  const billboardQuaternion = new Quaternion().setFromRotationMatrix(billboardMatrix);
+  const dummy = new Object3D();
+
+  const matrices = new Float32Array(instances.length * 16);
+  const seeds = new Float32Array(instances.length);
+  const dimensions = new Float32Array(instances.length * 2);
+  const accents = new Float32Array(instances.length);
+
+  for (let index = 0; index < instances.length; index += 1) {
+    const instance = instances[index]!;
+    dummy.position.set(
+      instance.x,
+      instance.y,
+      instance.rootZ + instance.height / 2 +
+        (instance.accent === 1 ? 10 : instance.accent === 2 ? 18.5 : 0),
+    );
+    dummy.quaternion.copy(billboardQuaternion);
+    dummy.scale.set(instance.width, instance.height, 1);
+    dummy.updateMatrix();
+    matrices.set(dummy.matrix.elements, index * 16);
+
+    seeds[index] = instance.seed;
+    dimensions[index * 2] = instance.width;
+    dimensions[index * 2 + 1] = instance.height;
+    accents[index] = instance.accent;
+  }
+
+  return {
+    count: instances.length,
+    matrices,
+    seeds,
+    dimensions,
+    accents,
+  };
+}
+
+export function createFieldGrassRenderData(
+  options: FieldGrassGenerationOptions,
+  forwardX: number,
+  forwardY: number,
+): FieldGrassRenderData {
+  const key = fieldGrassRenderCacheKey(options, forwardX, forwardY);
+  const cached = grassRenderCache.get(key);
+  if (cached !== undefined) {
+    touchGrassRenderCacheEntry(key, cached);
+    return cached;
+  }
+
+  const instances = generateFieldGrassInstances(options);
+  const data = buildGrassRenderData(instances, forwardX, forwardY);
+  touchGrassRenderCacheEntry(key, data);
+  return data;
+}
+
 function scheduleGrassGenerationPump(): void {
   if (grassPumpScheduled || pendingGrassGenerations.size === 0) return;
   grassPumpScheduled = true;
 
-  // Yield between chunks so grass preparation does not land on the chunk-mount frame.
+  // One CPU preparation stage per frame: first deterministic positions, then GPU-ready matrix buffers.
   requestAnimationFrame(() => {
     setTimeout(() => {
       grassPumpScheduled = false;
@@ -282,7 +391,17 @@ function scheduleGrassGenerationPump(): void {
       try {
         if (next !== undefined) {
           pendingGrassGenerations.delete(next.key);
-          generateFieldGrassInstances(next.options);
+          const generationKey = fieldGrassGenerationCacheKey(next.options);
+          if (!grassInstancesCache.has(generationKey)) {
+            generateFieldGrassInstances(next.options);
+            if (activeGrassPrefetchKeys.has(next.key)) {
+              pendingGrassGenerations.set(next.key, next);
+            }
+          } else if (activeGrassPrefetchKeys.has(next.key)) {
+            const instances = grassInstancesCache.get(generationKey)!;
+            const data = buildGrassRenderData(instances, next.forwardX, next.forwardY);
+            touchGrassRenderCacheEntry(next.key, data);
+          }
         }
       } catch (error) {
         console.error('Failed to prepare field grass instances', error);
@@ -293,17 +412,20 @@ function scheduleGrassGenerationPump(): void {
   });
 }
 
-/** Queue deterministic grass generation for an incoming chunk before it is mounted. */
+/** Queue both deterministic grass positions and final instance buffers ahead of mounting. */
 export function prefetchFieldGrassInstances(
   options: FieldGrassGenerationOptions,
   priority = 0,
+  forwardX = 1,
+  forwardY = 0,
 ): void {
-  const key = fieldGrassGenerationCacheKey(options);
-  if (grassInstancesCache.has(key)) {
-    touchGrassCacheEntry(key, grassInstancesCache.get(key)!);
+  const key = fieldGrassRenderCacheKey(options, forwardX, forwardY);
+  if (grassRenderCache.has(key)) {
+    touchGrassRenderCacheEntry(key, grassRenderCache.get(key)!);
     return;
   }
 
+  activeGrassPrefetchKeys.add(key);
   const existing = pendingGrassGenerations.get(key);
   if (existing !== undefined) {
     existing.priority = Number.isFinite(priority) ? priority : 0;
@@ -313,6 +435,8 @@ export function prefetchFieldGrassInstances(
   pendingGrassGenerations.set(key, {
     key,
     options,
+    forwardX,
+    forwardY,
     priority: Number.isFinite(priority) ? priority : 0,
     sequence: grassGenerationSequence++,
   });
@@ -325,11 +449,15 @@ export function evictPendingFieldGrassPrefetches(keepKeys: readonly string[]): v
   for (const key of pendingGrassGenerations.keys()) {
     if (!keep.has(key)) pendingGrassGenerations.delete(key);
   }
+  activeGrassPrefetchKeys.clear();
+  for (const key of keep) activeGrassPrefetchKeys.add(key);
 }
 
 export function clearFieldGrassGenerationCache(): void {
   grassInstancesCache.clear();
+  grassRenderCache.clear();
   pendingGrassGenerations.clear();
+  activeGrassPrefetchKeys.clear();
 }
 
 export function fieldGrassGenerationCacheSize(): number {

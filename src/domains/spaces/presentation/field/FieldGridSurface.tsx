@@ -1,4 +1,5 @@
 import { useFrame, type ThreeEvent } from '@react-three/fiber/native';
+import { Vector3 } from 'three';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 
@@ -27,8 +28,8 @@ import {
 import { cellCenterOnPlane } from './fieldGridCells';
 import {
   evictPendingFieldGrassPrefetches,
-  fieldGrassGenerationCacheKey,
-  isFieldGrassGenerationCacheKeyReady,
+  fieldGrassRenderCacheKey,
+  isFieldGrassRenderCacheKeyReady,
   prefetchFieldGrassInstances,
   type FieldGrassGenerationOptions,
 } from './fieldGrassGeneration';
@@ -146,6 +147,7 @@ function warmChunkPrefetch(
   runtimeConfig: ReturnType<typeof useFieldConfig>,
   currentlyMounted: readonly number[],
   grassContext: Omit<FieldGrassGenerationOptions, 'chunkIndex'>,
+  billboardForward: readonly [number, number],
   grassCacheKeysRef: { current: Map<number, string> },
 ): void {
   const chunkConfig = runtimeConfig.chunks;
@@ -191,7 +193,7 @@ function warmChunkPrefetch(
   for (const chunkIndex of cacheKeyChunkOrder) {
     const request: FieldGrassGenerationOptions = { ...grassContext, chunkIndex };
     grassRequests.set(chunkIndex, request);
-    const key = fieldGrassGenerationCacheKey(request);
+    const key = fieldGrassRenderCacheKey(request, billboardForward[0], billboardForward[1]);
     grassCacheKeysRef.current.set(chunkIndex, key);
     grassKeepKeys.push(key);
   }
@@ -212,7 +214,12 @@ function warmChunkPrefetch(
     );
     const grassRequest = grassRequests.get(chunkIndex);
     if (grassRequest !== undefined) {
-      prefetchFieldGrassInstances(grassRequest, priorityOrder.length - index);
+      prefetchFieldGrassInstances(
+        grassRequest,
+        priorityOrder.length - index,
+        billboardForward[0],
+        billboardForward[1],
+      );
     }
   });
   prioritizeFieldChunkGpuUploads(priorityOrder);
@@ -317,6 +324,7 @@ export function FieldGridSurface({
   const materialsRef = useRef(new Map<number, FieldGridWaveMaterial>());
   const unregisterWaveMaterialRef = useRef(new Map<FieldGridWaveMaterial, () => void>());
   const grassCacheKeysRef = useRef(new Map<number, string>());
+  const billboardDirectionScratch = useMemo(() => new Vector3(), []);
 
   const bake = useMemo(
     (): BakeSnapshot => ({
@@ -359,6 +367,7 @@ export function FieldGridSurface({
       fieldConfig,
       mountedRef.current,
       grassGenerationContext,
+      [1, 0],
       grassCacheKeysRef,
     );
   }, [bake, fieldConfig.chunks, grassGenerationContext]);
@@ -444,12 +453,19 @@ export function FieldGridSurface({
         chunkConfig.ahead,
       );
       desiredRef.current = desired;
+      camera.getWorldDirection(billboardDirectionScratch);
+      billboardDirectionScratch.z = 0;
+      if (billboardDirectionScratch.lengthSq() < 0.0001) {
+        billboardDirectionScratch.set(1, 0, 0);
+      }
+      billboardDirectionScratch.normalize();
       warmChunkPrefetch(
         desired,
         bakeNow,
         fieldConfig,
         mountedRef.current,
         grassGenerationContext,
+        [billboardDirectionScratch.x, billboardDirectionScratch.y],
         grassCacheKeysRef,
       );
     }
@@ -467,7 +483,7 @@ export function FieldGridSurface({
           bakeNow.layers,
           fieldConfig,
         ) &&
-        (isAlreadyMounted || isFieldGrassGenerationCacheKeyReady(grassCacheKey))
+        (isAlreadyMounted || isFieldGrassRenderCacheKeyReady(grassCacheKey))
       );
     };
 

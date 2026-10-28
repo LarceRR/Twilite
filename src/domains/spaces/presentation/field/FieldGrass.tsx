@@ -4,18 +4,17 @@ import type { ReactElement } from 'react';
 import {
   DynamicDrawUsage,
   InstancedBufferAttribute,
-  Matrix4,
-  Object3D,
   PlaneGeometry,
-  Quaternion,
   Vector3,
   type InstancedMesh,
 } from 'three';
 
 import { useFieldTileStore } from './fieldTileStore';
 import {
+  createFieldGrassRenderData,
   FIELD_GRASS_SPACING,
-  generateFieldGrassInstances,
+  getCachedFieldGrassRenderData,
+  type FieldGrassGenerationOptions,
 } from './fieldGrassGeneration';
 import { FIELD_GRASS_MATERIAL, loadFieldGrassSprite } from './fieldGrassMaterial';
 import { fieldChunkOccupiedCellsSignature } from './fieldGridChunks';
@@ -103,13 +102,7 @@ export function FieldGrass({
     return nextGeometry;
   }, [seedData, dimensionsData, accentData]);
   const meshRef = useRef<InstancedMesh>(null);
-  const dummy = useMemo(() => new Object3D(), []);
   const cameraForward = useMemo(() => new Vector3(), []);
-  const cameraRight = useMemo(() => new Vector3(), []);
-  const worldUp = useMemo(() => new Vector3(0, 0, 1), []);
-  const billboardNormal = useMemo(() => new Vector3(), []);
-  const billboardMatrix = useMemo(() => new Matrix4(), []);
-  const billboardQuaternion = useMemo(() => new Quaternion(), []);
 
   useEffect(() => {
     void loadFieldGrassSprite();
@@ -126,7 +119,7 @@ export function FieldGrass({
       return;
     }
 
-    const instances = generateFieldGrassInstances({
+    const generationOptions: FieldGrassGenerationOptions = {
       chunkIndex,
       chunkCols,
       grid,
@@ -138,36 +131,32 @@ export function FieldGrass({
       objectMaxHeight,
       generatedTilesEnabled,
       occupiedCellKeys,
-    });
+    };
 
     camera.getWorldDirection(cameraForward);
     cameraForward.z = 0;
     if (cameraForward.lengthSq() < 0.0001) cameraForward.set(1, 0, 0);
     cameraForward.normalize();
-    cameraRight.crossVectors(cameraForward, worldUp).normalize();
-    billboardNormal.crossVectors(cameraRight, worldUp).normalize();
-    billboardMatrix.makeBasis(cameraRight, worldUp, billboardNormal);
-    billboardQuaternion.setFromRotationMatrix(billboardMatrix);
 
-    const count = Math.min(instances.length, capacity);
-    for (let index = 0; index < count; index += 1) {
-      const instance = instances[index]!;
-      dummy.position.set(
-        instance.x,
-        instance.y,
-        instance.rootZ + instance.height / 2 + (instance.accent === 1 ? 10 : instance.accent === 2 ? 18.5 : 0),
+    // Normally the complete matrices/attributes are prepared before this chunk mounts.
+    // The synchronous fallback only covers startup and a camera turn during prefetch.
+    const renderData =
+      getCachedFieldGrassRenderData(
+        generationOptions,
+        cameraForward.x,
+        cameraForward.y,
+      ) ??
+      createFieldGrassRenderData(
+        generationOptions,
+        cameraForward.x,
+        cameraForward.y,
       );
-      dummy.quaternion.copy(billboardQuaternion);
-      dummy.scale.set(instance.width, instance.height, 1);
-      dummy.updateMatrix();
-      mesh.setMatrixAt(index, dummy.matrix);
 
-      seedData[index] = instance.seed;
-      dimensionsData[index * 2] = instance.width;
-      dimensionsData[index * 2 + 1] = instance.height;
-      accentData[index] = instance.accent;
-    }
-
+    const count = Math.min(renderData.count, capacity);
+    mesh.instanceMatrix.array.set(renderData.matrices.subarray(0, count * 16), 0);
+    seedData.set(renderData.seeds.subarray(0, count), 0);
+    dimensionsData.set(renderData.dimensions.subarray(0, count * 2), 0);
+    accentData.set(renderData.accents.subarray(0, count), 0);
     mesh.count = count;
     mesh.instanceMatrix.setUsage(DynamicDrawUsage);
     mesh.instanceMatrix.needsUpdate = true;
@@ -188,12 +177,6 @@ export function FieldGrass({
     occupiedCellsSignature,
     camera,
     cameraForward,
-    cameraRight,
-    worldUp,
-    billboardNormal,
-    billboardMatrix,
-    billboardQuaternion,
-    dummy,
     capacity,
     geometry,
     seedData,

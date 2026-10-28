@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
   clearFieldGrassGenerationCache,
+  createFieldGrassRenderData,
   fieldGrassGenerationCacheKey,
+  fieldGrassRenderCacheKey,
   generateFieldGrassInstances,
   getCachedFieldGrassInstances,
+  getCachedFieldGrassRenderData,
 } from './fieldGrassGeneration';
 import { fieldGridWorldSize } from './fieldGridConfig';
 
@@ -72,6 +75,21 @@ describe('continuous field grass generation', () => {
     };
     expect(fieldGrassGenerationCacheKey(objectInThisChunk))
       .not.toBe(fieldGrassGenerationCacheKey(original));
+  });
+
+  it('prepares reusable matrices and shader attributes before chunk mounting', () => {
+    clearFieldGrassGenerationCache();
+    const request = options(0);
+    const renderData = createFieldGrassRenderData(request, 1, 0);
+
+    expect(renderData.count).toBe(generateFieldGrassInstances(request).length);
+    expect(renderData.matrices).toHaveLength(renderData.count * 16);
+    expect(renderData.seeds).toHaveLength(renderData.count);
+    expect(renderData.dimensions).toHaveLength(renderData.count * 2);
+    expect(renderData.accents).toHaveLength(renderData.count);
+    expect(getCachedFieldGrassRenderData(request, 1, 0)).toBe(renderData);
+    expect(fieldGrassRenderCacheKey(request, 1, 0))
+      .not.toBe(fieldGrassRenderCacheKey(request, 0, 1));
   });
 
   it('keeps instance positions deterministic across calls', () => {
