@@ -450,7 +450,7 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
   },
   grass: {
     enabled: true,
-    spacing: 18,
+    spacing: 14.5,
     bladeWidth: 20,
     bladeHeight: 30,
     maxInstancesPerChunk: 3600,
