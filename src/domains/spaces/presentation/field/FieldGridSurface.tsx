@@ -54,6 +54,7 @@ import {
 } from './fieldGridConfig';
 import type { FieldGridCellCoord } from './fieldGridHitTest';
 import { FieldGridChunk } from './FieldGridChunk';
+import { isFieldGrassChunkVisible } from './fieldGrassChunkVisibility';
 import {
   hexToRgba,
   type FieldGridLayerFlags,
@@ -245,6 +246,7 @@ export function FieldGridSurface({
   const [chunkSlots, setChunkSlots] = useState<readonly (number | null)[]>(
     () => slotsRef.current,
   );
+  const [gpuReadyChunkIndices, setGpuReadyChunkIndices] = useState<readonly number[]>([]);
   const bootstrappedRef = useRef(false);
   const timeRef = useRef(0);
   const reportedLoadedChunkIdsRef = useRef<readonly number[]>([]);
@@ -433,8 +435,10 @@ export function FieldGridSurface({
     );
     const loadedChunkIndices = slotChunkIndices.filter(isGpuReady);
     if (!fieldChunkConfigsEqual(reportedLoadedChunkIdsRef.current, loadedChunkIndices)) {
-      reportedLoadedChunkIdsRef.current = loadedChunkIndices;
-      onLoadedChunkIndicesChange(loadedChunkIndices);
+      const nextLoadedChunkIndices = [...loadedChunkIndices];
+      reportedLoadedChunkIdsRef.current = nextLoadedChunkIndices;
+      setGpuReadyChunkIndices(nextLoadedChunkIndices);
+      onLoadedChunkIndicesChange(nextLoadedChunkIndices);
     }
 
     syncFieldGridWaveSceneTime(clock.elapsedTime);
@@ -521,6 +525,7 @@ export function FieldGridSurface({
         <FieldGridChunk
           key={slot}
           chunkIndex={chunkIndex}
+          grassVisible={isFieldGrassChunkVisible(chunkIndex, gpuReadyChunkIndices)}
           base={bake.base}
           occupiedCellKeys={occupiedCellKeys}
           onMaterialReady={onMaterialReady}
