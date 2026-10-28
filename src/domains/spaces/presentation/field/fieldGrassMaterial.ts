@@ -1,5 +1,4 @@
 import { Asset } from 'expo-asset';
-import { DEFAULT_FIELD_CONFIG, type FieldConfig } from './fieldConfig';
 import { Image } from 'react-native';
 import grassBladeAsset from './assets/grass-blade.png';
 import grassAccentAsset1 from './assets/author-grassleaf.png';
@@ -28,6 +27,7 @@ import {
   FIELD_TOON_LIGHT_UNIFORMS,
   FIELD_WIND_NOISE_TEXTURE,
 } from './fieldCloudShadows';
+import { DEFAULT_FIELD_CONFIG, type FieldConfig } from './fieldConfig';
 
 /**
  * The main sprite is the replaceable Twilite 24×24 PNG. Generated textures are
