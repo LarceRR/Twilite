@@ -73,6 +73,62 @@ export function fieldChunkColStart(
   return Math.max(0, chunkIndex) * chunkCols;
 }
 
+/**
+ * Stable signature of occupied cells local to a chunk. Changes in other chunks
+ * must not invalidate grass/tile work for this chunk.
+ */
+export function fieldChunkOccupiedCellsSignature(
+  chunkIndex: number | null,
+  chunkCols: number,
+  rows: number,
+  occupiedCellKeys: ReadonlySet<string>,
+): string {
+  if (chunkIndex === null || chunkCols < 1 || rows < 1) return '';
+
+  const firstCol = chunkIndex * chunkCols;
+  const occupied: string[] = [];
+  for (let localCol = 0; localCol < chunkCols; localCol += 1) {
+    const col = firstCol + localCol;
+    for (let row = 0; row < rows; row += 1) {
+      if (occupiedCellKeys.has(col + ':' + row)) {
+        occupied.push(localCol + ':' + row);
+      }
+    }
+  }
+  return occupied.join(',');
+}
+
+/** Rebuild only this chunk's absolute occupancy keys from its stable signature. */
+export function fieldChunkOccupiedCellKeys(
+  chunkIndex: number | null,
+  chunkCols: number,
+  signature: string,
+): ReadonlySet<string> {
+  const occupied = new Set<string>();
+  if (chunkIndex === null || chunkCols < 1 || signature.length === 0) return occupied;
+
+  const firstCol = chunkIndex * chunkCols;
+  for (const entry of signature.split(',')) {
+    const separator = entry.indexOf(':');
+    if (separator < 1) continue;
+
+    const localCol = Number(entry.slice(0, separator));
+    const row = Number(entry.slice(separator + 1));
+    if (
+      !Number.isInteger(localCol) ||
+      localCol < 0 ||
+      localCol >= chunkCols ||
+      !Number.isInteger(row) ||
+      row < 0
+    ) {
+      continue;
+    }
+
+    occupied.add(firstCol + localCol + ':' + row);
+  }
+  return occupied;
+}
+
 export function fieldVisibleChunkIndices(
   anchorChunk: number,
   behind: number = FIELD_CHUNK_BEHIND,

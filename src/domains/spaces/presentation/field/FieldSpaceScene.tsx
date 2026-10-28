@@ -68,7 +68,7 @@ export function FieldSpaceScene({
       <FieldSceneLighting objects={loadedObjects} />
       <FieldGridSurface
         config={gridConfig}
-        objects={loadedObjects}
+        objects={objects}
         onLoadedChunkIndicesChange={handleLoadedChunkIndicesChange}
       />
       {loadedObjects.length > 0 ? (

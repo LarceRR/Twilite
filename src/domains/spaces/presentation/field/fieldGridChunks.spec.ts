@@ -10,6 +10,8 @@ import {
   fieldChunkFocusWorldX,
   fieldChunkIndexFromWorldX,
   fieldChunkIndicesForCameraX,
+  fieldChunkOccupiedCellKeys,
+  fieldChunkOccupiedCellsSignature,
   fieldChunkPlanePosition,
   fieldChunkStreamingLookAheadPx,
   fieldVisibleChunkIndices,
@@ -25,6 +27,17 @@ describe('fieldGridChunks', () => {
     expect(fieldChunkIndexFromWorldX(599, cellSize)).toBe(0);
     expect(fieldChunkIndexFromWorldX(600, cellSize)).toBe(1);
     expect(fieldChunkColStart(2)).toBe(20);
+  });
+
+  it('keeps occupancy signatures and keys local to their chunk', () => {
+    const occupiedCells = new Set(['0:0', '3:2', '10:0', '14:2']);
+    const firstSignature = fieldChunkOccupiedCellsSignature(0, 10, 15, occupiedCells);
+    const secondSignature = fieldChunkOccupiedCellsSignature(1, 10, 15, occupiedCells);
+
+    expect(firstSignature).toBe('0:0,3:2');
+    expect(secondSignature).toBe('0:0,4:2');
+    expect([...fieldChunkOccupiedCellKeys(0, 10, firstSignature)]).toEqual(['0:0', '3:2']);
+    expect([...fieldChunkOccupiedCellKeys(1, 10, secondSignature)]).toEqual(['10:0', '14:2']);
   });
 
   it('keeps a behind/ahead window around the camera focus', () => {
