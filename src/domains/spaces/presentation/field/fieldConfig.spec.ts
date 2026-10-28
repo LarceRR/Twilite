@@ -115,6 +115,28 @@ describe('fieldConfig', () => {
     expect(merged.grid.cellSizePx).toBe(DEFAULT_FIELD_CONFIG.grid.cellSizePx);
   });
 
+  it('merges grass density, palette, and shader controls without changing unrelated defaults', () => {
+    const merged = mergeFieldConfig({
+      grass: {
+        spacing: 24,
+        bladeWidth: 12,
+        bladeHeight: 26,
+        albedoColor1: '#FF5911',
+        cloudShadowsEnabled: false,
+        windSpeed: 0.04,
+      },
+    });
+
+    expect(merged.grass.spacing).toBe(24);
+    expect(merged.grass.bladeWidth).toBe(12);
+    expect(merged.grass.bladeHeight).toBe(26);
+    expect(merged.grass.albedoColor1).toBe('#FF5911');
+    expect(merged.grass.cloudShadowsEnabled).toBe(false);
+    expect(merged.grass.windSpeed).toBe(0.04);
+    expect(merged.grass.windScale).toBe(DEFAULT_FIELD_CONFIG.grass.windScale);
+    expect(merged.grid.cellSizePx).toBe(DEFAULT_FIELD_CONFIG.grid.cellSizePx);
+  });
+
   it('derives grid cols and wave radius steps', () => {
     expect(fieldGridColsFromConfig(DEFAULT_FIELD_CONFIG.grid)).toBe(50);
     expect(fieldWaveMaxRadiusSteps(DEFAULT_FIELD_CONFIG.wave)).toBe(12);
