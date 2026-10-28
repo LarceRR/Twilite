@@ -90,7 +90,7 @@ export function* iterateFieldGrassInstances(
   options: FieldGrassGenerationOptions,
 ): Generator<FieldGrassInstance, void, unknown> {
   const grassDefaults = DEFAULT_FIELD_CONFIG.grass;
-  const spacing = options.spacing ?? FIELD_GRASS_SPACING;
+  const requestedSpacing = options.spacing ?? FIELD_GRASS_SPACING;
   const bladeWidth = options.bladeWidth ?? grassDefaults.bladeWidth;
   const bladeHeight = options.bladeHeight ?? grassDefaults.bladeHeight;
   const edgeMargin = options.edgeMargin ?? grassDefaults.edgeMargin;
@@ -102,8 +102,8 @@ export function* iterateFieldGrassInstances(
   const accentProbability2 =
     options.accentProbability2 ?? grassDefaults.accentProbability2;
   if (
-    !Number.isFinite(spacing) ||
-    spacing <= 0 ||
+    !Number.isFinite(requestedSpacing) ||
+    requestedSpacing <= 0 ||
     !Number.isInteger(options.chunkIndex) ||
     options.chunkIndex < 0 ||
     !Number.isInteger(options.chunkCols) ||
@@ -125,27 +125,23 @@ export function* iterateFieldGrassInstances(
   const chunkEndX = chunkStartX + chunkWidth;
   const halfSurfaceHeight = surfaceHeight / 2;
 
+  const maxInstances = options.maxInstances == null || !Number.isFinite(options.maxInstances)
+    ? Number.POSITIVE_INFINITY
+    : Math.max(1, Math.floor(options.maxInstances));
+  // Keep the entire chunk under its instance budget by increasing the lattice
+  // spacing, not by stopping halfway through the x-major iterator. The same
+  // effective spacing is used for every chunk, so the global lattice stays aligned.
+  const budgetSpacing = Number.isFinite(maxInstances)
+    ? Math.sqrt((chunkWidth * surfaceHeight) / maxInstances) * 1.3
+    : requestedSpacing;
+  const spacing = Math.max(requestedSpacing, budgetSpacing);
   const firstLatticeX = Math.floor(chunkStartX / spacing) - 1;
   const lastLatticeX = Math.ceil(chunkEndX / spacing) + 1;
   const firstLatticeY = -1;
   const lastLatticeY = Math.ceil(surfaceHeight / spacing) + 1;
-  const latticeRows = lastLatticeY - firstLatticeY + 1;
-  // Use a conservative, chunk-independent candidate bound so adjacent chunks
-  // share the same sampling stride when the instance limit reduces density.
-  const candidateCount = (Math.ceil(chunkWidth / spacing) + 4) * latticeRows;
-  const maxInstances = options.maxInstances == null || !Number.isFinite(options.maxInstances)
-    ? Number.POSITIVE_INFINITY
-    : Math.max(1, Math.floor(options.maxInstances));
-  const samplingStride = Number.isFinite(maxInstances)
-    ? Math.max(1, Math.ceil(candidateCount / maxInstances))
-    : 1;
 
   for (let latticeX = firstLatticeX; latticeX <= lastLatticeX; latticeX += 1) {
     for (let latticeY = firstLatticeY; latticeY <= lastLatticeY; latticeY += 1) {
-      const candidateIndex = latticeX * latticeRows + latticeY - firstLatticeY;
-      const remainder = candidateIndex % samplingStride;
-      const shouldSample = (remainder + samplingStride) % samplingStride === 0;
-      if (!shouldSample) continue;
 
       const positionSeed = grassRandom(latticeX, latticeY, 1);
       const jitterX = (grassRandom(latticeX, latticeY, 2) - 0.5) * jitterRatio;
