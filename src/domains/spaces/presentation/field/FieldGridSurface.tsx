@@ -26,7 +26,7 @@ import {
 } from './fieldGridChunkBake';
 import { cellCenterOnPlane } from './fieldGridCells';
 import { syncFieldCloudTime } from './fieldCloudShadows';
-import { syncFieldGrassSceneTime } from './fieldGrassMaterial';
+import { syncFieldGrassConfig, syncFieldGrassSceneTime } from './fieldGrassMaterial';
 import {
   fieldCellLongPressMs,
   fieldCellLongPressToastMessage,
@@ -323,6 +323,11 @@ export function FieldGridSurface({
     },
     [],
   );
+
+  // Grass and cloud-noise tuning uses shared uniforms: update only when the config changes.
+  useEffect(() => {
+    syncFieldGrassConfig(fieldConfig.grass);
+  }, [fieldConfig.grass]);
 
   // Wave tuning is static across frames. Sync only when its config changes,
   // not once per chunk on every render frame.
