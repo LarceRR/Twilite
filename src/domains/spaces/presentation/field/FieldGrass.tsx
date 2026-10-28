@@ -273,11 +273,12 @@ export function FieldGrass({
         accentAttribute.needsUpdate = true;
       }
 
-      // Instances arrive in a spatially distributed order, so partial batches
-      // fill the whole chunk instead of creating a moving grass stripe.
-      // The mesh remains hidden until the matching surface is GPU-ready.
+      // Keep the chunk hidden while its instance buffer is incomplete.
+      // Even a spatially distributed prefix is visibly sparse, especially when
+      // camera streaming recycles slots before their generation task has finished.
+      // Reveal the full-density chunk atomically once its buffer is ready.
       const done = finished || written >= instanceLimit;
-      mesh.count = written;
+      mesh.count = done ? written : 0;
 
       // frustumCulled is disabled on this mesh, so computing a new bounding
       // sphere for every streamed chunk would only add unnecessary CPU work.
