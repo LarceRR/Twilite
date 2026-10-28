@@ -146,9 +146,12 @@ export function FieldGrass({
   const billboardQuaternion = useMemo(() => new Quaternion(), []);
 
   useLayoutEffect(() => {
-    // Prevent a recycled slot from drawing the previous chunk's matrices for one frame.
+    // Reset only when the buffer's identity or chunk binding changes. Surface
+    // GPU readiness controls visibility, not grass-buffer lifetime: clearing
+    // the count when a surface becomes ready would discard a buffer generated
+    // while that surface was still uploading.
     if (meshRef.current !== null) meshRef.current.count = 0;
-  }, [chunkIndex, capacity, geometry, grassVisible]);
+  }, [chunkIndex, capacity, geometry]);
 
   useEffect(() => {
     void loadFieldGrassSprite();
@@ -159,8 +162,10 @@ export function FieldGrass({
     const mesh = meshRef.current;
     if (mesh === null) return;
 
-    // Slot recycling is common during world streaming. Invalidate the previous
-    // iterator before starting another chunk so stale batches cannot write into it.
+    // Warm grass data as soon as a chunk is mounted, independently of the
+    // grid texture's GPU-upload timing. The mesh itself remains hidden until its
+    // matching surface is ready, so pre-generation cannot show floating grass.
+    // Slot recycling invalidates the old iterator before any new batch can write.
     const token = generationToken.current + 1;
     generationToken.current = token;
     let active = true;
@@ -170,7 +175,7 @@ export function FieldGrass({
     mesh.count = 0;
     mesh.instanceMatrix.setUsage(DynamicDrawUsage);
 
-    if (chunkIndex === null || !generationConfig.enabled || !grassVisible) {
+    if (chunkIndex === null || !generationConfig.enabled) {
       return () => {
         active = false;
         if (generationToken.current === token) generationToken.current += 1;
@@ -296,7 +301,6 @@ export function FieldGrass({
 
   }, [
     chunkIndex,
-    grassVisible,
     chunkCols,
     grid,
     worldSeed,
