@@ -10,7 +10,10 @@ import {
   fieldChunkFocusWorldX,
   fieldChunkIndexFromWorldX,
   fieldChunkIndicesForCameraX,
+  fieldChunkOccupiedCellKeys,
+  fieldChunkOccupiedCellsSignature,
   fieldChunkPlanePosition,
+  fieldChunkStreamingLookAheadPx,
   fieldVisibleChunkIndices,
 } from './fieldGridChunks';
 
@@ -24,6 +27,17 @@ describe('fieldGridChunks', () => {
     expect(fieldChunkIndexFromWorldX(599, cellSize)).toBe(0);
     expect(fieldChunkIndexFromWorldX(600, cellSize)).toBe(1);
     expect(fieldChunkColStart(2)).toBe(20);
+  });
+
+  it('keeps occupancy signatures and keys local to their chunk', () => {
+    const occupiedCells = new Set(['0:0', '3:2', '10:0', '14:2']);
+    const firstSignature = fieldChunkOccupiedCellsSignature(0, 10, 15, occupiedCells);
+    const secondSignature = fieldChunkOccupiedCellsSignature(1, 10, 15, occupiedCells);
+
+    expect(firstSignature).toBe('0:0,3:2');
+    expect(secondSignature).toBe('0:0,4:2');
+    expect([...fieldChunkOccupiedCellKeys(0, 10, firstSignature)]).toEqual(['0:0', '3:2']);
+    expect([...fieldChunkOccupiedCellKeys(1, 10, secondSignature)]).toEqual(['10:0', '14:2']);
   });
 
   it('keeps a behind/ahead window around the camera focus', () => {
@@ -40,10 +54,26 @@ describe('fieldGridChunks', () => {
   });
 
   it('advances the window as the camera moves +X', () => {
-    // focus ≈ cameraX + 780 → at x=700 focus=1480 → col 24 → chunk 2
+    // focus ≈ cameraX + 500 → at x=700 focus=1200 → col 20 → chunk 2
     expect(fieldChunkIndicesForCameraX(700, cellSize)).toEqual([1, 2, 3, 4, 5]);
   });
 
+  it('does not unload the physical camera chunk when the focus trigger advances', () => {
+    const cameraX = 420;
+    const cameraChunk = fieldChunkIndexFromWorldX(cameraX, cellSize);
+    const mounted = fieldChunkIndicesForCameraX(cameraX, cellSize);
+
+    // The former 780-unit look-ahead advanced focus into chunk 2 while the
+    // camera was still in chunk 0, causing that chunk to disappear too early.
+    expect(cameraChunk).toBe(0);
+    expect(mounted).toContain(cameraChunk);
+  });
+  it('caps a legacy look-ahead before the physical camera chunk is evicted', () => {
+    expect(fieldChunkStreamingLookAheadPx(780, cellSize, 10)).toBe(599);
+    const cameraChunk = fieldChunkIndexFromWorldX(420, cellSize);
+    const mounted = fieldChunkIndicesForCameraX(420, cellSize, 10, 780);
+    expect(mounted).toContain(cameraChunk);
+  });
   it('places chunk meshes on absolute world X', () => {
     const spec = createFieldGridChunkSpec(1, { rows: 15, cellSize });
     expect(spec.colStart).toBe(10);

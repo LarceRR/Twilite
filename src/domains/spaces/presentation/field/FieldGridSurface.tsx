@@ -1,4 +1,5 @@
 import { useFrame, type ThreeEvent } from '@react-three/fiber/native';
+import { Vector3 } from 'three';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 
@@ -26,6 +27,16 @@ import {
 } from './fieldGridChunkBake';
 import { cellCenterOnPlane } from './fieldGridCells';
 import {
+  evictPendingFieldGrassPrefetches,
+  fieldGrassRenderCacheKey,
+  isFieldGrassRenderCacheKeyReady,
+  prefetchFieldGrassInstances,
+  type FieldGrassGenerationOptions,
+} from './fieldGrassGeneration';
+import { useFieldTileStore } from './fieldTileStore';
+import { syncFieldCloudTime } from './fieldCloudShadows';
+import { syncFieldGrassSceneTime } from './fieldGrassMaterial';
+import {
   fieldCellLongPressMs,
   fieldCellLongPressToastMessage,
   fieldCellTapToastMessage,
@@ -37,6 +48,7 @@ import {
 import {
   fieldChunkConfigsEqual,
   fieldChunkIndexFromWorldX,
+  fieldChunkStreamingLookAheadPx,
   fieldVisibleChunkIndices,
 } from './fieldGridChunks';
 import {
@@ -134,6 +146,9 @@ function warmChunkPrefetch(
   bake: BakeSnapshot,
   runtimeConfig: ReturnType<typeof useFieldConfig>,
   currentlyMounted: readonly number[],
+  grassContext: Omit<FieldGrassGenerationOptions, 'chunkIndex'>,
+  billboardForward: readonly [number, number],
+  grassCacheKeysRef: { current: Map<number, string> },
 ): void {
   const chunkConfig = runtimeConfig.chunks;
   const prefetchIds = fieldChunkPrefetchIndices(desired, chunkConfig.prefetchExtraAhead);
@@ -173,6 +188,18 @@ function warmChunkPrefetch(
       runtimeConfig,
     ),
   );
+  const grassRequests = new Map<number, FieldGrassGenerationOptions>();
+  const grassKeepKeys: string[] = [];
+  for (const chunkIndex of cacheKeyChunkOrder) {
+    const request: FieldGrassGenerationOptions = { ...grassContext, chunkIndex };
+    grassRequests.set(chunkIndex, request);
+    const key = fieldGrassRenderCacheKey(request, billboardForward[0], billboardForward[1]);
+    grassCacheKeysRef.current.set(chunkIndex, key);
+    grassKeepKeys.push(key);
+  }
+  for (const chunkIndex of [...grassCacheKeysRef.current.keys()]) {
+    if (!keepChunkIndices.includes(chunkIndex)) grassCacheKeysRef.current.delete(chunkIndex);
+  }
 
   priorityOrder.forEach((chunkIndex, index) => {
     prefetchFieldChunk(
@@ -185,9 +212,19 @@ function warmChunkPrefetch(
       priorityOrder.length - index,
       runtimeConfig,
     );
+    const grassRequest = grassRequests.get(chunkIndex);
+    if (grassRequest !== undefined) {
+      prefetchFieldGrassInstances(
+        grassRequest,
+        priorityOrder.length - index,
+        billboardForward[0],
+        billboardForward[1],
+      );
+    }
   });
   prioritizeFieldChunkGpuUploads(priorityOrder);
   evictFieldChunkBakes(keepChunkIndices, keepCacheKeys);
+  evictPendingFieldGrassPrefetches(grassKeepKeys);
 }
 
 /** Streams field chunks along +X; camera pose is polled in useFrame (no React bind). */
@@ -202,9 +239,47 @@ export function FieldGridSurface({
   const showActiveCells = useSettingsStore((s) => s.developerShowActiveCells);
   const showActiveCenters = useSettingsStore((s) => s.developerShowActiveCellCenters);
   const showCellLabels = useSettingsStore((s) => s.developerShowCellLabels);
+  const grassWorldSeed = useFieldTileStore((s) => s.worldSeed);
+  const grassTileMinHeight = useFieldTileStore((s) => s.tileMinHeight);
+  const grassTileMaxHeight = useFieldTileStore((s) => s.tileMaxHeight);
+  const grassObjectMinHeight = useFieldTileStore((s) => s.objectMinHeight);
+  const grassObjectMaxHeight = useFieldTileStore((s) => s.objectMaxHeight);
+  const grassGeneratedTilesEnabled = useFieldTileStore((s) => s.generatedTilesEnabled);
   const occupiedCellKeys = useMemo(
     () => new Set(objects.map((object) => object.cell.x + ':' + object.cell.y)),
     [objects],
+  );
+  const grassGenerationContext = useMemo(
+    (): Omit<FieldGrassGenerationOptions, 'chunkIndex'> => ({
+      chunkCols: fieldConfig.chunks.cols,
+      grid: {
+        rows: config.rows,
+        cellSize: config.cellSize,
+        dividerWidth: config.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH,
+      },
+      worldSeed: grassWorldSeed,
+      tileMinHeight: grassTileMinHeight,
+      tileMaxHeight: grassTileMaxHeight,
+      platformHeight: fieldConfig.platform.height,
+      objectMinHeight: grassObjectMinHeight,
+      objectMaxHeight: grassObjectMaxHeight,
+      generatedTilesEnabled: grassGeneratedTilesEnabled,
+      occupiedCellKeys,
+    }),
+    [
+      fieldConfig.chunks.cols,
+      fieldConfig.platform.height,
+      config.rows,
+      config.cellSize,
+      config.dividerWidth,
+      grassWorldSeed,
+      grassTileMinHeight,
+      grassTileMaxHeight,
+      grassObjectMinHeight,
+      grassObjectMaxHeight,
+      grassGeneratedTilesEnabled,
+      occupiedCellKeys,
+    ],
   );
 
   const slotCount = fieldChunkSlotCount(
@@ -214,7 +289,14 @@ export function FieldGridSurface({
   const initialCameraX = useFieldCameraControlStore.getState().position.x;
   const initialCellPitch = fieldGridCellPitch(config);
   const initialAnchor = fieldChunkIndexFromWorldX(
-    Math.max(0, initialCameraX + fieldConfig.chunks.lookAheadPx),
+    Math.max(
+      0,
+      initialCameraX + fieldChunkStreamingLookAheadPx(
+        fieldConfig.chunks.lookAheadPx,
+        initialCellPitch,
+        fieldConfig.chunks.cols,
+      ),
+    ),
     initialCellPitch,
     fieldConfig.chunks.cols,
   );
@@ -241,6 +323,8 @@ export function FieldGridSurface({
   const pressRef = useRef<PressSession | null>(null);
   const materialsRef = useRef(new Map<number, FieldGridWaveMaterial>());
   const unregisterWaveMaterialRef = useRef(new Map<FieldGridWaveMaterial, () => void>());
+  const grassCacheKeysRef = useRef(new Map<number, string>());
+  const billboardDirectionScratch = useMemo(() => new Vector3(), []);
 
   const bake = useMemo(
     (): BakeSnapshot => ({
@@ -277,8 +361,16 @@ export function FieldGridSurface({
   bakeRef.current = bake;
 
   useEffect(() => {
-    warmChunkPrefetch(desiredRef.current, bake, fieldConfig, mountedRef.current);
-  }, [bake, fieldConfig.chunks]);
+    warmChunkPrefetch(
+      desiredRef.current,
+      bake,
+      fieldConfig,
+      mountedRef.current,
+      grassGenerationContext,
+      [1, 0],
+      grassCacheKeysRef,
+    );
+  }, [bake, fieldConfig.chunks, grassGenerationContext]);
 
   useEffect(
     () => () => {
@@ -323,6 +415,8 @@ export function FieldGridSurface({
   useFrame(({ clock, gl, camera }) => {
     const frameWorkStart = performance.now();
     timeRef.current = clock.elapsedTime;
+    syncFieldCloudTime(clock.elapsedTime);
+    syncFieldGrassSceneTime(clock.elapsedTime, camera);
     const bakeNow = bakeRef.current;
 
     // Read the live Three.js camera. The control store is intentionally only
@@ -332,7 +426,14 @@ export function FieldGridSurface({
     const cellPitch = fieldGridCellPitch(bakeNow.base);
     const chunkConfig = fieldConfig.chunks;
     const anchor = fieldChunkIndexFromWorldX(
-      Math.max(0, cameraX + chunkConfig.lookAheadPx),
+      Math.max(
+        0,
+        cameraX + fieldChunkStreamingLookAheadPx(
+          chunkConfig.lookAheadPx,
+          cellPitch,
+          chunkConfig.cols,
+        ),
+      ),
       cellPitch,
       chunkConfig.cols,
     );
@@ -352,19 +453,39 @@ export function FieldGridSurface({
         chunkConfig.ahead,
       );
       desiredRef.current = desired;
-      warmChunkPrefetch(desired, bakeNow, fieldConfig, mountedRef.current);
+      camera.getWorldDirection(billboardDirectionScratch);
+      billboardDirectionScratch.z = 0;
+      if (billboardDirectionScratch.lengthSq() < 0.0001) {
+        billboardDirectionScratch.set(1, 0, 0);
+      }
+      billboardDirectionScratch.normalize();
+      warmChunkPrefetch(
+        desired,
+        bakeNow,
+        fieldConfig,
+        mountedRef.current,
+        grassGenerationContext,
+        [billboardDirectionScratch.x, billboardDirectionScratch.y],
+        grassCacheKeysRef,
+      );
     }
 
     const desired = desiredRef.current;
 
-    const isGpuReady = (chunkIndex: number) =>
-      isFieldChunkIndexGpuReady(
-        chunkIndex,
-        bakeNow.base,
-        bakeNow.colors,
-        bakeNow.layers,
-        fieldConfig,
+    const isChunkReady = (chunkIndex: number) => {
+      const isAlreadyMounted = mountedRef.current.includes(chunkIndex);
+      const grassCacheKey = grassCacheKeysRef.current.get(chunkIndex);
+      return (
+        isFieldChunkIndexGpuReady(
+          chunkIndex,
+          bakeNow.base,
+          bakeNow.colors,
+          bakeNow.layers,
+          fieldConfig,
+        ) &&
+        (isAlreadyMounted || isFieldGrassRenderCacheKeyReady(grassCacheKey))
       );
+    };
 
     // GPU uploads can synchronize with the graphics driver. Keep the per-frame
     // budget configurable so the developer screen can trade speed for smoothness.
@@ -373,7 +494,7 @@ export function FieldGridSurface({
     if (
       !bootstrappedRef.current &&
       desired.length > 0 &&
-      desired.every(isGpuReady)
+      desired.every(isChunkReady)
     ) {
       bootstrappedRef.current = true;
     }
@@ -381,11 +502,19 @@ export function FieldGridSurface({
     // During initial bootstrap, keep the full window mounted to avoid a
     // mount/unmount cycle for every texture upload. Afterward, only introduce
     // GPU-ready chunks and retain the old edge while its replacement warms.
-    if (desiredChanged || uploaded > 0 || !bootstrappedRef.current) {
+    const hasUnresolvedDesiredChunk = desired.some(
+      (chunkIndex) => !mountedRef.current.includes(chunkIndex),
+    );
+    if (
+      desiredChanged ||
+      uploaded > 0 ||
+      !bootstrappedRef.current ||
+      hasUnresolvedDesiredChunk
+    ) {
       const nextMounted = resolveMountedChunkIds(
         desired,
         mountedRef.current,
-        isGpuReady,
+        isChunkReady,
         !bootstrappedRef.current,
       );
       if (!fieldChunkConfigsEqual(mountedRef.current, nextMounted)) {
@@ -407,7 +536,7 @@ export function FieldGridSurface({
     const slotChunkIndices = slotsRef.current.filter(
       (chunkIndex): chunkIndex is number => chunkIndex !== null,
     );
-    const loadedChunkIndices = slotChunkIndices.filter(isGpuReady);
+    const loadedChunkIndices = slotChunkIndices.filter(isChunkReady);
     if (!fieldChunkConfigsEqual(reportedLoadedChunkIdsRef.current, loadedChunkIndices)) {
       reportedLoadedChunkIdsRef.current = loadedChunkIndices;
       onLoadedChunkIndicesChange(loadedChunkIndices);

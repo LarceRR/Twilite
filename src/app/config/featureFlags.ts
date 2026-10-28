@@ -11,7 +11,7 @@ const defaults: FeatureFlags = {
   timelineV2: false,
   scenePerformanceOverlay: env.isDev,
   // Re-enable when the new terrain and placement flow are ready.
-  surfaceObjectSpawning: false,
+  surfaceObjectSpawning: true,
 };
 
 let overrides: Partial<FeatureFlags> = {};

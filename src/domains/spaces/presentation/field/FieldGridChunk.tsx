@@ -8,6 +8,7 @@ import { useSettingsStore } from '@/domains/settings/presentation/stores/setting
 
 import { compositeThemeColorOver } from './fieldGridActiveCells';
 import { FieldGeneratedTiles } from './FieldGeneratedTiles';
+import { FieldGrass } from './FieldGrass';
 import { bindFieldChunkSlot } from './fieldGridChunkBind';
 import {
   FIELD_GRID_OVERLAY_RENDER_ORDER,
@@ -145,6 +146,7 @@ function FieldGridChunkComponent({
   return (
     <group ref={groupRef} visible={chunkIndex != null}>
       <FieldGeneratedTiles chunkIndex={chunkIndex} base={base} occupiedCellKeys={occupiedCellKeys} />
+      <FieldGrass chunkIndex={chunkIndex} base={base} occupiedCellKeys={occupiedCellKeys} />
       <mesh
         ref={meshRef}
         geometry={planeGeometry}

@@ -12,6 +12,7 @@ import { FieldGridSurface } from './FieldGridSurface';
 import { FieldSurfaceObjects } from './FieldSurfaceObjects';
 import { FieldWorldAxes } from './FieldWorldAxes';
 import { resetFieldGridWaveScene } from './fieldGridWaveMaterial';
+import { syncFieldCloudLightDirection, syncFieldToonLighting } from './fieldCloudShadows';
 import { consumeFieldShadowUpdate, requestFieldShadowUpdate } from './fieldShadowInvalidation';
 import { useFieldTileStore } from './fieldTileStore';
 import { useFieldConfig, useFieldGridConfig } from './useFieldConfig';
@@ -34,7 +35,9 @@ export function FieldSpaceScene({
   readonly headers: AuthenticatedAssetHeaders;
 }): ReactElement {
   const showWorldAxes = useSettingsStore((s) => s.developerShowWorldAxes);
-  const gridConfig = useFieldGridConfig();
+  const configuredGrid = useFieldGridConfig();
+  // Cell dividers are purely visual; coordinates, pitch and the surface remain unchanged.
+  const gridConfig = useMemo(() => ({ ...configuredGrid, showDividers: false }), [configuredGrid]);
   const fieldConfig = useFieldConfig();
   const [loadedChunkIndices, setLoadedChunkIndices] = useState<readonly number[]>([]);
   const loadedChunkSet = useMemo(() => new Set(loadedChunkIndices), [loadedChunkIndices]);
@@ -65,7 +68,7 @@ export function FieldSpaceScene({
       <FieldSceneLighting objects={loadedObjects} />
       <FieldGridSurface
         config={gridConfig}
-        objects={loadedObjects}
+        objects={objects}
         onLoadedChunkIndicesChange={handleLoadedChunkIndicesChange}
       />
       {loadedObjects.length > 0 ? (
@@ -106,6 +109,7 @@ function FieldSceneLighting({
     return () => clearTimeout(timeout);
   }, [lighting.shadows]);
   useLayoutEffect(() => {
+    syncFieldCloudLightDirection(lighting.directionalPosition);
     const light = lightRef.current;
     if (light === null) return;
 
@@ -156,6 +160,9 @@ function FieldSceneLighting({
     lighting.directionalPosition[2],
   ]);
 
+  useLayoutEffect(() => {
+    syncFieldToonLighting(lighting.directionalIntensity, lighting.ambientIntensity);
+  }, [lighting.directionalIntensity, lighting.ambientIntensity]);
   useEffect(() => {
     requestFieldShadowUpdate();
   }, [

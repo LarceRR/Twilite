@@ -17,7 +17,7 @@ export const FIELD_CHUNK_AHEAD = DEFAULT_FIELD_CONFIG.chunks.ahead;
 
 /**
  * How far ahead of the camera (world +X) we treat as the streaming focus.
- * Keeps chunk 0 loaded at the default camera x≈-469 and gives bake time.
+ * Keep this below one chunk width so the physical camera chunk is not evicted early.
  */
 export const FIELD_CHUNK_LOOK_AHEAD_PX = DEFAULT_FIELD_CONFIG.chunks.lookAheadPx;
 
@@ -43,6 +43,22 @@ export function fieldChunkIndexFromWorldX(
   return Math.max(0, Math.floor(col / chunkCols));
 }
 
+/**
+ * Keep the streaming focus less than one chunk ahead. Otherwise the desired
+ * window can move past the physical camera chunk before the camera enters it.
+ * This also protects users with a persisted legacy lookAheadPx override.
+ */
+export function fieldChunkStreamingLookAheadPx(
+  lookAheadPx: number,
+  cellPitch: number,
+  chunkCols: number = FIELD_CHUNK_COLS,
+): number {
+  if (!Number.isFinite(lookAheadPx)) return 0;
+  if (cellPitch <= 0 || chunkCols < 1) {
+    throw new Error('chunk look-ahead requires positive cellPitch and chunkCols');
+  }
+  return Math.min(Math.max(0, lookAheadPx), Math.max(0, cellPitch * chunkCols - 1));
+}
 export function fieldChunkFocusWorldX(
   cameraX: number,
   lookAheadPx: number = FIELD_CHUNK_LOOK_AHEAD_PX,
@@ -55,6 +71,62 @@ export function fieldChunkColStart(
   chunkCols: number = FIELD_CHUNK_COLS,
 ): number {
   return Math.max(0, chunkIndex) * chunkCols;
+}
+
+/**
+ * Stable signature of occupied cells local to a chunk. Changes in other chunks
+ * must not invalidate grass/tile work for this chunk.
+ */
+export function fieldChunkOccupiedCellsSignature(
+  chunkIndex: number | null,
+  chunkCols: number,
+  rows: number,
+  occupiedCellKeys: ReadonlySet<string>,
+): string {
+  if (chunkIndex === null || chunkCols < 1 || rows < 1) return '';
+
+  const firstCol = chunkIndex * chunkCols;
+  const occupied: string[] = [];
+  for (let localCol = 0; localCol < chunkCols; localCol += 1) {
+    const col = firstCol + localCol;
+    for (let row = 0; row < rows; row += 1) {
+      if (occupiedCellKeys.has(col + ':' + row)) {
+        occupied.push(localCol + ':' + row);
+      }
+    }
+  }
+  return occupied.join(',');
+}
+
+/** Rebuild only this chunk's absolute occupancy keys from its stable signature. */
+export function fieldChunkOccupiedCellKeys(
+  chunkIndex: number | null,
+  chunkCols: number,
+  signature: string,
+): ReadonlySet<string> {
+  const occupied = new Set<string>();
+  if (chunkIndex === null || chunkCols < 1 || signature.length === 0) return occupied;
+
+  const firstCol = chunkIndex * chunkCols;
+  for (const entry of signature.split(',')) {
+    const separator = entry.indexOf(':');
+    if (separator < 1) continue;
+
+    const localCol = Number(entry.slice(0, separator));
+    const row = Number(entry.slice(separator + 1));
+    if (
+      !Number.isInteger(localCol) ||
+      localCol < 0 ||
+      localCol >= chunkCols ||
+      !Number.isInteger(row) ||
+      row < 0
+    ) {
+      continue;
+    }
+
+    occupied.add(firstCol + localCol + ':' + row);
+  }
+  return occupied;
 }
 
 export function fieldVisibleChunkIndices(
@@ -78,7 +150,12 @@ export function fieldChunkIndicesForCameraX(
   ahead?: number,
 ): readonly number[] {
   const chunks = getFieldConfig().chunks;
-  const focusX = fieldChunkFocusWorldX(cameraX, lookAheadPx ?? chunks.lookAheadPx);
+  const safeLookAhead = fieldChunkStreamingLookAheadPx(
+    lookAheadPx ?? chunks.lookAheadPx,
+    cellPitch,
+    chunkCols ?? chunks.cols,
+  );
+  const focusX = fieldChunkFocusWorldX(cameraX, safeLookAhead);
   const anchor = fieldChunkIndexFromWorldX(
     focusX,
     cellPitch,
