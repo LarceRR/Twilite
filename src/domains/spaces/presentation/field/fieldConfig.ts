@@ -452,7 +452,7 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
     bladeWidth: 20,
     bladeHeight: 30,
     maxInstancesPerChunk: 3600,
-    generationBatchSize: 360,
+    generationBatchSize: 150,
     edgeMargin: 12,
     jitterRatio: 0.98,
     occupiedClearanceRatio: 0.28,
