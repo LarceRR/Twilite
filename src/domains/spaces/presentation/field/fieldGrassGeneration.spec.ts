@@ -92,7 +92,7 @@ describe('continuous field grass generation', () => {
     expect(yBins.every((count) => count > 0)).toBe(true);
   });
 
-  it('keeps occupied-cell inputs for an existing chunk stable when another chunk loads', () =>
+  it('keeps occupied-cell inputs for an existing chunk stable when another chunk loads', () => {
     const before = new Set(['1:3', '5:4']);
     const after = new Set(['1:3', '5:4', '11:8']);
 
@@ -105,7 +105,7 @@ describe('continuous field grass generation', () => {
     );
   });
 
-  it('supports adjustable density and blade dimensions', () =>
+  it('supports adjustable density and blade dimensions', () => {
     const defaultInstances = generateFieldGrassInstances(options(0));
     const adjustedInstances = generateFieldGrassInstances({
       ...options(0),
