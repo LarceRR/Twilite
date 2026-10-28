@@ -1,5 +1,5 @@
 import { Asset } from 'expo-asset';
-import type { FieldConfig } from './fieldConfig';
+import { DEFAULT_FIELD_CONFIG, type FieldConfig } from './fieldConfig';
 import { Image } from 'react-native';
 import grassBladeAsset from './assets/grass-blade.png';
 import grassAccentAsset1 from './assets/author-grassleaf.png';
@@ -100,36 +100,42 @@ const grassAlbedoNoise3 = FIELD_ALBEDO_NOISE_3_TEXTURE;
  * Author parameters converted to Twilite's world scale (100 field units = 1 m).
  * Wind / albedo texture coordinates are divided by 100; angles and time are unchanged.
  */
+const defaultGrassConfig = DEFAULT_FIELD_CONFIG.grass;
+
 const FIELD_GRASS_UNIFORMS = {
   uGrassTime: { value: 0 },
-  uGrassWindEnabled: { value: 1 },
-  uGrassAlbedoNoiseEnabled: { value: 1 },
-  uGrassCloudShadowsEnabled: { value: 1 },
-  uGrassAccentOffset1: { value: 10 },
-  uGrassAccentOffset2: { value: 18.5 },
+  uGrassWindEnabled: { value: defaultGrassConfig.windEnabled ? 1 : 0 },
+  uGrassAlbedoNoiseEnabled: { value: defaultGrassConfig.albedoNoiseEnabled ? 1 : 0 },
+  uGrassCloudShadowsEnabled: { value: defaultGrassConfig.cloudShadowsEnabled ? 1 : 0 },
+  uGrassAccentOffset1: { value: defaultGrassConfig.accentOffset1 },
+  uGrassAccentOffset2: { value: defaultGrassConfig.accentOffset2 },
   uGrassWindNoise: { value: grassWindNoise },
   uGrassAlbedoNoise2: { value: grassAlbedoNoise2 },
   uGrassAlbedoNoise3: { value: grassAlbedoNoise3 },
   uGrassAccentTexture1: { value: grassAccentSprite1 },
   uGrassAccentTexture2: { value: grassAccentSprite2 },
-  uGrassWindDirection: { value: new Vector2(0, 1) },
-  uGrassWindScale: { value: 0.00071 },
-  uGrassWindSpeed: { value: 0.025 },
-  uGrassWindThreshold: { value: 0.365 },
-  uGrassWindDivergence: { value: 10 },
-  uGrassWindAngle: { value: 60 },
-  uGrassFramerate: { value: 5 },
-  uGrassQuantized: { value: 1 },
-  uGrassViewSwaySpeed: { value: 0.1 },
-  uGrassViewSwayAngle: { value: 10 },
-  uGrassFakePerspectiveScale: { value: 0.3 },
+  uGrassWindDirection: { value: new Vector2(defaultGrassConfig.windDirectionX, defaultGrassConfig.windDirectionY) },
+  uGrassWindScale: { value: defaultGrassConfig.windScale },
+  uGrassWindSpeed: { value: defaultGrassConfig.windSpeed },
+  uGrassWindThreshold: { value: defaultGrassConfig.windThreshold },
+  uGrassWindDivergence: { value: defaultGrassConfig.windDivergence },
+  uGrassWindSecondaryScaleRatio: { value: defaultGrassConfig.windSecondaryScaleRatio },
+  uGrassWindSecondaryOffsetRatio: { value: defaultGrassConfig.windSecondaryOffsetRatio },
+  uGrassSeedPhaseScale: { value: defaultGrassConfig.seedPhaseScale },
+  uGrassCloudShadowCurveExponent: { value: defaultGrassConfig.cloudShadowCurveExponent },
+  uGrassWindAngle: { value: defaultGrassConfig.windAngle },
+  uGrassFramerate: { value: defaultGrassConfig.windFramerate },
+  uGrassQuantized: { value: defaultGrassConfig.quantizedAnimation ? 1 : 0 },
+  uGrassViewSwaySpeed: { value: defaultGrassConfig.viewSwaySpeed },
+  uGrassViewSwayAngle: { value: defaultGrassConfig.viewSwayAngle },
+  uGrassFakePerspectiveScale: { value: defaultGrassConfig.fakePerspectiveScale },
   uGrassCameraRightWorld: { value: new Vector3(0, -1, 0) },
   uGrassCameraNormalWorld: { value: new Vector3(-1, 0, 0) },
   uGrassWindAlignment: { value: 0 },
-  uGrassAlbedoScale2: { value: 0.0011 },
-  uGrassAlbedoThreshold2: { value: 0.537 },
-  uGrassAlbedoScale3: { value: 0.001 },
-  uGrassAlbedoThreshold3: { value: 0.471 },
+  uGrassAlbedoScale2: { value: defaultGrassConfig.albedoScale2 },
+  uGrassAlbedoThreshold2: { value: defaultGrassConfig.albedoThreshold2 },
+  uGrassAlbedoScale3: { value: defaultGrassConfig.albedoScale3 },
+  uGrassAlbedoThreshold3: { value: defaultGrassConfig.albedoThreshold3 },
   uGrassAlbedo1: { value: FIELD_GRASS_PALETTE.albedo1 },
   uGrassAlbedo2: { value: FIELD_GRASS_PALETTE.albedo2 },
   uGrassAlbedo3: { value: FIELD_GRASS_PALETTE.albedo3 },
@@ -141,7 +147,9 @@ const grassVertexDeclarations = [
   'attribute float aGrassSeed;',
   'attribute vec2 aGrassDimensions;',
   'attribute float aGrassAccent;',
-  'varying vec3 vGrassWorldOrigin;',
+  'varying float vGrassAlbedoNoise2;',
+  'varying float vGrassAlbedoNoise3;',
+  'varying float vGrassCloudVisibility;',
   'varying float vGrassWindSample;',
   'varying float vGrassFakePerspective;',
   'varying float vGrassSeed;',
@@ -149,6 +157,15 @@ const grassVertexDeclarations = [
   'varying vec2 vGrassUv;',
   'uniform float uGrassTime;',
   'uniform float uGrassWindEnabled;',
+  'uniform float uGrassAlbedoNoiseEnabled;',
+  'uniform float uGrassAlbedoScale2;',
+  'uniform float uGrassAlbedoScale3;',
+  'uniform float uGrassCloudShadowsEnabled;',
+  'uniform sampler2D uGrassAlbedoNoise2;',
+  'uniform sampler2D uGrassAlbedoNoise3;',
+  'uniform float uGrassSeedPhaseScale;',
+  'uniform float uGrassWindSecondaryScaleRatio;',
+  'uniform float uGrassWindSecondaryOffsetRatio;',
   'uniform float uGrassAccentOffset1;',
   'uniform float uGrassAccentOffset2;',
   'uniform sampler2D uGrassWindNoise;',
@@ -184,7 +201,7 @@ const grassVertexBody = [
   'float grassSeed = aGrassSeed;',
   'float grassFrameRate = max(uGrassFramerate, 1.0);',
   'float grassFrameTime = 1.0 / grassFrameRate;',
-  'float grassPhase = mod(grassSeed * 10.0, grassFrameTime);',
+  'float grassPhase = mod(grassSeed * uGrassSeedPhaseScale, grassFrameTime);',
   'float grassQuantizedTime = floor((uGrassTime + grassPhase) * grassFrameRate + 0.5) / grassFrameRate;',
   'float grassTime = uGrassQuantized > 0.5 ? grassQuantizedTime : uGrassTime;',
   'vec2 grassDirection1 = fieldGrassRotate(uGrassWindDirection, uGrassWindDivergence);',
@@ -194,11 +211,20 @@ const grassVertexBody = [
   'float grassWind = 0.0;',
   'if (uGrassWindEnabled > 0.5) {',
   '  float grassNoise1 = texture2D(uGrassWindNoise, grassWorldOrigin.xy * uGrassWindScale + grassOffset1).r;',
-  '  float grassNoise2 = texture2D(uGrassWindNoise, grassWorldOrigin.xy * (uGrassWindScale * 0.8) + grassOffset2 * (0.89 * 3.141592653589793 / 3.0)).r;',
+  '  float grassNoise2 = texture2D(uGrassWindNoise, grassWorldOrigin.xy * (uGrassWindScale * uGrassWindSecondaryScaleRatio) + grassOffset2 * (uGrassWindSecondaryOffsetRatio * 3.141592653589793 / 3.0)).r;',
   '  grassWind = clamp(grassNoise1 * grassNoise2 + uGrassWindThreshold, 0.0, 1.0);',
   '  grassWind = (grassWind - 0.5) * 2.0;',
   '}',
-  'float grassViewSway = sin((grassTime + grassSeed * 10.0) * uGrassViewSwaySpeed * 6.283185307179586) * radians(uGrassViewSwayAngle);',
+  'float grassPatch2 = 0.0;',
+  'float grassPatch3 = 0.0;',
+  'if (uGrassAlbedoNoiseEnabled > 0.5) {',
+  '  grassPatch2 = texture2D(uGrassAlbedoNoise2, grassWorldOrigin.xy * uGrassAlbedoScale2).r;',
+  '  grassPatch3 = texture2D(uGrassAlbedoNoise3, grassWorldOrigin.xy * uGrassAlbedoScale3).r;',
+  '}',
+  'vGrassAlbedoNoise2 = grassPatch2;',
+  'vGrassAlbedoNoise3 = grassPatch3;',
+  'vGrassCloudVisibility = uGrassCloudShadowsEnabled > 0.5 ? fieldCloudVisibility(grassWorldOrigin) : 1.0;',
+  'float grassViewSway = sin((grassTime + grassSeed * uGrassSeedPhaseScale) * uGrassViewSwaySpeed * 6.283185307179586) * radians(uGrassViewSwayAngle);',
   'float grassViewCos = cos(grassViewSway);',
   'float grassViewSin = sin(grassViewSway);',
   'vec2 grassViewRotated = vec2(transformed.x * grassViewCos - transformed.y * grassViewSin, transformed.x * grassViewSin + transformed.y * grassViewCos);',
@@ -213,7 +239,6 @@ const grassVertexBody = [
   'transformed.x = dot(grassRotatedOffset, uGrassCameraRightWorld) / grassWidth;',
   'transformed.y = dot(grassRotatedOffset, vec3(0.0, 0.0, 1.0)) / grassHeight - 0.5;',
   'transformed.z = dot(grassRotatedOffset, uGrassCameraNormalWorld);',
-  'vGrassWorldOrigin = grassWorldOrigin;',
   'vGrassWindSample = grassWind;',
   'vGrassFakePerspective = grassWind * uGrassWindAlignment;',
   '#ifdef USE_MAP',
@@ -226,21 +251,19 @@ const grassVertexBody = [
 ].join('\n');
 
 const grassFragmentDeclarations = [
-  'varying vec3 vGrassWorldOrigin;',
+  'varying float vGrassAlbedoNoise2;',
+  'varying float vGrassAlbedoNoise3;',
+  'varying float vGrassCloudVisibility;',
   'varying float vGrassWindSample;',
   'varying float vGrassFakePerspective;',
   'varying float vGrassSeed;',
   'varying float vGrassAccent;',
   'varying vec2 vGrassUv;',
-  'uniform sampler2D uGrassAlbedoNoise2;',
-  'uniform sampler2D uGrassAlbedoNoise3;',
   'uniform float uGrassAlbedoNoiseEnabled;',
-  'uniform float uGrassCloudShadowsEnabled;',
+  'uniform float uGrassCloudShadowCurveExponent;',
   'uniform sampler2D uGrassAccentTexture1;',
   'uniform sampler2D uGrassAccentTexture2;',
-  'uniform float uGrassAlbedoScale2;',
   'uniform float uGrassAlbedoThreshold2;',
-  'uniform float uGrassAlbedoScale3;',
   'uniform float uGrassAlbedoThreshold3;',
   'uniform vec3 uGrassAlbedo1;',
   'uniform vec3 uGrassAlbedo2;',
@@ -253,8 +276,8 @@ const grassFragmentDeclarations = [
 const grassColorBody = [
   'diffuseColor.rgb = uGrassAlbedo1 * diffuseColor.rgb;',
   'if (uGrassAlbedoNoiseEnabled > 0.5) {',
-  '  float grassPatch2 = texture2D(uGrassAlbedoNoise2, vGrassWorldOrigin.xy * uGrassAlbedoScale2).r;',
-  '  float grassPatch3 = texture2D(uGrassAlbedoNoise3, vGrassWorldOrigin.xy * uGrassAlbedoScale3).r;',
+  '  float grassPatch2 = vGrassAlbedoNoise2;',
+  '  float grassPatch3 = vGrassAlbedoNoise3;',
   '  if (grassPatch2 > uGrassAlbedoThreshold2) diffuseColor.rgb = uGrassAlbedo2;',
   '  if (grassPatch3 > uGrassAlbedoThreshold3) diffuseColor.rgb = uGrassAlbedo3;',
   '}',
@@ -270,12 +293,12 @@ const grassColorBody = [
 ].join('\n');
 
 const grassLightingBody = [
-  'float fieldGrassCloud = uGrassCloudShadowsEnabled > 0.5 ? fieldCloudVisibility(vGrassWorldOrigin) : 1.0;',
+  'float fieldGrassCloud = vGrassCloudVisibility;',
   '#if NUM_DIR_LIGHTS > 0',
   'float fieldGrassNdotL = max(dot(normalize(normal), directionalLights[0].direction), 0.0);',
   'float fieldGrassDiffuse = min(fieldGrassNdotL, fieldGrassCloud);',
   'float fieldGrassStepped = clamp(fieldGrassDiffuse + mod(1.0 - fieldGrassDiffuse, 1.0 / 3.0), 0.0, 1.0);',
-  'float fieldGrassCloudShadow = mix(1.0, pow(fieldGrassCloud, 1.35), uCloudShadowStrength);',
+  'float fieldGrassCloudShadow = mix(1.0, pow(fieldGrassCloud, uGrassCloudShadowCurveExponent), uCloudShadowStrength);',
   'float fieldGrassDirectScale = fieldGrassNdotL > 0.0001 ? (fieldGrassStepped / fieldGrassNdotL) * uFieldToonDirectLightScale * fieldGrassCloudShadow : 0.0;',
   'outgoingLight -= reflectedLight.directDiffuse + reflectedLight.indirectDiffuse;',
   'outgoingLight += reflectedLight.directDiffuse * fieldGrassDirectScale;',
@@ -304,7 +327,7 @@ function createFieldGrassMaterial(): MeshStandardMaterial {
 
     shader.vertexShader = shader.vertexShader.replace(
       '#include <common>',
-      '#include <common>\n' + grassVertexDeclarations,
+      '#include <common>\n' + grassVertexDeclarations + '\n' + FIELD_CLOUD_FRAGMENT_DECLARATIONS,
     );
     shader.vertexShader = shader.vertexShader.replace(
       '#include <begin_vertex>',
@@ -339,7 +362,7 @@ function createFieldGrassMaterial(): MeshStandardMaterial {
     );
   };
 
-  material.customProgramCacheKey = () => 'twilite-field-grass-v6-visible-cloud-shadows';
+  material.customProgramCacheKey = () => 'twilite-field-grass-v7-vertex-noise';
   return material;
 }
 
@@ -351,6 +374,17 @@ export function syncFieldGrassConfig(config: FieldConfig['grass']): void {
   FIELD_GRASS_UNIFORMS.uGrassCloudShadowsEnabled.value = config.cloudShadowsEnabled ? 1 : 0;
   FIELD_GRASS_UNIFORMS.uGrassAccentOffset1.value = config.accentOffset1;
   FIELD_GRASS_UNIFORMS.uGrassAccentOffset2.value = config.accentOffset2;
+  FIELD_GRASS_UNIFORMS.uGrassSeedPhaseScale.value = config.seedPhaseScale;
+  FIELD_GRASS_UNIFORMS.uGrassQuantized.value = config.quantizedAnimation ? 1 : 0;
+  FIELD_GRASS_UNIFORMS.uGrassFakePerspectiveScale.value = config.fakePerspectiveScale;
+  FIELD_GRASS_UNIFORMS.uGrassWindSecondaryScaleRatio.value = config.windSecondaryScaleRatio;
+  FIELD_GRASS_UNIFORMS.uGrassWindSecondaryOffsetRatio.value = config.windSecondaryOffsetRatio;
+  FIELD_GRASS_UNIFORMS.uGrassCloudShadowCurveExponent.value = config.cloudShadowCurveExponent;
+  FIELD_GRASS_PALETTE.albedo1.set(config.albedoColor1);
+  FIELD_GRASS_PALETTE.albedo2.set(config.albedoColor2);
+  FIELD_GRASS_PALETTE.albedo3.set(config.albedoColor3);
+  FIELD_GRASS_PALETTE.accentAlbedo1.set(config.accentAlbedoColor1);
+  FIELD_GRASS_PALETTE.accentAlbedo2.set(config.accentAlbedoColor2);
   FIELD_GRASS_UNIFORMS.uGrassWindDirection.value.set(
     config.windDirectionX,
     config.windDirectionY,
