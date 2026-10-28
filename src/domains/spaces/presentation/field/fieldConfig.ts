@@ -67,7 +67,7 @@ export type FieldConfig = {
     readonly bladeHeight: number;
     /** Fixed instance capacity avoids reallocating GPU buffers while the spacing slider moves. */
     readonly maxInstancesPerChunk: number;
-    /** Number of grass instances generated during one animation frame. */
+    /** Number of grass instances generated per animation frame per chunk. */
     readonly generationBatchSize: number;
     readonly edgeMargin: number;
     readonly jitterRatio: number;
