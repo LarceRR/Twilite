@@ -56,7 +56,7 @@ describe('continuous field grass generation', () => {
     expect(yBins.every((count) => count > 0)).toBe(true);
   });
 
-  it('keeps the configured default density around 30 blades per square metre', () => {
+  it('keeps the original author-matched density around 48 blades per square metre', () => {
     const instances = generateFieldGrassInstances(options(0));
     const surface = fieldGridWorldSize({
       cols: 10,
@@ -66,8 +66,8 @@ describe('continuous field grass generation', () => {
     const areaSquareMetres = (surface.width / 100) * (surface.height / 100);
     const density = instances.length / areaSquareMetres;
 
-    expect(density).toBeGreaterThan(25);
-    expect(density).toBeLessThan(35);
+    expect(density).toBeGreaterThan(40);
+    expect(density).toBeLessThan(55);
     expect(instances.every((instance) => instance.width === 20 && instance.height === 30)).toBe(true);
   });
 
