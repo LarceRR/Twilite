@@ -236,17 +236,17 @@ export function syncFieldToonLighting(
 export const FIELD_CLOUD_UNIFORMS = {
   uCloudNoise: { value: FIELD_CLOUD_NOISE_TEXTURE },
   uCloudTime: { value: 0 },
-  uCloudScale: { value: 4000 },
+  uCloudScale: { value: DEFAULT_FIELD_CONFIG.grass.cloudNoiseScale },
   uCloudWorldHeight: { value: 5000 },
-  uCloudSpeed: { value: -0.01 },
-  uCloudContrast: { value: 3.845 },
-  uCloudThreshold: { value: 0.27 },
+  uCloudSpeed: { value: DEFAULT_FIELD_CONFIG.grass.cloudSpeed },
+  uCloudContrast: { value: DEFAULT_FIELD_CONFIG.grass.cloudContrast },
+  uCloudThreshold: { value: DEFAULT_FIELD_CONFIG.grass.cloudThreshold },
   uCloudDirection: { value: new Vector2(0, -1) },
   uCloudLightDirection: { value: new Vector3(-160, 260, 420).normalize() },
   uCloudShadowMin: { value: 0.2 },
   // Godot's stepped toon response can lift cloud-capped light back up a level;
   // this small post-cap contrast keeps the same pattern readable at Twilite scale.
-  uCloudShadowStrength: { value: 0.82 },
+  uCloudShadowStrength: { value: DEFAULT_FIELD_CONFIG.grass.cloudShadowStrength },
   uCloudDivergeAngle: { value: 20 },
 };
 
