@@ -34,7 +34,9 @@ function runFieldGrassGenerationFrame(): void {
   let remaining = frameBudget;
 
   for (let offset = 0; offset < tasks.length && remaining > 0; offset += 1) {
-    const [taskId, task] = tasks[(startIndex + offset) % tasks.length];
+    const entry = tasks[(startIndex + offset) % tasks.length];
+    if (entry === undefined) continue;
+    const [taskId, task] = entry;
     if (!fieldGrassGenerationTasks.has(taskId)) continue;
 
     const allowance = Math.min(task.batchSize, remaining);
