@@ -1,5 +1,5 @@
 import { useThree } from '@react-three/fiber/native';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import type { ReactElement } from 'react';
 import {
   DynamicDrawUsage,
@@ -17,7 +17,6 @@ import { iterateFieldGrassInstances } from './fieldGrassGeneration';
 import { FIELD_GRASS_MATERIAL, loadFieldGrassSprite } from './fieldGrassMaterial';
 import {
   FIELD_GRID_DIVIDER_WIDTH,
-  fieldGridWorldSize,
   type FieldGridConfig,
 } from './fieldGridConfig';
 import { useFieldConfig } from './useFieldConfig';
@@ -60,17 +59,7 @@ export function FieldGrass({
     }),
     [base.rows, base.cellSize, dividerWidth],
   );
-  const worldSize = useMemo(
-    () =>
-      fieldGridWorldSize({
-        cols: chunkCols,
-        rows: base.rows,
-        cellSize: base.cellSize,
-        dividerWidth,
-        showDividers: false,
-      }),
-    [chunkCols, base.rows, base.cellSize, dividerWidth],
-  );
+
 
   // The extra rows account for jitter at lattice edges; invalid positions are
   // discarded by the generator. This bounds allocation per chunk.
@@ -102,6 +91,11 @@ export function FieldGrass({
   const billboardNormal = useMemo(() => new Vector3(), []);
   const billboardMatrix = useMemo(() => new Matrix4(), []);
   const billboardQuaternion = useMemo(() => new Quaternion(), []);
+
+  useLayoutEffect(() => {
+    // Prevent a recycled slot from drawing the previous chunk's matrices for one frame.
+    if (meshRef.current !== null) meshRef.current.count = 0;
+  }, [chunkIndex, capacity, geometry]);
 
   useEffect(() => {
     void loadFieldGrassSprite();
