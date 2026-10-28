@@ -61,8 +61,6 @@ export function FieldGrass({
   );
 
 
-  // The extra rows account for jitter at lattice edges; invalid positions are
-  // discarded by the generator. This bounds allocation per chunk.
   // Keep allocation stable while tweaking spacing; only the explicit capacity
   // setting reallocates GPU buffers.
   const capacity = Math.max(1, Math.floor(grassConfig.maxInstancesPerChunk));
