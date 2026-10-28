@@ -408,6 +408,9 @@ export type DeepPartial<T> = {
       : T[K];
 };
 
+/** Fixed buffer ceiling; editable per-chunk instance limits stay within this allocation. */
+export const FIELD_GRASS_BUFFER_CAPACITY = 4000;
+
 export const DEFAULT_FIELD_CONFIG: FieldConfig = {
   grid: {
     cellSizePx: 60,
