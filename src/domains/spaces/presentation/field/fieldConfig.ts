@@ -69,6 +69,8 @@ export type FieldConfig = {
     readonly maxInstancesPerChunk: number;
     /** Number of grass instances generated per animation frame per chunk. */
     readonly generationBatchSize: number;
+    /** Shared cap for all chunks combined, to avoid a simultaneous CPU/GPU spike. */
+    readonly maxGeneratedPerFrame: number;
     readonly edgeMargin: number;
     readonly jitterRatio: number;
     readonly occupiedClearanceRatio: number;
@@ -453,6 +455,7 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
     bladeHeight: 30,
     maxInstancesPerChunk: 3600,
     generationBatchSize: 150,
+    maxGeneratedPerFrame: 600,
     edgeMargin: 12,
     jitterRatio: 0.98,
     occupiedClearanceRatio: 0.28,
