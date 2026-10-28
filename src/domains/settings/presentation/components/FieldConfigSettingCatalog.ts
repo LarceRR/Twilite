@@ -1,4 +1,4 @@
-import type { FieldConfig, FieldConfigOverrides } from '@/domains/spaces/presentation/field/fieldConfig';
+import { FIELD_GRASS_BUFFER_CAPACITY, type FieldConfig, type FieldConfigOverrides } from '@/domains/spaces/presentation/field/fieldConfig';
 
 export type FieldConfigNumberSetting = {
   readonly kind: 'number';
@@ -105,7 +105,7 @@ export const FIELD_CONFIG_SETTING_GROUPS: readonly FieldConfigSettingGroup[] = [
       n('grass.spacing', 'Расстояние между травинками', 'Меньше значение — трава гуще и тяжелее для GPU.', 14, 34, 0.5, 1),
       n('grass.bladeWidth', 'Ширина травинки', 'Ширина одного спрайта в мировых единицах.', 8, 50, 1),
       n('grass.bladeHeight', 'Высота травинки', 'Высота одного спрайта в мировых единицах.', 8, 60, 1),
-      n('grass.maxInstancesPerChunk', 'Максимум травинок в чанке', 'Ограничивает память GPU. При слишком малом значении очень густая трава может обрезаться.', 1000, 5000, 100),
+      n('grass.maxInstancesPerChunk', 'Максимум травинок в чанке', 'Ограничивает число видимых экземпляров; размер GPU-буфера остаётся постоянным.', 1000, FIELD_GRASS_BUFFER_CAPACITY, 100),
       n('grass.generationBatchSize', 'Травинок за кадр', 'Число травинок, которое готовится за один кадр. Меньше — плавнее загрузка, но дольше появляется трава.', 100, 1000, 50),
       b('grass.receiveShadows', 'Геометрические тени на траве', 'Включает реальные shadow-map тени на спрайтах; облачный шум на траве настраивается отдельно.'),
       n('grass.edgeMargin', 'Отступ травы от края', 'Минимальный отступ травинок от внешнего края поверхности.', 0, 30, 1),
