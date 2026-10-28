@@ -73,6 +73,31 @@ export function fieldChunkColStart(
   return Math.max(0, chunkIndex) * chunkCols;
 }
 
+/**
+ * Stable signature of occupied cells local to a chunk. Changes in other chunks
+ * must not invalidate grass/tile work for this chunk.
+ */
+export function fieldChunkOccupiedCellsSignature(
+  chunkIndex: number | null,
+  chunkCols: number,
+  rows: number,
+  occupiedCellKeys: ReadonlySet<string>,
+): string {
+  if (chunkIndex === null || chunkCols < 1 || rows < 1) return '';
+
+  const firstCol = chunkIndex * chunkCols;
+  const occupied: string[] = [];
+  for (let localCol = 0; localCol < chunkCols; localCol += 1) {
+    const col = firstCol + localCol;
+    for (let row = 0; row < rows; row += 1) {
+      if (occupiedCellKeys.has(col + ':' + row)) {
+        occupied.push(localCol + ':' + row);
+      }
+    }
+  }
+  return occupied.join(',');
+}
+
 export function fieldVisibleChunkIndices(
   anchorChunk: number,
   behind: number = FIELD_CHUNK_BEHIND,

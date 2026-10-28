@@ -18,6 +18,7 @@ import {
   generateFieldGrassInstances,
 } from './fieldGrassGeneration';
 import { FIELD_GRASS_MATERIAL, loadFieldGrassSprite } from './fieldGrassMaterial';
+import { fieldChunkOccupiedCellsSignature } from './fieldGridChunks';
 import {
   FIELD_GRID_DIVIDER_WIDTH,
   fieldGridWorldSize,
@@ -60,6 +61,10 @@ export function FieldGrass({
       dividerWidth,
     }),
     [base.rows, base.cellSize, dividerWidth],
+  );
+  const occupiedCellsSignature = useMemo(
+    () => fieldChunkOccupiedCellsSignature(chunkIndex, chunkCols, base.rows, occupiedCellKeys),
+    [chunkIndex, chunkCols, base.rows, occupiedCellKeys],
   );
   const worldSize = useMemo(
     () =>
@@ -169,7 +174,6 @@ export function FieldGrass({
     geometry.getAttribute('aGrassSeed').needsUpdate = true;
     geometry.getAttribute('aGrassDimensions').needsUpdate = true;
     geometry.getAttribute('aGrassAccent').needsUpdate = true;
-    mesh.computeBoundingSphere();
   }, [
     chunkIndex,
     chunkCols,
@@ -181,7 +185,7 @@ export function FieldGrass({
     objectMinHeight,
     objectMaxHeight,
     generatedTilesEnabled,
-    occupiedCellKeys,
+    occupiedCellsSignature,
     camera,
     cameraForward,
     cameraRight,

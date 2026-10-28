@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { generateFieldGrassInstances } from './fieldGrassGeneration';
+import {
+  clearFieldGrassGenerationCache,
+  fieldGrassGenerationCacheKey,
+  generateFieldGrassInstances,
+  getCachedFieldGrassInstances,
+} from './fieldGrassGeneration';
 import { fieldGridWorldSize } from './fieldGridConfig';
 
 const grid = {
@@ -46,6 +51,29 @@ describe('continuous field grass generation', () => {
     expect(density).toBeLessThan(55);
     expect(instances.every((instance) => instance.width === 20 && instance.height === 30)).toBe(true);
   });
+  it('reuses cached grass data when only another chunk occupancy changes', () => {
+    clearFieldGrassGenerationCache();
+    const original = options(0);
+    const first = generateFieldGrassInstances(original);
+
+    expect(getCachedFieldGrassInstances(original)).toBe(first);
+
+    const objectInAnotherChunk = {
+      ...original,
+      occupiedCellKeys: new Set(['100:0']),
+    };
+    expect(fieldGrassGenerationCacheKey(objectInAnotherChunk))
+      .toBe(fieldGrassGenerationCacheKey(original));
+    expect(generateFieldGrassInstances(objectInAnotherChunk)).toBe(first);
+
+    const objectInThisChunk = {
+      ...original,
+      occupiedCellKeys: new Set(['0:0']),
+    };
+    expect(fieldGrassGenerationCacheKey(objectInThisChunk))
+      .not.toBe(fieldGrassGenerationCacheKey(original));
+  });
+
   it('keeps instance positions deterministic across calls', () => {
     expect(generateFieldGrassInstances(options(3))).toEqual(
       generateFieldGrassInstances(options(3)),

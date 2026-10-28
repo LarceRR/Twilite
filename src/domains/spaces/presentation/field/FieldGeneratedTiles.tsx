@@ -16,6 +16,7 @@ import { hexToRgbaTuple } from './fieldConfig';
 import { createRoundedSquarePlatformGeometry } from './fieldPlatformGeometry';
 import { fieldGridCellPitch, type FieldGridConfig } from './fieldGridConfig';
 import { cellCenterOnPlane } from './fieldGridCells';
+import { fieldChunkOccupiedCellsSignature } from './fieldGridChunks';
 import { registerFieldGridWaveMaterial } from './fieldGridWaveMaterial';
 import {
   FIELD_TILE_HEIGHT_STEP,
@@ -81,6 +82,10 @@ export function FieldGeneratedTiles({
   const columnCount = fieldConfig.chunks.cols;
   const instanceCount = columnCount * base.rows;
   const glowHex = fieldConfig.lighting.objectGlow.fallbackColor;
+  const occupiedCellsSignature = useMemo(
+    () => fieldChunkOccupiedCellsSignature(chunkIndex, columnCount, base.rows, occupiedCellKeys),
+    [chunkIndex, columnCount, base.rows, occupiedCellKeys],
+  );
 
   const geometry = useMemo(() => {
     const built = createRoundedSquarePlatformGeometry(
@@ -246,7 +251,6 @@ export function FieldGeneratedTiles({
     mesh.instanceMatrix.needsUpdate = true;
     glowAttribute.needsUpdate = true;
     sideDimAttribute.needsUpdate = true;
-    mesh.computeBoundingSphere();
     requestFieldShadowUpdate();
 
     if (ground !== null) {
@@ -270,7 +274,7 @@ export function FieldGeneratedTiles({
     glowHex,
     fieldConfig.activeCells.sideSpan,
     groundZ,
-    occupiedCellKeys,
+    occupiedCellsSignature,
     settings.generatedTilesEnabled,
     settings.worldSeed,
     settings.tileMinHeight,

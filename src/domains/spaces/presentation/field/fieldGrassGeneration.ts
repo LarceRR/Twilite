@@ -4,6 +4,7 @@ import {
   objectPlatformHeight,
 } from './fieldTileGeneration';
 import { FIELD_GRID_DIVIDER_WIDTH, fieldGridWorldSize, type FieldGridConfig } from './fieldGridConfig';
+import { fieldChunkOccupiedCellsSignature } from './fieldGridChunks';
 
 /** sqrt(1 / 48 blades per square metre) converted to Twilite world units. */
 export const FIELD_GRASS_SPACING = 14.5;
@@ -57,7 +58,7 @@ function grassRandom(x: number, y: number, channel: number): number {
  * same pattern and never create a density seam. Cell indices sample the existing
  * tile elevation and provide only a small local clearance around object artwork.
  */
-export function generateFieldGrassInstances(
+function generateFieldGrassInstancesUncached(
   options: FieldGrassGenerationOptions,
 ): readonly FieldGrassInstance[] {
   const spacing = options.spacing ?? FIELD_GRASS_SPACING;
@@ -167,4 +168,170 @@ export function generateFieldGrassInstances(
   }
 
   return instances;
+}
+
+
+const FIELD_GRASS_CACHE_MAX_ENTRIES = 16;
+const grassInstancesCache = new Map<string, readonly FieldGrassInstance[]>();
+
+type PendingGrassGeneration = {
+  readonly key: string;
+  readonly options: FieldGrassGenerationOptions;
+  readonly sequence: number;
+  priority: number;
+};
+
+const pendingGrassGenerations = new Map<string, PendingGrassGeneration>();
+let grassPumpScheduled = false;
+let grassGenerationSequence = 0;
+
+/** Cache key includes only occupied cells in this chunk, not the global Set identity. */
+export function fieldGrassGenerationCacheKey(
+  options: FieldGrassGenerationOptions,
+): string {
+  const normalizedDividerWidth = options.grid.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH;
+  const occupiedSignature = fieldChunkOccupiedCellsSignature(
+    options.chunkIndex,
+    options.chunkCols,
+    options.grid.rows,
+    options.occupiedCellKeys,
+  );
+
+  return JSON.stringify([
+    options.chunkIndex,
+    options.chunkCols,
+    options.grid.rows,
+    options.grid.cellSize,
+    normalizedDividerWidth,
+    options.worldSeed,
+    options.tileMinHeight,
+    options.tileMaxHeight,
+    options.platformHeight,
+    options.objectMinHeight,
+    options.objectMaxHeight,
+    options.generatedTilesEnabled,
+    options.spacing ?? FIELD_GRASS_SPACING,
+    occupiedSignature,
+  ]);
+}
+
+function touchGrassCacheEntry(
+  key: string,
+  instances: readonly FieldGrassInstance[],
+): void {
+  grassInstancesCache.delete(key);
+  grassInstancesCache.set(key, instances);
+
+  while (grassInstancesCache.size > FIELD_GRASS_CACHE_MAX_ENTRIES) {
+    const oldestKey = grassInstancesCache.keys().next().value as string | undefined;
+    if (oldestKey === undefined) break;
+    grassInstancesCache.delete(oldestKey);
+  }
+}
+
+export function getCachedFieldGrassInstances(
+  options: FieldGrassGenerationOptions,
+): readonly FieldGrassInstance[] | null {
+  const key = fieldGrassGenerationCacheKey(options);
+  const cached = grassInstancesCache.get(key);
+  if (cached === undefined) return null;
+  touchGrassCacheEntry(key, cached);
+  return cached;
+}
+
+export function isFieldGrassGenerationCacheKeyReady(
+  key: string | undefined,
+): boolean {
+  return key !== undefined && grassInstancesCache.has(key);
+}
+
+export function generateFieldGrassInstances(
+  options: FieldGrassGenerationOptions,
+): readonly FieldGrassInstance[] {
+  const key = fieldGrassGenerationCacheKey(options);
+  const cached = grassInstancesCache.get(key);
+  if (cached !== undefined) {
+    touchGrassCacheEntry(key, cached);
+    return cached;
+  }
+
+  const instances = generateFieldGrassInstancesUncached(options);
+  touchGrassCacheEntry(key, instances);
+  return instances;
+}
+
+function scheduleGrassGenerationPump(): void {
+  if (grassPumpScheduled || pendingGrassGenerations.size === 0) return;
+  grassPumpScheduled = true;
+
+  // Yield between chunks so grass preparation does not land on the chunk-mount frame.
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      grassPumpScheduled = false;
+      let next: PendingGrassGeneration | undefined;
+      for (const candidate of pendingGrassGenerations.values()) {
+        if (
+          next === undefined ||
+          candidate.priority > next.priority ||
+          (candidate.priority === next.priority && candidate.sequence < next.sequence)
+        ) {
+          next = candidate;
+        }
+      }
+
+      try {
+        if (next !== undefined) {
+          pendingGrassGenerations.delete(next.key);
+          generateFieldGrassInstances(next.options);
+        }
+      } catch (error) {
+        console.error('Failed to prepare field grass instances', error);
+      } finally {
+        scheduleGrassGenerationPump();
+      }
+    }, 0);
+  });
+}
+
+/** Queue deterministic grass generation for an incoming chunk before it is mounted. */
+export function prefetchFieldGrassInstances(
+  options: FieldGrassGenerationOptions,
+  priority = 0,
+): void {
+  const key = fieldGrassGenerationCacheKey(options);
+  if (grassInstancesCache.has(key)) {
+    touchGrassCacheEntry(key, grassInstancesCache.get(key)!);
+    return;
+  }
+
+  const existing = pendingGrassGenerations.get(key);
+  if (existing !== undefined) {
+    existing.priority = Number.isFinite(priority) ? priority : 0;
+    return;
+  }
+
+  pendingGrassGenerations.set(key, {
+    key,
+    options,
+    priority: Number.isFinite(priority) ? priority : 0,
+    sequence: grassGenerationSequence++,
+  });
+  scheduleGrassGenerationPump();
+}
+
+/** Drop queued work for chunks that are no longer near the camera. */
+export function evictPendingFieldGrassPrefetches(keepKeys: readonly string[]): void {
+  const keep = new Set(keepKeys);
+  for (const key of pendingGrassGenerations.keys()) {
+    if (!keep.has(key)) pendingGrassGenerations.delete(key);
+  }
+}
+
+export function clearFieldGrassGenerationCache(): void {
+  grassInstancesCache.clear();
+  pendingGrassGenerations.clear();
+}
+
+export function fieldGrassGenerationCacheSize(): number {
+  return grassInstancesCache.size;
 }
