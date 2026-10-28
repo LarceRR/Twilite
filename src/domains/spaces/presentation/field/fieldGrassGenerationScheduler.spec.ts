@@ -51,10 +51,10 @@ describe('field grass generation scheduler', () => {
           batchSize: 1000,
           frameBudget,
           process: (allowance) => {
-            processedByTask[index] += allowance;
+            processedByTask[index] = (processedByTask[index] ?? 0) + allowance;
             return {
               processed: allowance,
-              done: processedByTask[index] >= 400,
+              done: (processedByTask[index] ?? 0) >= 400,
             };
           },
         }),
