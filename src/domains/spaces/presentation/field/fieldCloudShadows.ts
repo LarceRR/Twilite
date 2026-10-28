@@ -10,6 +10,7 @@ import {
   Vector3,
 } from 'three';
 
+import { DEFAULT_FIELD_CONFIG } from './fieldConfig';
 import FastNoiseLite from './vendor/FastNoiseLite.js';
 
 /** Godot NoiseTexture2D defaults to 512×512, normalize=true, and seamless blend skirt=0.1. */
@@ -170,11 +171,11 @@ export const FIELD_ALBEDO_NOISE_3_TEXTURE = createFieldNoiseTexture(1, 0.0052);
 
 /** Shared instances guarantee the surface and each grass blade use identical author colours. */
 export const FIELD_GRASS_PALETTE = {
-  albedo1: new Color(0x71a200),
-  albedo2: new Color(0x8ead36),
-  albedo3: new Color(0x80a739),
-  accentAlbedo1: new Color(0x9ab700),
-  accentAlbedo2: new Color(0x6c9a00),
+  albedo1: new Color(DEFAULT_FIELD_CONFIG.grass.albedoColor1),
+  albedo2: new Color(DEFAULT_FIELD_CONFIG.grass.albedoColor2),
+  albedo3: new Color(DEFAULT_FIELD_CONFIG.grass.albedoColor3),
+  accentAlbedo1: new Color(DEFAULT_FIELD_CONFIG.grass.accentAlbedoColor1),
+  accentAlbedo2: new Color(DEFAULT_FIELD_CONFIG.grass.accentAlbedoColor2),
 };
 export const FIELD_SURFACE_UNIFORMS = {
   uFieldSurfaceNoise2: { value: FIELD_ALBEDO_NOISE_2_TEXTURE },
