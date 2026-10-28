@@ -28,6 +28,7 @@ import { useFieldConfig } from './useFieldConfig';
 
 type FieldGrassProps = {
   readonly chunkIndex: number | null;
+  readonly grassVisible: boolean;
   readonly base: Pick<FieldGridConfig, 'rows' | 'cellSize' | 'dividerWidth'>;
   readonly occupiedCellKeys: ReadonlySet<string>;
 };
@@ -39,6 +40,7 @@ type FieldGrassProps = {
  */
 export function FieldGrass({
   chunkIndex,
+  grassVisible,
   base,
   occupiedCellKeys,
 }: FieldGrassProps): ReactElement {
@@ -146,7 +148,7 @@ export function FieldGrass({
   useLayoutEffect(() => {
     // Prevent a recycled slot from drawing the previous chunk's matrices for one frame.
     if (meshRef.current !== null) meshRef.current.count = 0;
-  }, [chunkIndex, capacity, geometry]);
+  }, [chunkIndex, capacity, geometry, grassVisible]);
 
   useEffect(() => {
     void loadFieldGrassSprite();
@@ -168,7 +170,7 @@ export function FieldGrass({
     mesh.count = 0;
     mesh.instanceMatrix.setUsage(DynamicDrawUsage);
 
-    if (chunkIndex === null || !generationConfig.enabled) {
+    if (chunkIndex === null || !generationConfig.enabled || !grassVisible) {
       return () => {
         active = false;
         if (generationToken.current === token) generationToken.current += 1;
@@ -294,6 +296,7 @@ export function FieldGrass({
 
   }, [
     chunkIndex,
+    grassVisible,
     chunkCols,
     grid,
     worldSeed,
@@ -324,6 +327,7 @@ export function FieldGrass({
   return (
     <instancedMesh
       ref={meshRef}
+      visible={grassVisible}
       args={[geometry, FIELD_GRASS_MATERIAL, capacity]}
       castShadow={false}
       receiveShadow={grassConfig.receiveShadows}
