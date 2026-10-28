@@ -132,7 +132,7 @@ export function* iterateFieldGrassInstances(
   // spacing, not by stopping halfway through the x-major iterator. The same
   // effective spacing is used for every chunk, so the global lattice stays aligned.
   const budgetSpacing = Number.isFinite(maxInstances)
-    ? Math.sqrt((chunkWidth * surfaceHeight) / maxInstances) * 1.3
+    ? Math.sqrt((chunkWidth * surfaceHeight) / maxInstances) * 1.2
     : requestedSpacing;
   const spacing = Math.max(requestedSpacing, budgetSpacing);
   const firstLatticeX = Math.floor(chunkStartX / spacing) - 1;
