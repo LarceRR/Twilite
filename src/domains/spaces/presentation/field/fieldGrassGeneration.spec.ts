@@ -67,13 +67,17 @@ describe('continuous field grass generation', () => {
     expect(Math.max(...instances.map((instance) => instance.y))).toBeGreaterThan(surface.height * 0.4);
   });
 
-  it('keeps grass distributed across the full chunk when a low instance limit is configured', () => {
+  it('uses the instance budget without leaving periodic gaps in the grass lattice', () => {
+    const maxInstances = 1000;
     const instances = generateFieldGrassInstances({
       ...options(0),
-      spacing: 14,
-      maxInstances: 1000,
+      spacing: 4,
+      maxInstances,
     });
     const surface = fieldGridWorldSize({ cols: 10, ...grid, showDividers: false });
+
+    expect(instances.length).toBeGreaterThan(maxInstances * 0.8);
+    expect(instances.length).toBeLessThanOrEqual(maxInstances);
     const xBins = Array.from({ length: 10 }, (_, bin) =>
       instances.filter((instance) =>
         instance.x >= (surface.width * bin) / 10 &&
@@ -87,7 +91,6 @@ describe('continuous field grass generation', () => {
       ).length,
     );
 
-    expect(instances.length).toBeLessThanOrEqual(1000);
     expect(xBins.every((count) => count > 0)).toBe(true);
     expect(yBins.every((count) => count > 0)).toBe(true);
   });

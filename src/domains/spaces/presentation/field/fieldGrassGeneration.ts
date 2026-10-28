@@ -128,36 +128,38 @@ export function* iterateFieldGrassInstances(
   const maxInstances = options.maxInstances == null || !Number.isFinite(options.maxInstances)
     ? Number.POSITIVE_INFINITY
     : Math.max(1, Math.floor(options.maxInstances));
-  const spacing = requestedSpacing;
+
+  // Adapt the lattice spacing when the requested density exceeds the GPU
+  // budget. Estimate a conservative upper bound from the full chunk dimensions
+  // and maximum jitter displacement, so every valid lattice point fits the
+  // instance limit without periodic X/Y thinning or visible density bands.
+  // The calculation deliberately excludes chunkIndex: neighbouring chunks use
+  // the same effective spacing and therefore share one world-aligned lattice.
+  let spacing = requestedSpacing;
+  if (Number.isFinite(maxInstances)) {
+    const horizontalSpan = chunkWidth;
+    const verticalSpan = Math.max(0, surfaceHeight - edgeMargin * 2);
+    const jitterReach = Math.abs(jitterRatio);
+    const maxCandidateCount = (candidateSpacing: number): number => {
+      const columns = Math.floor(horizontalSpan / candidateSpacing + jitterReach) + 1;
+      const rows = Math.floor(verticalSpan / candidateSpacing + jitterReach) + 1;
+      return columns * rows;
+    };
+
+    let candidateCount = maxCandidateCount(spacing);
+    while (candidateCount > maxInstances) {
+      spacing *= Math.max(1.01, Math.sqrt(candidateCount / maxInstances) * 1.01);
+      candidateCount = maxCandidateCount(spacing);
+    }
+  }
+
   const firstLatticeX = Math.floor(chunkStartX / spacing) - 1;
   const lastLatticeX = Math.ceil(chunkEndX / spacing) + 1;
   const firstLatticeY = -1;
   const lastLatticeY = Math.ceil(surfaceHeight / spacing) + 1;
-  const latticeColumns = lastLatticeX - firstLatticeX + 1;
-  const latticeRows = lastLatticeY - firstLatticeY + 1;
-
-  // If the desired density exceeds the GPU instance budget, sample the 2D
-  // lattice across both axes. Never stop after the first N x-major instances:
-  // that creates a single horizontal strip and leaves most of the chunk bald.
-  let sampleStride = 1;
-  if (Number.isFinite(maxInstances)) {
-    while (
-      Math.ceil(latticeColumns / sampleStride) * Math.ceil(latticeRows / sampleStride) >
-      maxInstances
-    ) {
-      sampleStride += 1;
-    }
-  }
-  const positiveModulo = (value: number, divisor: number) =>
-    ((value % divisor) + divisor) % divisor;
 
   for (let latticeX = firstLatticeX; latticeX <= lastLatticeX; latticeX += 1) {
     for (let latticeY = firstLatticeY; latticeY <= lastLatticeY; latticeY += 1) {
-      if (
-        positiveModulo(latticeX, sampleStride) !== 0 ||
-        positiveModulo(latticeY, sampleStride) !== 0
-      ) continue;
-
       const positionSeed = grassRandom(latticeX, latticeY, 1);
       const jitterX = (grassRandom(latticeX, latticeY, 2) - 0.5) * jitterRatio;
       const jitterY = (grassRandom(latticeX, latticeY, 3) - 0.5) * jitterRatio;
