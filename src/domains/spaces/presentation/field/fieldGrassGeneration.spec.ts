@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { generateFieldGrassInstances } from './fieldGrassGeneration';
+import { generateFieldGrassInstances, iterateFieldGrassInstances } from './fieldGrassGeneration';
 import { fieldGridWorldSize } from './fieldGridConfig';
 
 const grid = {
@@ -42,10 +42,30 @@ describe('continuous field grass generation', () => {
     const areaSquareMetres = (surface.width / 100) * (surface.height / 100);
     const density = instances.length / areaSquareMetres;
 
-    expect(density).toBeGreaterThan(35);
-    expect(density).toBeLessThan(55);
+    expect(density).toBeGreaterThan(25);
+    expect(density).toBeLessThan(35);
     expect(instances.every((instance) => instance.width === 20 && instance.height === 30)).toBe(true);
   });
+
+  it('supports adjustable density and blade dimensions', () => {
+    const defaultInstances = generateFieldGrassInstances(options(0));
+    const adjustedInstances = generateFieldGrassInstances({
+      ...options(0),
+      spacing: 24,
+      bladeWidth: 9,
+      bladeHeight: 21,
+    });
+
+    expect(adjustedInstances.length).toBeLessThan(defaultInstances.length);
+    expect(adjustedInstances.every((instance) => instance.width === 9 && instance.height === 21)).toBe(true);
+  });
+
+  it('allows work to be consumed incrementally without changing generated results', () => {
+    const expected = generateFieldGrassInstances(options(2));
+    const actual = Array.from(iterateFieldGrassInstances(options(2)));
+    expect(actual).toEqual(expected);
+  });
+
   it('keeps instance positions deterministic across calls', () => {
     expect(generateFieldGrassInstances(options(3))).toEqual(
       generateFieldGrassInstances(options(3)),
