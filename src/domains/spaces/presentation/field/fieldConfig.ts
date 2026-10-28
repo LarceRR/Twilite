@@ -58,6 +58,48 @@ export type FieldConfig = {
     /** Z-axis offset applied to grid divider lines so they render above the surface. */
     readonly lineZLift: number;
   };
+  /** Continuous world-space grass sprites, their visual noise, and mobile generation budget. */
+  readonly grass: {
+    readonly enabled: boolean;
+    /** Centre-to-centre distance between grass blades in world units. */
+    readonly spacing: number;
+    readonly bladeWidth: number;
+    readonly bladeHeight: number;
+    /** Fixed instance capacity avoids reallocating GPU buffers while the spacing slider moves. */
+    readonly maxInstancesPerChunk: number;
+    /** Number of grass instances generated during one animation frame. */
+    readonly generationBatchSize: number;
+    readonly edgeMargin: number;
+    readonly jitterRatio: number;
+    readonly occupiedClearanceRatio: number;
+    readonly accentProbability1: number;
+    readonly accentProbability2: number;
+    readonly accentOffset1: number;
+    readonly accentOffset2: number;
+    readonly receiveShadows: boolean;
+    readonly windEnabled: boolean;
+    readonly windDirectionX: number;
+    readonly windDirectionY: number;
+    readonly windScale: number;
+    readonly windSpeed: number;
+    readonly windThreshold: number;
+    readonly windDivergence: number;
+    readonly windAngle: number;
+    readonly windFramerate: number;
+    readonly viewSwaySpeed: number;
+    readonly viewSwayAngle: number;
+    readonly albedoNoiseEnabled: boolean;
+    readonly albedoScale2: number;
+    readonly albedoThreshold2: number;
+    readonly albedoScale3: number;
+    readonly albedoThreshold3: number;
+    readonly cloudShadowsEnabled: boolean;
+    readonly cloudNoiseScale: number;
+    readonly cloudSpeed: number;
+    readonly cloudContrast: number;
+    readonly cloudThreshold: number;
+    readonly cloudShadowStrength: number;
+  };
   /** Controls the expanding pixel-style wave shown after tapping or holding a grid cell. */
   readonly wave: {
     /** Maximum diameter of a wave in logical world pixels. */
@@ -390,6 +432,44 @@ export const DEFAULT_FIELD_CONFIG: FieldConfig = {
     gpuUploadSteady: 1,
     lineZLift: 0.5,
   },
+  grass: {
+    enabled: true,
+    spacing: 18,
+    bladeWidth: 20,
+    bladeHeight: 30,
+    maxInstancesPerChunk: 3600,
+    generationBatchSize: 360,
+    edgeMargin: 12,
+    jitterRatio: 0.98,
+    occupiedClearanceRatio: 0.28,
+    accentProbability1: 0.001,
+    accentProbability2: 0.0001,
+    accentOffset1: 10,
+    accentOffset2: 18.5,
+    receiveShadows: false,
+    windEnabled: true,
+    windDirectionX: 0,
+    windDirectionY: 1,
+    windScale: 0.00071,
+    windSpeed: 0.025,
+    windThreshold: 0.365,
+    windDivergence: 10,
+    windAngle: 60,
+    windFramerate: 5,
+    viewSwaySpeed: 0.1,
+    viewSwayAngle: 10,
+    albedoNoiseEnabled: true,
+    albedoScale2: 0.0011,
+    albedoThreshold2: 0.537,
+    albedoScale3: 0.001,
+    albedoThreshold3: 0.471,
+    cloudShadowsEnabled: true,
+    cloudNoiseScale: 4000,
+    cloudSpeed: -0.01,
+    cloudContrast: 3.845,
+    cloudThreshold: 0.27,
+    cloudShadowStrength: 0.82,
+  },
   wave: {
     sizePx: 96,
     pixelSizePx: 4,
@@ -671,6 +751,7 @@ export function mergeFieldConfig(overrides: FieldConfigOverrides = {}): FieldCon
   return {
     grid: mergeSection(DEFAULT_FIELD_CONFIG.grid, overrides.grid),
     chunks: mergeSection(DEFAULT_FIELD_CONFIG.chunks, overrides.chunks),
+    grass: mergeSection(DEFAULT_FIELD_CONFIG.grass, overrides.grass),
     wave: mergeSection(DEFAULT_FIELD_CONFIG.wave, overrides.wave),
     fireflies: mergeSection(DEFAULT_FIELD_CONFIG.fireflies, overrides.fireflies),
     camera: mergeSection(
