@@ -17,7 +17,10 @@ import {
   type FieldGrassGenerationOptions,
 } from './fieldGrassGeneration';
 import { FIELD_GRASS_MATERIAL, loadFieldGrassSprite } from './fieldGrassMaterial';
-import { fieldChunkOccupiedCellsSignature } from './fieldGridChunks';
+import {
+  fieldChunkOccupiedCellKeys,
+  fieldChunkOccupiedCellsSignature,
+} from './fieldGridChunks';
 import {
   FIELD_GRID_DIVIDER_WIDTH,
   fieldGridWorldSize,
@@ -64,6 +67,10 @@ export function FieldGrass({
   const occupiedCellsSignature = useMemo(
     () => fieldChunkOccupiedCellsSignature(chunkIndex, chunkCols, base.rows, occupiedCellKeys),
     [chunkIndex, chunkCols, base.rows, occupiedCellKeys],
+  );
+  const chunkOccupiedCellKeys = useMemo(
+    () => fieldChunkOccupiedCellKeys(chunkIndex, chunkCols, occupiedCellsSignature),
+    [chunkIndex, chunkCols, occupiedCellsSignature],
   );
   const worldSize = useMemo(
     () =>
@@ -130,7 +137,7 @@ export function FieldGrass({
       objectMinHeight,
       objectMaxHeight,
       generatedTilesEnabled,
-      occupiedCellKeys,
+      occupiedCellKeys: chunkOccupiedCellKeys,
     };
 
     camera.getWorldDirection(cameraForward);
@@ -174,7 +181,7 @@ export function FieldGrass({
     objectMinHeight,
     objectMaxHeight,
     generatedTilesEnabled,
-    occupiedCellsSignature,
+    chunkOccupiedCellKeys,
     camera,
     cameraForward,
     capacity,

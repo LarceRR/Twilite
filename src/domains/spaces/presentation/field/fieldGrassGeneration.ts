@@ -1,11 +1,15 @@
+import { Matrix4, Object3D, Quaternion, Vector3 } from 'three';
+
 import {
   fieldTileHeight,
   FIELD_TILE_HEIGHT_STEP,
   objectPlatformHeight,
 } from './fieldTileGeneration';
-import { Matrix4, Object3D, Quaternion, Vector3 } from 'three';
-
-import { FIELD_GRID_DIVIDER_WIDTH, fieldGridWorldSize, type FieldGridConfig } from './fieldGridConfig';
+import {
+  FIELD_GRID_DIVIDER_WIDTH,
+  fieldGridWorldSize,
+  type FieldGridConfig,
+} from './fieldGridConfig';
 import { fieldChunkOccupiedCellsSignature } from './fieldGridChunks';
 
 /** sqrt(1 / 48 blades per square metre) converted to Twilite world units. */

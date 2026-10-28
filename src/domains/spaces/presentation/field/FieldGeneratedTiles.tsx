@@ -16,7 +16,10 @@ import { hexToRgbaTuple } from './fieldConfig';
 import { createRoundedSquarePlatformGeometry } from './fieldPlatformGeometry';
 import { fieldGridCellPitch, type FieldGridConfig } from './fieldGridConfig';
 import { cellCenterOnPlane } from './fieldGridCells';
-import { fieldChunkOccupiedCellsSignature } from './fieldGridChunks';
+import {
+  fieldChunkOccupiedCellKeys,
+  fieldChunkOccupiedCellsSignature,
+} from './fieldGridChunks';
 import { registerFieldGridWaveMaterial } from './fieldGridWaveMaterial';
 import {
   FIELD_TILE_HEIGHT_STEP,
@@ -85,6 +88,11 @@ export function FieldGeneratedTiles({
   const occupiedCellsSignature = useMemo(
     () => fieldChunkOccupiedCellsSignature(chunkIndex, columnCount, base.rows, occupiedCellKeys),
     [chunkIndex, columnCount, base.rows, occupiedCellKeys],
+  );
+
+  const chunkOccupiedCellKeys = useMemo(
+    () => fieldChunkOccupiedCellKeys(chunkIndex, columnCount, occupiedCellsSignature),
+    [chunkIndex, columnCount, occupiedCellsSignature],
   );
 
   const geometry = useMemo(() => {
@@ -216,7 +224,7 @@ export function FieldGeneratedTiles({
     for (let localCol = 0; localCol < columnCount; localCol += 1) {
       const col = chunkIndex * columnCount + localCol;
       for (let row = 0; row < base.rows; row += 1) {
-        const isOccupied = occupiedCellKeys.has(col + ':' + row);
+        const isOccupied = chunkOccupiedCellKeys.has(col + ':' + row);
         if (!settings.generatedTilesEnabled && !isOccupied) continue;
 
         const topHeight = isOccupied
@@ -274,7 +282,7 @@ export function FieldGeneratedTiles({
     glowHex,
     fieldConfig.activeCells.sideSpan,
     groundZ,
-    occupiedCellsSignature,
+    chunkOccupiedCellKeys,
     settings.generatedTilesEnabled,
     settings.worldSeed,
     settings.tileMinHeight,
