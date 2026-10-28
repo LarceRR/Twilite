@@ -12,6 +12,7 @@ import {
   type InstancedMesh,
 } from 'three';
 
+import { FIELD_GRASS_BUFFER_CAPACITY } from './fieldConfig';
 import { useFieldTileStore } from './fieldTileStore';
 import { iterateFieldGrassInstances } from './fieldGrassGeneration';
 import { FIELD_GRASS_MATERIAL, loadFieldGrassSprite } from './fieldGrassMaterial';
@@ -59,11 +60,46 @@ export function FieldGrass({
     }),
     [base.rows, base.cellSize, dividerWidth],
   );
+  const generationConfig = useMemo(
+    () => ({
+      enabled: grassConfig.enabled,
+      spacing: generationConfig.spacing,
+      bladeWidth: generationConfig.bladeWidth,
+      bladeHeight: generationConfig.bladeHeight,
+      maxInstancesPerChunk: grassConfig.maxInstancesPerChunk,
+      generationBatchSize: grassConfig.generationBatchSize,
+      edgeMargin: generationConfig.edgeMargin,
+      jitterRatio: generationConfig.jitterRatio,
+      occupiedClearanceRatio: generationConfig.occupiedClearanceRatio,
+      accentProbability1: generationConfig.accentProbability1,
+      accentProbability2: generationConfig.accentProbability2,
+      accentOffset1: grassConfig.accentOffset1,
+      accentOffset2: grassConfig.accentOffset2,
+    }),
+    [
+      grassConfig.enabled,
+      grassConfig.spacing,
+      grassConfig.bladeWidth,
+      grassConfig.bladeHeight,
+      grassConfig.maxInstancesPerChunk,
+      grassConfig.generationBatchSize,
+      grassConfig.edgeMargin,
+      grassConfig.jitterRatio,
+      grassConfig.occupiedClearanceRatio,
+      grassConfig.accentProbability1,
+      grassConfig.accentProbability2,
+      grassConfig.accentOffset1,
+      grassConfig.accentOffset2,
+    ],
+  );
 
-
-  // Keep allocation stable while tweaking spacing; only the explicit capacity
-  // setting reallocates GPU buffers.
-  const capacity = Math.max(1, Math.floor(grassConfig.maxInstancesPerChunk));
+  // Preallocate one stable mobile-sized buffer. The editable per-chunk limit
+  // affects generation, not GPU allocation, so slider changes cannot churn buffers.
+  const capacity = FIELD_GRASS_BUFFER_CAPACITY;
+  const instanceLimit = Math.min(
+    capacity,
+    Math.max(1, Math.floor(generationConfig.maxInstancesPerChunk)),
+  );
 
   const seedData = useMemo(() => new Float32Array(capacity), [capacity]);
   const dimensionsData = useMemo(() => new Float32Array(capacity * 2), [capacity]);
@@ -116,7 +152,7 @@ export function FieldGrass({
     mesh.count = 0;
     mesh.instanceMatrix.setUsage(DynamicDrawUsage);
 
-    if (chunkIndex === null || !grassConfig.enabled) {
+    if (chunkIndex === null || !generationConfig.enabled) {
       return () => {
         active = false;
         if (generationToken.current === token) generationToken.current += 1;
@@ -144,7 +180,7 @@ export function FieldGrass({
       accentProbability1: grassConfig.accentProbability1,
       accentProbability2: grassConfig.accentProbability2,
     });
-    const batchSize = Math.max(1, Math.floor(grassConfig.generationBatchSize));
+    const batchSize = Math.max(1, Math.floor(generationConfig.generationBatchSize));
     const seedAttribute = geometry.getAttribute('aGrassSeed') as InstancedBufferAttribute;
     const dimensionsAttribute = geometry.getAttribute('aGrassDimensions') as InstancedBufferAttribute;
     const accentAttribute = geometry.getAttribute('aGrassAccent') as InstancedBufferAttribute;
@@ -163,7 +199,7 @@ export function FieldGrass({
 
       const rangeStart = written;
       let produced = 0;
-      while (produced < batchSize && written < capacity) {
+      while (produced < batchSize && written < instanceLimit) {
         const next = iterator.next();
         if (next.done) {
           finished = true;
@@ -177,9 +213,9 @@ export function FieldGrass({
           instance.rootZ +
             instance.height / 2 +
             (instance.accent === 1
-              ? grassConfig.accentOffset1
+              ? generationConfig.accentOffset1
               : instance.accent === 2
-                ? grassConfig.accentOffset2
+                ? generationConfig.accentOffset2
                 : 0),
         );
         dummy.quaternion.copy(billboardQuaternion);
@@ -210,7 +246,7 @@ export function FieldGrass({
 
       // frustumCulled is disabled on this mesh, so computing a new bounding
       // sphere for every streamed chunk would only add unnecessary CPU work.
-      if (!finished && written < capacity) {
+      if (!finished && written < instanceLimit) {
         frameId = requestAnimationFrame(processBatch);
       }
     };
@@ -233,7 +269,8 @@ export function FieldGrass({
     objectMaxHeight,
     generatedTilesEnabled,
     occupiedCellKeys,
-    grassConfig,
+    generationConfig,
+    instanceLimit,
     camera,
     cameraForward,
     cameraRight,
