@@ -240,7 +240,6 @@ export function FieldGrass({
       }
 
       const rangeCount = written - rangeStart;
-      mesh.count = written;
       if (rangeCount > 0) {
         mesh.instanceMatrix.addUpdateRange(rangeStart * 16, rangeCount * 16);
         mesh.instanceMatrix.needsUpdate = true;
@@ -252,11 +251,18 @@ export function FieldGrass({
         accentAttribute.needsUpdate = true;
       }
 
+      // Keep this chunk completely hidden while its buffer is being filled.
+      // Otherwise every batch becomes visible immediately and the grass appears
+      // as a left-to-right scanning stripe during initial load and slot recycling.
+      // Reveal the finished buffer atomically so the visual result is never partial.
+      const done = finished || written >= instanceLimit;
+      mesh.count = done ? written : 0;
+
       // frustumCulled is disabled on this mesh, so computing a new bounding
       // sphere for every streamed chunk would only add unnecessary CPU work.
       return {
         processed: produced,
-        done: finished || written >= instanceLimit,
+        done,
       };
     };
 
