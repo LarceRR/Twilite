@@ -121,6 +121,7 @@ describe('fieldConfig', () => {
         spacing: 24,
         bladeWidth: 12,
         bladeHeight: 26,
+        maxGeneratedPerFrame: 450,
         albedoColor1: '#FF5911',
         cloudShadowsEnabled: false,
         windSpeed: 0.04,
@@ -130,6 +131,7 @@ describe('fieldConfig', () => {
     expect(merged.grass.spacing).toBe(24);
     expect(merged.grass.bladeWidth).toBe(12);
     expect(merged.grass.bladeHeight).toBe(26);
+    expect(merged.grass.maxGeneratedPerFrame).toBe(450);
     expect(merged.grass.albedoColor1).toBe('#FF5911');
     expect(merged.grass.cloudShadowsEnabled).toBe(false);
     expect(merged.grass.windSpeed).toBe(0.04);
