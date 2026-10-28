@@ -15,7 +15,10 @@ import {
 import { FIELD_GRASS_BUFFER_CAPACITY } from './fieldConfig';
 import { scheduleFieldGrassGeneration } from './fieldGrassGenerationScheduler';
 import { useFieldTileStore } from './fieldTileStore';
-import { iterateFieldGrassInstances } from './fieldGrassGeneration';
+import {
+  fieldGrassOccupiedCellKeysSignature,
+  iterateFieldGrassInstances,
+} from './fieldGrassGeneration';
 import { FIELD_GRASS_MATERIAL, loadFieldGrassSprite } from './fieldGrassMaterial';
 import {
   FIELD_GRID_DIVIDER_WIDTH,
@@ -53,6 +56,17 @@ export function FieldGrass({
   const dividerWidth = base.dividerWidth ?? FIELD_GRID_DIVIDER_WIDTH;
   const chunkCols = fieldConfig.chunks.cols;
   const platformHeight = fieldConfig.platform.height;
+  const occupiedCellKeysSignature = fieldGrassOccupiedCellKeysSignature(
+    occupiedCellKeys,
+    chunkIndex,
+    chunkCols,
+  );
+  const chunkOccupiedCellKeys = useMemo(
+    () => new Set<string>(
+      occupiedCellKeysSignature === '' ? [] : occupiedCellKeysSignature.split('|'),
+    ),
+    [occupiedCellKeysSignature],
+  );
   const grid = useMemo(
     () => ({
       rows: base.rows,
@@ -172,7 +186,8 @@ export function FieldGrass({
       objectMinHeight,
       objectMaxHeight,
       generatedTilesEnabled,
-      occupiedCellKeys,
+      occupiedCellKeys: chunkOccupiedCellKeys,
+      maxInstances: instanceLimit,
       spacing: generationConfig.spacing,
       bladeWidth: generationConfig.bladeWidth,
       bladeHeight: generationConfig.bladeHeight,
@@ -288,7 +303,7 @@ export function FieldGrass({
     objectMinHeight,
     objectMaxHeight,
     generatedTilesEnabled,
-    occupiedCellKeys,
+    chunkOccupiedCellKeys,
     generationConfig,
     instanceLimit,
     camera,
