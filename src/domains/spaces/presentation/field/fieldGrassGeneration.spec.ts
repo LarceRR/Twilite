@@ -160,9 +160,10 @@ describe('continuous field grass generation', () => {
     );
   });
 
-  it('keeps the global lattice aligned across adjacent chunks without duplicate roots', () => {
-    const first = generateFieldGrassInstances(options(0));
-    const second = generateFieldGrassInstances(options(1));
+  it('keeps the budgeted global lattice aligned across adjacent chunks without duplicate roots', () => {
+    const budget = { spacing: 4, maxInstances: 1000 };
+    const first = generateFieldGrassInstances({ ...options(0), ...budget });
+    const second = generateFieldGrassInstances({ ...options(1), ...budget });
     const chunkWidth = fieldGridWorldSize({
       cols: 10,
       ...grid,
@@ -171,6 +172,10 @@ describe('continuous field grass generation', () => {
 
     expect(first.every((instance) => instance.x >= 0 && instance.x < chunkWidth)).toBe(true);
     expect(second.every((instance) => instance.x >= chunkWidth && instance.x < chunkWidth * 2)).toBe(true);
+    expect(
+      Math.min(...second.map((instance) => instance.x)) -
+        Math.max(...first.map((instance) => instance.x)),
+    ).toBeLessThan(grid.cellSize);
 
     const positions = new Set(
       [...first, ...second].map((instance) => instance.x + ':' + instance.y),
