@@ -175,11 +175,23 @@ export function* iterateFieldGrassInstances(
     }
     return a;
   };
-  let latticeStride = Math.max(1, Math.floor(latticeCount / 2));
-  while (greatestCommonDivisor(latticeStride, latticeCount) !== 1) {
+  let latticeStride = Math.max(1, Math.floor(latticeCount / 3));
+  let strideSearches = 0;
+  while (
+    (
+      greatestCommonDivisor(latticeStride, latticeCount) !== 1 ||
+      greatestCommonDivisor(Math.floor(latticeStride / latticeColumns), latticeRows) !== 1 ||
+      greatestCommonDivisor(latticeStride % latticeColumns, latticeColumns) !== 1
+    ) &&
+    strideSearches < latticeCount
+  ) {
     latticeStride += 1;
     if (latticeStride >= latticeCount) latticeStride = 1;
+    strideSearches += 1;
   }
+  // A unit stride is always a valid permutation fallback if a degenerate
+  // lattice shape has no stride satisfying both axis-distribution constraints.
+  if (greatestCommonDivisor(latticeStride, latticeCount) !== 1) latticeStride = 1;
   const latticeStart = Math.floor(
     grassRandom(options.chunkIndex, latticeCount, 8) * latticeCount,
   );
