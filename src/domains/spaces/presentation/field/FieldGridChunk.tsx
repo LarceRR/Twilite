@@ -24,6 +24,7 @@ import { useFieldConfig } from './useFieldConfig';
 type FieldGridChunkProps = {
   /** Null hides this recycled slot without tearing down GPU resources. */
   readonly chunkIndex: number | null;
+  readonly grassVisible: boolean;
   readonly base: Pick<FieldGridConfig, 'rows' | 'cellSize' | 'dividerWidth' | 'showDividers'>;
   readonly occupiedCellKeys: ReadonlySet<string>;
   readonly onMaterialReady: (chunkIndex: number, material: FieldGridWaveMaterial) => void;
@@ -60,6 +61,7 @@ function useChunkSlotResources(width: number, height: number) {
 /** Transparent overlay for dividers, cell labels, active markers, and interaction waves. */
 function FieldGridChunkComponent({
   chunkIndex,
+  grassVisible,
   base,
   occupiedCellKeys,
   onMaterialReady,
@@ -146,7 +148,7 @@ function FieldGridChunkComponent({
   return (
     <group ref={groupRef} visible={chunkIndex != null}>
       <FieldGeneratedTiles chunkIndex={chunkIndex} base={base} occupiedCellKeys={occupiedCellKeys} />
-      <FieldGrass chunkIndex={chunkIndex} base={base} occupiedCellKeys={occupiedCellKeys} />
+      <FieldGrass chunkIndex={chunkIndex} grassVisible={grassVisible} base={base} occupiedCellKeys={occupiedCellKeys} />
       <mesh
         ref={meshRef}
         geometry={planeGeometry}
