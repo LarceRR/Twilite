@@ -457,6 +457,7 @@ export function FieldGridSurface({
     const desired = desiredRef.current;
 
     const isChunkReady = (chunkIndex: number) => {
+      const isAlreadyMounted = mountedRef.current.includes(chunkIndex);
       const grassCacheKey = grassCacheKeysRef.current.get(chunkIndex);
       return (
         isFieldChunkIndexGpuReady(
@@ -465,7 +466,8 @@ export function FieldGridSurface({
           bakeNow.colors,
           bakeNow.layers,
           fieldConfig,
-        ) && isFieldGrassGenerationCacheKeyReady(grassCacheKey)
+        ) &&
+        (isAlreadyMounted || isFieldGrassGenerationCacheKeyReady(grassCacheKey))
       );
     };
 
