@@ -7,9 +7,6 @@ import { useBootstrap } from '@/app/bootstrap/useBootstrap';
 import { AppStatus } from '@/app/components/AppStatus';
 import { ToastHost } from '@/app/components/ToastHost';
 import { createNavigationTheme } from '@/app/navigation/createNavigationTheme';
-import { CREATE_SHEET_SCREEN_OPTIONS } from '@/app/navigation/createSheetOptions';
-import { MOMENT_CATALOG_SHEET_OPTIONS } from '@/app/navigation/momentCatalogSheetOptions';
-import { MOMENT_FILTERS_SHEET_OPTIONS } from '@/app/navigation/momentFiltersSheetOptions';
 import { useAuthRedirect } from '@/app/navigation/useAuthRedirect';
 import { AppProviders } from '@/app/providers/AppProviders';
 import {
@@ -67,14 +64,10 @@ function RootNavigator(): ReactElement {
         }}
       >
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="create" options={CREATE_SHEET_SCREEN_OPTIONS} />
-        <Stack.Screen name="moment-catalog" options={MOMENT_CATALOG_SHEET_OPTIONS} />
-        <Stack.Screen name="moment-filters" options={MOMENT_FILTERS_SHEET_OPTIONS} />
         <Stack.Screen name="settings" options={{ presentation: 'card' }} />
         <Stack.Screen name="theme-catalog" options={{ presentation: 'card' }} />
         <Stack.Screen name="devices" options={{ presentation: 'card' }} />
         <Stack.Screen name="billing" options={{ presentation: 'card' }} />
-        <Stack.Screen name="my-spaces" options={{ presentation: 'card' }} />
         <Stack.Screen name="admin" options={{ presentation: 'card' }} />
         <Stack.Screen name="qr-scan" options={{ presentation: 'card' }} />
         <Stack.Screen name="qr-confirm" options={{ animation: 'fade' }} />

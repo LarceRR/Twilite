@@ -1,6 +1,6 @@
-import type { ReactElement } from 'react';
-import { router } from 'expo-router';
 import type { Href } from 'expo-router';
+import { router } from 'expo-router';
+import type { ReactElement } from 'react';
 
 import { useThemePack } from '@/design-system/colors/colors';
 import { BlurCard } from '@/design-system/components/BlurCard/BlurCard';
@@ -37,18 +37,6 @@ export function SettingsScreen(): ReactElement {
               accessibilityLabel="Меньше движения"
             />
           }
-        />
-      </BlurCard>
-      <BlurCard title="Настройки разработчика">
-        <ListRow
-          title="Сцена"
-          subtitle="Сетка, оси, камера и отладочная разметка"
-          onPress={() => router.push('/settings/scene' as Href)}
-        />
-        <ListRow
-          title="Плитки поля"
-          subtitle="Seed мира и распределение высоты плиток"
-          onPress={() => router.push('/settings/tiles' as Href)}
         />
       </BlurCard>
     </Screen>

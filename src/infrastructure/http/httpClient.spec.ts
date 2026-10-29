@@ -102,14 +102,10 @@ describe('createHttpClient', () => {
       } as never,
     });
 
-    await http.post(
-      'spaces/space-1/surface-objects',
-      { kind: 'Fire', pixelObjectId: 'pixel-1' },
-      { idempotencyKey: 'surface_operation-1' },
-    );
+    await http.post('tpg/projects', { title: 'project' }, { idempotencyKey: 'project_create-1' });
 
     const headers = fetchMock.mock.calls[0]?.[1]?.headers as Record<string, string>;
-    expect(headers['Idempotency-Key']).toBe('surface_operation-1');
+    expect(headers['Idempotency-Key']).toBe('project_create-1');
     expect(headers.Authorization).toBe('Bearer access-token');
     vi.unstubAllGlobals();
   });

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, AppState } from 'react-native';
+import { AccessibilityInfo } from 'react-native';
 
 import { httpConfig, storageKeys } from '@/app/config/constants';
 import { hasSessionTokens } from '@/domains/auth/domain/entities/AuthSession';
@@ -9,16 +9,6 @@ import {
   persistedSettings,
   useSettingsStore,
 } from '@/domains/settings/presentation/stores/settingsStore';
-import type { FieldConfigOverrides } from '@/domains/spaces/presentation/field/fieldConfig';
-import {
-  persistedFieldConfigOverrides,
-  useFieldConfigStore,
-} from '@/domains/spaces/presentation/field/fieldConfigStore';
-import {
-  type FieldTilePreferences,
-  persistedFieldTilePreferences,
-  useFieldTileStore,
-} from '@/domains/spaces/presentation/field/fieldTileStore';
 import { toAppError } from '@/shared/errors';
 
 import { loadNativeTabIconSources } from '../navigation/nativeTabIconSources';
@@ -48,7 +38,7 @@ async function withTimeout<T>(
 
 export function useBootstrap(): { readonly isReady: boolean } {
   const { restoreSession, hydrateAppliedTheme } = useUseCases();
-  const { sessions, sessionStorage, storage, offlineQueue, logger } = useServices();
+  const { sessions, sessionStorage, storage, logger } = useServices();
   const [isReady, setIsReady] = useState(false);
   const started = useRef(false);
 
@@ -69,6 +59,12 @@ export function useBootstrap(): { readonly isReady: boolean } {
 
     const run = async (): Promise<void> => {
       try {
+        await withTimeout(storage.remove(storageKeys.legacyOfflineQueue), 'legacy queue cleanup');
+      } catch (error) {
+        logger.debug('Legacy offline queue cleanup skipped', { error: String(error) });
+      }
+
+      try {
         const settings = await withTimeout(
           storage.read<PersistedSettings>(storageKeys.settings),
           'settings restore',
@@ -76,26 +72,6 @@ export function useBootstrap(): { readonly isReady: boolean } {
         if (settings !== null) useSettingsStore.getState().hydrate(settings);
       } catch (error) {
         logger.debug('Settings restore skipped', { error: String(error) });
-      }
-
-      try {
-        const fieldConfig = await withTimeout(
-          storage.read<FieldConfigOverrides>(storageKeys.fieldConfig),
-          'field config restore',
-        );
-        if (fieldConfig !== null) useFieldConfigStore.getState().hydrate(fieldConfig);
-      } catch (error) {
-        logger.debug('Field config restore skipped', { error: String(error) });
-      }
-
-      try {
-        const fieldTiles = await withTimeout(
-          storage.read<Partial<FieldTilePreferences>>(storageKeys.fieldTiles),
-          'field tiles restore',
-        );
-        if (fieldTiles !== null) useFieldTileStore.getState().hydrate(fieldTiles);
-      } catch (error) {
-        logger.debug('Field tiles restore skipped', { error: String(error) });
       }
 
       try {
@@ -139,20 +115,11 @@ export function useBootstrap(): { readonly isReady: boolean } {
         logger.debug('Theme hydrate skipped', { error: String(error) });
       }
 
-      void offlineQueue.flush();
       setIsReady(true);
     };
 
     void run();
-  }, [
-    restoreSession,
-    hydrateAppliedTheme,
-    sessions,
-    sessionStorage,
-    storage,
-    offlineQueue,
-    logger,
-  ]);
+  }, [restoreSession, hydrateAppliedTheme, sessions, sessionStorage, storage, logger]);
 
   useEffect(
     () =>
@@ -161,58 +128,6 @@ export function useBootstrap(): { readonly isReady: boolean } {
       }),
     [storage],
   );
-
-  useEffect(
-    () =>
-      useFieldConfigStore.subscribe((state) => {
-        void storage.write(
-          storageKeys.fieldConfig,
-          persistedFieldConfigOverrides(state),
-        );
-      }),
-    [storage],
-  );
-
-  useEffect(() => {
-    let timeout: ReturnType<typeof setTimeout> | null = null;
-    const flush = (): void => {
-      if (timeout !== null) {
-        clearTimeout(timeout);
-        timeout = null;
-      }
-      void storage.write(
-        storageKeys.fieldTiles,
-        persistedFieldTilePreferences(useFieldTileStore.getState()),
-      );
-    };
-
-    const unsubscribe = useFieldTileStore.subscribe(() => {
-      if (timeout !== null) clearTimeout(timeout);
-      timeout = setTimeout(() => {
-        timeout = null;
-        void storage.write(
-          storageKeys.fieldTiles,
-          persistedFieldTilePreferences(useFieldTileStore.getState()),
-        );
-      }, 250);
-    });
-    const appStateSubscription = AppState.addEventListener('change', (status) => {
-      if (status !== 'active') flush();
-    });
-
-    return () => {
-      unsubscribe();
-      appStateSubscription.remove();
-      flush();
-    };
-  }, [storage]);
-
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (status) => {
-      if (status === 'active') void offlineQueue.flush();
-    });
-    return () => subscription.remove();
-  }, [offlineQueue]);
 
   return { isReady };
 }

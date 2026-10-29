@@ -16,14 +16,12 @@ import { spacing } from '@/design-system/spacing/spacing';
 import { Can } from '@/domains/admin/presentation/components/Can';
 import { useAuthActions } from '@/domains/auth/presentation/hooks/useAuthActions';
 import { useAuthStore } from '@/domains/auth/presentation/stores/authStore';
-import { useSpaces } from '@/domains/spaces/presentation/hooks/useSpaces';
 
 import { useAvatarActions } from '../hooks/useAvatarActions';
 
 export function ProfileScreen(): ReactElement {
   const router = useRouter();
   const { isSandbox } = useServices();
-  const { spaces, activeSpace } = useSpaces();
   const status = useAuthStore((state) => state.status);
   const profile = useAuthStore((state) => state.profile);
   const auth = useAuthActions();
@@ -64,20 +62,11 @@ export function ProfileScreen(): ReactElement {
         </View>
       </BlurCard>
 
-      <BlurCard>
-        <ListRow
-          title="Мои пространства"
-          subtitle={
-            activeSpace?.title ??
-            (spaces.length === 1
-              ? 'У вас одно пространство'
-              : `У вас ${spaces.length} пространства`)
-          }
-          icon={icons.space}
-          onPress={() => router.push('/my-spaces' as Href)}
-        />
-        {isSandbox ? <Text variant="caption">Офлайн-режим без сервера</Text> : null}
-      </BlurCard>
+      {isSandbox ? (
+        <BlurCard>
+          <Text variant="caption">Офлайн-режим без сервера</Text>
+        </BlurCard>
+      ) : null}
 
       <BlurCard>
         <ListRow
@@ -89,7 +78,7 @@ export function ProfileScreen(): ReactElement {
         <Divider />
         <ListRow
           title="Настройки"
-          subtitle="Тема, сцена, анимации"
+          subtitle="Тема и анимации"
           icon={icons.settings}
           onPress={() => router.push('/settings')}
         />

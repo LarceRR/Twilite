@@ -1,4 +1,3 @@
-import { useRouter } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import type { ReactElement } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
@@ -8,29 +7,16 @@ import { useThemeColors } from '@/design-system/colors/colors';
 import { useAuthStore } from '@/domains/auth/presentation/stores/authStore';
 
 import { getNativeTabIconSources } from './nativeTabIconSources';
-import { openCreateSheet } from './openCreateSheet';
-import { CREATE_TAB_NAME, TAB_ROUTES } from './tabRoutes';
 import { TabAvatarCircularBaker } from './TabAvatarCircularBaker';
+import { TAB_ROUTES } from './tabRoutes';
 import { useCachedTabAvatar } from './useCachedTabAvatar';
 
 /**
  * Native Liquid Glass tab bar (iOS 26+).
  *
- * The trailing create control uses Apple's `role="search"` API — the same system
- * mechanism Telegram / News / Music use for the detached circular button beside
- * the main pill. Custom icon overrides the search glyph; the system keeps the
- * separated glass treatment.
- *
- * The trigger is `disabled` so it never becomes the selected tab; `tabPress` still
- * fires and opens the root `/create` form sheet.
- *
- * @see https://docs.expo.dev/router/advanced/native-tabs/#separate-search-tab
- * @see https://docs.expo.dev/router/advanced/modals/#form-sheet-presentation
- * @see https://developer.apple.com/documentation/technologyoverviews/adopting-liquid-glass
  */
 export function NativeTabsLayout(): ReactElement {
   const theme = useThemeColors();
-  const router = useRouter();
   const avatarUrl = useAuthStore((state) => state.profile?.avatarUrl ?? null);
   const imageHeaders = useAuthenticatedAssetHeaders();
   const iconSources = getNativeTabIconSources();
@@ -78,20 +64,6 @@ export function NativeTabsLayout(): ReactElement {
             </NativeTabs.Trigger>
           );
         })}
-
-        <NativeTabs.Trigger
-          name={CREATE_TAB_NAME}
-          role="search"
-          disabled
-          accessibilityLabel="Добавить"
-          listeners={{
-            tabPress: () => {
-              openCreateSheet(router);
-            },
-          }}
-        >
-          <NativeTabs.Trigger.Icon sf="plus" />
-        </NativeTabs.Trigger>
       </NativeTabs>
     </>
   );

@@ -7,22 +7,6 @@ import type {
   SignInCredentials,
   SignUpCredentials,
 } from '@/domains/auth/domain/repositories/AuthRepository';
-import type {
-  MomentCatalogPage,
-  MomentCatalogQuery,
-} from '@/domains/moments/domain/entities/MomentCatalog';
-import type {
-  CreateSpaceCommand,
-  InviteMemberCommand,
-  RespondToInvitationCommand,
-} from '@/domains/spaces/application/spaceUseCases';
-import type { Invitation } from '@/domains/spaces/domain/entities/Invitation';
-import type { Space } from '@/domains/spaces/domain/entities/Space';
-import type { SurfaceMomentStats } from '@/domains/spaces/domain/entities/SurfaceMomentStats';
-import type { SurfaceObject } from '@/domains/spaces/domain/entities/SurfaceObject';
-import type { SurfaceSnapshot } from '@/domains/spaces/domain/entities/SurfaceSnapshot';
-import type { CreateSurfaceObjectInput } from '@/domains/spaces/domain/repositories/SurfaceRepository';
-import type { SpaceId } from '@/domains/spaces/domain/value-objects/SpaceId';
 import type { UseCase } from '@/shared/application/UseCase';
 
 export type UseCases = {
@@ -40,19 +24,9 @@ export type UseCases = {
   >;
   readonly revokeAllDeviceSessions: UseCase<void, RevokeAllDeviceSessionsResult>;
 
-  readonly listSpaces: UseCase<void, readonly Space[]>;
-  readonly createSpace: UseCase<CreateSpaceCommand, Space>;
-  readonly inviteMember: UseCase<InviteMemberCommand, Invitation>;
-  readonly respondToInvitation: UseCase<RespondToInvitationCommand, Invitation>;
-  readonly getSurfaceSnapshot: UseCase<SpaceId, SurfaceSnapshot>;
-  readonly getSurfaceMomentStats: UseCase<SpaceId, SurfaceMomentStats>;
-  readonly clearSurfaceMoments: UseCase<SpaceId, void>;
-  readonly createSurfaceObject: UseCase<CreateSurfaceObjectInput, SurfaceObject>;
-
   readonly listPublishedThemes: UseCase<void, readonly AppThemePack[]>;
   readonly getThemeDetail: UseCase<string, AppThemePack>;
   readonly applyTheme: UseCase<AppThemePack, void>;
   readonly hydrateAppliedTheme: UseCase<void, void>;
 
-  readonly listMomentCatalogPage: UseCase<MomentCatalogQuery, MomentCatalogPage>;
 };

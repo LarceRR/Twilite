@@ -8,7 +8,6 @@ import { EmptyState } from '@/design-system/components/EmptyState/EmptyState';
 import { Screen } from '@/design-system/components/Screen/Screen';
 import { Text } from '@/design-system/components/Text/Text';
 import { icons } from '@/design-system/icons/icons';
-import { useSpaces } from '@/domains/spaces/presentation/hooks/useSpaces';
 
 /**
  * Insights are gated by entitlements, never by a plan name. Until the billing
@@ -17,32 +16,21 @@ import { useSpaces } from '@/domains/spaces/presentation/hooks/useSpaces';
  */
 export function AiScreen(): ReactElement {
   const router = useRouter();
-  const { activeSpace } = useSpaces();
 
   if (!isEnabled('ai')) {
     return (
       <Screen title="AI">
-        <EmptyState
-          icon={icons.ai}
-          title="Скоро"
-          description="Раздел с наблюдениями появится в одном из следующих обновлений."
-        />
+        <EmptyState icon={icons.ai} title="Скоро" description="AI-раздел появится позже." />
       </Screen>
     );
   }
 
   return (
-    <Screen title="AI" subtitle={activeSpace?.title ?? 'Пространство не выбрано'}>
-      <BlurCard title="Что видно на поверхности">
-        <Text variant="body">
-          Пока пусто. Отметьте первый момент — и здесь появится наблюдение.
-        </Text>
-      </BlurCard>
-
+    <Screen title="AI">
       <BlurCard title="Доступ">
         <Text variant="caption">
-          Наблюдения входят в расширенный доступ. Он открывает разбор истории, экспорт и голосовые
-          заметки.
+          AI-функции входят в расширенный доступ. Он открывает дополнительные инструменты и
+          голосовые заметки.
         </Text>
         <Button
           label="Посмотреть доступ"

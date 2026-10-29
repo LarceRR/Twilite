@@ -1,17 +1,9 @@
-import { env } from './env';
-
-export type FeatureFlag = 'ai' | 'sceneV2' | 'newCamera' | 'timelineV2' | 'scenePerformanceOverlay' | 'surfaceObjectSpawning';
+export type FeatureFlag = 'ai';
 
 export type FeatureFlags = Readonly<Record<FeatureFlag, boolean>>;
 
 const defaults: FeatureFlags = {
-  ai: true,
-  sceneV2: true,
-  newCamera: true,
-  timelineV2: false,
-  scenePerformanceOverlay: env.isDev,
-  // Re-enable when the new terrain and placement flow are ready.
-  surfaceObjectSpawning: true,
+  ai: false,
 };
 
 let overrides: Partial<FeatureFlags> = {};

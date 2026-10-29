@@ -17,7 +17,6 @@ import { durations } from '../../motion/durations';
 import { reanimatedEasing } from '../../motion/easings';
 import { radius } from '../../radius/radius';
 import { layout, spacing } from '../../spacing/spacing';
-import { FloatingAddButton } from '../FloatingAddButton/FloatingAddButton';
 import { GlassSurface } from '../GlassSurface/GlassSurface';
 
 const ICON_SIZE = 26;
@@ -51,17 +50,15 @@ export type BottomBarProps = {
       }
     >
   >;
-  readonly navigation: {
+  readonly emitter: {
     emit: (event: {
       type: 'tabPress' | 'tabLongPress';
       target: string;
       canPreventDefault?: boolean;
     }) => unknown;
-    navigate: (name: string, params?: object) => void;
   };
+  readonly navigateToTab: (routeKey: string) => void;
   readonly renderIcon?: (p: BottomBarIconParams) => ReactNode;
-  readonly onAddPress?: () => void;
-  readonly addAccessibilityLabel?: string;
 };
 
 type TabGlyphs = { readonly active: IconName; readonly inactive: IconName };
@@ -128,89 +125,69 @@ function TabItem({
   );
 }
 
-/**
- * Telegram-style dock: compressed tabs pill (left) + separate add control (right).
- * Layout only — each control keeps its own Liquid Glass surface.
- */
+/** Floating glass dock containing the app's main tabs. */
 function BottomBarComponent({
   state,
   descriptors,
-  navigation,
+  emitter,
+  navigateToTab,
   renderIcon,
-  onAddPress,
-  addAccessibilityLabel = 'Добавить',
 }: BottomBarProps): ReactElement {
   const insets = useSafeAreaInsets();
   const theme = useThemeColors();
-  const showAdd = onAddPress !== undefined;
 
   return (
     <View
       pointerEvents="box-none"
       style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}
     >
-      <View style={styles.row}>
-        {/* flex host so GlassView still shrinks when the add control takes width */}
-        <View style={showAdd ? styles.tabsHost : styles.tabsHostFull}>
-          <GlassSurface cornerRadius={radius.xl} interactive style={styles.tabsPill}>
-            <View style={styles.tabs}>
-              {state.routes.map((route, index) => {
-                const descriptor = descriptors[route.key];
-                const options = descriptor?.options;
-                const label =
-                  typeof options?.tabBarLabel === 'string'
-                    ? options.tabBarLabel
-                    : typeof options?.title === 'string'
-                      ? options.title
-                      : route.name;
-                const focused = state.index === index;
-                const color = focused ? theme.controlActive : theme.controlInactive;
-                const icon =
-                  renderIcon === undefined
-                    ? null
-                    : (renderIcon({
-                        routeName: route.name,
-                        focused,
-                        color,
-                        size: ICON_SIZE,
-                      }) ?? null);
-                return (
-                  <TabItem
-                    key={route.key}
-                    focused={focused}
-                    label={label}
-                    glyphs={getTabGlyphs(route.name)}
-                    icon={icon}
-                    accessibilityLabel={options?.tabBarAccessibilityLabel}
-                    onPress={() => {
-                      const event = navigation.emit({
-                        type: 'tabPress',
-                        target: route.key,
-                        canPreventDefault: true,
-                      }) as { readonly defaultPrevented?: boolean };
-                      if (state.index !== index && !event.defaultPrevented)
-                        navigation.navigate(route.name, route.params);
-                    }}
-                    onLongPress={() => {
-                      navigation.emit({ type: 'tabLongPress', target: route.key });
-                    }}
-                  />
-                );
-              })}
-            </View>
-          </GlassSurface>
-        </View>
-
-        {showAdd ? (
-          <View style={styles.addHost}>
-            <FloatingAddButton
-              accessibilityLabel={addAccessibilityLabel}
-              expanded={false}
-              size={layout.tabBarHeight}
-              onPress={onAddPress}
-            />
+      <View style={styles.tabsHost}>
+        <GlassSurface cornerRadius={radius.xl} interactive style={styles.tabsPill}>
+          <View style={styles.tabs}>
+            {state.routes.map((route, index) => {
+              const descriptor = descriptors[route.key];
+              const options = descriptor?.options;
+              const label =
+                typeof options?.tabBarLabel === 'string'
+                  ? options.tabBarLabel
+                  : typeof options?.title === 'string'
+                    ? options.title
+                    : route.name;
+              const focused = state.index === index;
+              const color = focused ? theme.controlActive : theme.controlInactive;
+              const icon =
+                renderIcon === undefined
+                  ? null
+                  : (renderIcon({
+                      routeName: route.name,
+                      focused,
+                      color,
+                      size: ICON_SIZE,
+                    }) ?? null);
+              return (
+                <TabItem
+                  key={route.key}
+                  focused={focused}
+                  label={label}
+                  glyphs={getTabGlyphs(route.name)}
+                  icon={icon}
+                  accessibilityLabel={options?.tabBarAccessibilityLabel}
+                  onPress={() => {
+                    const event = emitter.emit({
+                      type: 'tabPress',
+                      target: route.key,
+                      canPreventDefault: true,
+                    }) as { readonly defaultPrevented?: boolean };
+                    if (state.index !== index && !event.defaultPrevented) navigateToTab(route.key);
+                  }}
+                  onLongPress={() => {
+                    emitter.emit({ type: 'tabLongPress', target: route.key });
+                  }}
+                />
+              );
+            })}
           </View>
-        ) : null}
+        </GlassSurface>
       </View>
     </View>
   );
@@ -225,17 +202,9 @@ const styles = StyleSheet.create({
     right: layout.tabBarInset,
     bottom: 0,
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
   tabsHost: {
     flex: 1,
     minWidth: 0,
-  },
-  tabsHostFull: {
-    flex: 1,
   },
   tabsPill: {
     width: '100%',

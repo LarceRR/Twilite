@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { CREATE_TAB_NAME, isMainTabRoute, TAB_ROUTES } from './tabRoutes';
+import { isMainTabRoute, TAB_ROUTES } from './tabRoutes';
 
 describe('tabRoutes', () => {
-  it('keeps the create-action slot outside the main pill routes', () => {
-    expect(TAB_ROUTES.every((route) => (route.name as string) !== CREATE_TAB_NAME)).toBe(true);
+  it('exposes the main destinations in their configured order', () => {
+    expect(TAB_ROUTES.map((route) => route.name)).toEqual(['index', 'timeline', 'ai', 'profile']);
+    expect(isMainTabRoute('index')).toBe(true);
     expect(isMainTabRoute('profile')).toBe(true);
-    expect(isMainTabRoute(CREATE_TAB_NAME)).toBe(false);
-    expect(CREATE_TAB_NAME).toBe('create-action');
+    expect(isMainTabRoute('missing')).toBe(false);
   });
 });

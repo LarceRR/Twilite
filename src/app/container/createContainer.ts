@@ -16,25 +16,6 @@ import type { AuthRepository } from '@/domains/auth/domain/repositories/AuthRepo
 import { createHttpAuthRepository } from '@/domains/auth/infrastructure/repositories/httpAuthRepository';
 import { createLocalAuthRepository } from '@/domains/auth/infrastructure/repositories/localAuthRepository';
 import { createSessionManager } from '@/domains/auth/infrastructure/sessionManager';
-import { listMomentCatalogPageUseCase } from '@/domains/moments/application/momentCatalogUseCases';
-import { createHttpMomentCatalogRepository } from '@/domains/moments/infrastructure/repositories/httpMomentCatalogRepository';
-import { createLocalMomentCatalogRepository } from '@/domains/moments/infrastructure/repositories/localMomentCatalogRepository';
-import {
-  createSpaceUseCase,
-  inviteMemberUseCase,
-  listSpacesUseCase,
-  respondToInvitationUseCase,
-} from '@/domains/spaces/application/spaceUseCases';
-import {
-  clearSurfaceMomentsUseCase,
-  createSurfaceObjectUseCase,
-  getSurfaceMomentStatsUseCase,
-  getSurfaceSnapshotUseCase,
-} from '@/domains/spaces/application/surfaceUseCases';
-import { createHttpSpaceRepository } from '@/domains/spaces/infrastructure/repositories/httpSpaceRepository';
-import { createHttpSurfaceRepository } from '@/domains/spaces/infrastructure/repositories/httpSurfaceRepository';
-import { createLocalSpaceRepository } from '@/domains/spaces/infrastructure/repositories/localSpaceRepository';
-import { createLocalSurfaceRepository } from '@/domains/spaces/infrastructure/repositories/localSurfaceRepository';
 import {
   applyThemeUseCase,
   getThemeDetailUseCase,
@@ -47,8 +28,6 @@ import {
 } from '@/domains/themes/infrastructure/repositories/httpThemeCatalogRepository';
 import { createHttpClient, type HttpClient } from '@/infrastructure/http/httpClient';
 import { createLocalBackend } from '@/infrastructure/local/localBackend';
-import { createOfflineQueue } from '@/infrastructure/offline-queue/offlineQueue';
-import { createRealtimeClient } from '@/infrastructure/realtime/realtimeClient';
 import { createKeyValueStorage } from '@/infrastructure/storage/keyValueStorage';
 import { createSecureSessionStorage } from '@/infrastructure/storage/secureSessionStorage';
 import { systemClock } from '@/shared/application/UseCase';
@@ -62,10 +41,6 @@ export type ContainerHooks = {
   readonly onSessionChange: (
     session: import('@/domains/auth/domain/entities/AuthSession').AuthSession | null,
   ) => void;
-  readonly currentUserId: () => import('@/domains/auth/domain/value-objects/UserId').UserId | null;
-  readonly onQueueSizeChange: (size: number) => void;
-  readonly onRealtimeReconnected: () => void;
-  readonly onOfflineConflict: () => void;
 };
 
 /**
@@ -126,10 +101,7 @@ export function createContainer(hooks: ContainerHooks): Container {
     repositories = {
       auth: createLocalAuthRepository(backend),
       admin: createLocalAdminRepository(),
-      spaces: createLocalSpaceRepository(backend),
-      surface: createLocalSurfaceRepository(),
       themes: createLocalThemeCatalogRepository(storage),
-      moments: createLocalMomentCatalogRepository(),
     };
   } else {
     const apiBaseUrl = env.apiBaseUrl;
@@ -147,38 +119,11 @@ export function createContainer(hooks: ContainerHooks): Container {
     repositories = {
       auth: createHttpAuthRepository(http),
       admin: createHttpAdminRepository(http),
-      spaces: createHttpSpaceRepository(http),
-      surface: createHttpSurfaceRepository(http, apiBaseUrl),
       themes: createHttpThemeCatalogRepository(http, storage),
-      moments: createHttpMomentCatalogRepository(http, apiBaseUrl),
     };
   }
 
   authRepository = repositories.auth;
-
-  const offlineQueue = createOfflineQueue({
-    storage,
-    logger,
-    onConflict: () => {
-      hooks.onOfflineConflict();
-    },
-  });
-
-  offlineQueue.onChange(hooks.onQueueSizeChange);
-
-  const realtime =
-    env.websocketUrl === null
-      ? null
-      : createRealtimeClient({
-          url: env.websocketUrl,
-          token: () => sessions.token(),
-          logger,
-          onReconnected: hooks.onRealtimeReconnected,
-        });
-
-  const currentUser = {
-    id: hooks.currentUserId,
-  };
 
   const services: Services = {
     logger,
@@ -186,9 +131,6 @@ export function createContainer(hooks: ContainerHooks): Container {
     storage,
     sessionStorage,
     sessions,
-    offlineQueue,
-    realtime,
-    currentUser,
     isSandbox,
   };
 
@@ -196,11 +138,6 @@ export function createContainer(hooks: ContainerHooks): Container {
     auth: repositories.auth,
     storage: sessionStorage,
     clock: systemClock,
-  };
-
-  const spaceDeps = {
-    spaces: repositories.spaces,
-    currentUser,
   };
 
   return {
@@ -218,21 +155,10 @@ export function createContainer(hooks: ContainerHooks): Container {
       revokeDeviceSession: revokeDeviceSessionUseCase(authDeps),
       revokeAllDeviceSessions: revokeAllDeviceSessionsUseCase(authDeps),
 
-      listSpaces: listSpacesUseCase(spaceDeps),
-      createSpace: createSpaceUseCase(spaceDeps),
-      inviteMember: inviteMemberUseCase(spaceDeps),
-      respondToInvitation: respondToInvitationUseCase(spaceDeps),
-
       listPublishedThemes: listPublishedThemesUseCase(repositories.themes),
       getThemeDetail: getThemeDetailUseCase(repositories.themes),
       applyTheme: applyThemeUseCase(repositories.themes),
       hydrateAppliedTheme: hydrateAppliedThemeUseCase(repositories.themes),
-
-      listMomentCatalogPage: listMomentCatalogPageUseCase(repositories.moments),
-      getSurfaceSnapshot: getSurfaceSnapshotUseCase(repositories.surface),
-      getSurfaceMomentStats: getSurfaceMomentStatsUseCase(repositories.surface),
-      clearSurfaceMoments: clearSurfaceMomentsUseCase(repositories.surface),
-      createSurfaceObject: createSurfaceObjectUseCase(repositories.surface),
     },
   };
 }

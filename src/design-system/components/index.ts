@@ -8,8 +8,6 @@ export type { ColorSwatchesProps } from './ColorSwatches/ColorSwatches';
 export { ColorSwatches, DEFAULT_SWATCHES } from './ColorSwatches/ColorSwatches';
 export { Divider } from './Divider/Divider';
 export { EmptyState } from './EmptyState/EmptyState';
-export type { FloatingAddButtonProps } from './FloatingAddButton/FloatingAddButton';
-export { FloatingAddButton } from './FloatingAddButton/FloatingAddButton';
 export { GlassSurface, isLiquidGlassSurfaceAvailable } from './GlassSurface/GlassSurface';
 export type { GlassTintButtonProps } from './GlassTintButton/GlassTintButton';
 export { GlassTintButton } from './GlassTintButton/GlassTintButton';

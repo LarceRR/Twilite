@@ -1,12 +1,9 @@
 /** Route names, kept in one place so navigation calls are not stringly typed. */
 export const routes = {
-  space: '/',
+  field: '/',
   timeline: '/timeline',
   ai: '/ai',
   profile: '/profile',
-  create: '/create',
-  momentCatalog: '/moment-catalog',
-  momentFilters: '/moment-filters',
   devices: '/devices',
   deviceSession: '/devices/[sessionId]',
   qrScan: '/qr-scan',
